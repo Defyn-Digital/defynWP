@@ -19,23 +19,23 @@ use RuntimeException;
  *   - Smaller misuse surface than OpenSSL's AES-256-GCM
  *
  * Envelope format:  base64( nonce || ciphertext )
- *   - nonce: 24 random bytes per encrypt
- *   - ciphertext: includes the 16-byte Poly1305 MAC at the start (sodium handles)
+ *   - nonce: SODIUM_CRYPTO_SECRETBOX_NONCEBYTES (24) random bytes per encrypt
+ *   - ciphertext: includes the 16-byte Poly1305 MAC (sodium handles inline)
+ *
+ * Requires the sodium PHP extension (declared as ext-sodium in composer.json;
+ * ships bundled with PHP 7.2+ on most hosts including Kinsta).
  */
 final class Vault
 {
-    private const NONCE_BYTES = 24;  // SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
-    private const KEY_BYTES   = 32;  // SODIUM_CRYPTO_SECRETBOX_KEYBYTES
-
     /** @var string raw 32-byte key */
     private $key;
 
     public function __construct(string $keyBase64)
     {
         $raw = base64_decode($keyBase64, true);
-        if ($raw === false || strlen($raw) !== self::KEY_BYTES) {
+        if ($raw === false || strlen($raw) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
             throw new InvalidArgumentException(
-                'Vault requires a base64-encoded ' . self::KEY_BYTES . '-byte key.'
+                'Vault requires a base64-encoded ' . SODIUM_CRYPTO_SECRETBOX_KEYBYTES . '-byte key.'
             );
         }
         $this->key = $raw;
@@ -49,24 +49,32 @@ final class Vault
 
     public function encrypt(string $plaintext): string
     {
-        $nonce = random_bytes(self::NONCE_BYTES);
+        $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
         $ciphertext = sodium_crypto_secretbox($plaintext, $nonce, $this->key);
 
         return base64_encode($nonce . $ciphertext);
     }
 
+    /**
+     * Decrypt an envelope previously produced by encrypt().
+     *
+     * @throws RuntimeException on invalid base64, envelope shorter than nonce + MAC,
+     *                          or authentication failure (tampered ciphertext or wrong key).
+     */
     public function decrypt(string $envelopeBase64): string
     {
         $bytes = base64_decode($envelopeBase64, true);
         if ($bytes === false) {
             throw new RuntimeException('Vault envelope is not valid base64.');
         }
-        if (strlen($bytes) < self::NONCE_BYTES + 1) {
+        // Minimum valid envelope: nonce + (at minimum) the MAC. Sodium emits MAC even for empty plaintext.
+        $minBytes = SODIUM_CRYPTO_SECRETBOX_NONCEBYTES + SODIUM_CRYPTO_SECRETBOX_MACBYTES;
+        if (strlen($bytes) < $minBytes) {
             throw new RuntimeException('Vault envelope is too short to contain a nonce + ciphertext.');
         }
 
-        $nonce = substr($bytes, 0, self::NONCE_BYTES);
-        $ciphertext = substr($bytes, self::NONCE_BYTES);
+        $nonce = substr($bytes, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+        $ciphertext = substr($bytes, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
 
         $plaintext = sodium_crypto_secretbox_open($ciphertext, $nonce, $this->key);
         if ($plaintext === false) {
