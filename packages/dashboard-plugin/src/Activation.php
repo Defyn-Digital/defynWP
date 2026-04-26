@@ -25,7 +25,7 @@ final class Activation
      *
      * @var array<class-string<SchemaTable>>
      */
-    private const TABLES = [
+    public const TABLES = [
         SitesTable::class,
         ConnectionCodesTable::class,
         ActivityLogTable::class,
