@@ -227,9 +227,10 @@ final class SignerTest extends TestCase
         $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
 
         $headers = $signer->signRequest('GET', '/x', '');
-        $sig = $headers['X-Defyn-Signature'];
-        $last = substr($sig, -1);
-        $headers['X-Defyn-Signature'] = substr($sig, 0, -1) . ($last === 'A' ? 'B' : 'A');
+        // Decode → flip the low bit of the first byte → re-encode. Robust against base64 alphabet edge cases.
+        $sigRaw = base64_decode($headers['X-Defyn-Signature'], true);
+        $sigRaw[0] = chr(ord($sigRaw[0]) ^ 0x01);
+        $headers['X-Defyn-Signature'] = base64_encode($sigRaw);
 
         $result = Signer::verifyRequest($pair->publicKey, 'GET', '/x', '', $headers, $store);
 
@@ -264,5 +265,48 @@ final class SignerTest extends TestCase
         $result = Signer::verifyRequest($tooShort, 'GET', '/x', '', $headers, $store);
 
         self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::INVALID_SIGNATURE, $result);
+    }
+
+    public function testVerifyRequestReturnsMissingHeadersWhenTimestampIsNotNumeric(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+        $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
+
+        $headers = $signer->signRequest('GET', '/x', '');
+        $headers['X-Defyn-Timestamp'] = 'not-a-number';
+
+        $result = Signer::verifyRequest($pair->publicKey, 'GET', '/x', '', $headers, $store);
+
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::MISSING_HEADERS, $result);
+    }
+
+    public function testVerifyRequestAcceptsExactlyAtMaxAgeBoundary(): void
+    {
+        // Boundary: $age === $maxAgeSeconds is VALID (the comparison is `> max`, not `>= max`).
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+        $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
+
+        $headers = $signer->signRequest('GET', '/x', '');
+        $now = (int) $headers['X-Defyn-Timestamp'] + 300;  // exactly at the 300s default boundary
+
+        $result = Signer::verifyRequest($pair->publicKey, 'GET', '/x', '', $headers, $store, 300, $now);
+
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::VALID, $result);
+    }
+
+    public function testVerifyRequestRejectsOneSecondPastMaxAgeBoundary(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+        $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
+
+        $headers = $signer->signRequest('GET', '/x', '');
+        $now = (int) $headers['X-Defyn-Timestamp'] + 301;  // 1 second past the boundary
+
+        $result = Signer::verifyRequest($pair->publicKey, 'GET', '/x', '', $headers, $store, 300, $now);
+
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::EXPIRED_TIMESTAMP, $result);
     }
 }

@@ -52,7 +52,7 @@ final class Signer
      * Verify a signed request. Returns one of the VerificationResult constants.
      *
      * Order of checks (each cheap rejects before expensive ones):
-     *   1. All three headers present
+     *   1. All three headers present and well-formed
      *   2. Timestamp within ±$maxAgeSeconds of $now
      *   3. Public key + signature decode + length sanity
      *   4. Signature valid against canonical string
@@ -79,6 +79,13 @@ final class Signer
         $timestamp = $headers['X-Defyn-Timestamp'];
         $nonce     = $headers['X-Defyn-Nonce'];
         $sigB64    = $headers['X-Defyn-Signature'];
+
+        // Treat malformed/empty headers the same as absent — caller can't have
+        // meant to send "abc" as a timestamp, and we'd rather report MISSING_HEADERS
+        // than silently coerce to 0 and confuse the operator with a wrong EXPIRED_TIMESTAMP.
+        if (!ctype_digit($timestamp) || $nonce === '' || $sigB64 === '') {
+            return VerificationResult::MISSING_HEADERS;
+        }
 
         $now = $now ?? time();
         $age = abs($now - (int) $timestamp);
