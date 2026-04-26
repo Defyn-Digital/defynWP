@@ -48,6 +48,42 @@ final class Signer
         ];
     }
 
+    /**
+     * Verify a signed request. Returns one of the VerificationResult constants.
+     *
+     * F2 implements only the happy path. Task 7 extends with
+     * MISSING_HEADERS, EXPIRED_TIMESTAMP, INVALID_SIGNATURE, REPLAYED_NONCE.
+     *
+     * @param array<string, string> $headers must contain X-Defyn-Timestamp,
+     *                                       X-Defyn-Nonce, X-Defyn-Signature
+     */
+    public static function verifyRequest(
+        string $publicKeyBase64,
+        string $method,
+        string $path,
+        string $body,
+        array $headers,
+        NonceStore $nonceStore,
+        int $maxAgeSeconds = 300,
+        ?int $now = null
+    ): string {
+        $publicKey = base64_decode($publicKeyBase64, true);
+        $signature = base64_decode($headers['X-Defyn-Signature'], true);
+        $canonical = self::canonical(
+            $method,
+            $path,
+            $headers['X-Defyn-Timestamp'],
+            $headers['X-Defyn-Nonce'],
+            $body
+        );
+
+        if (!sodium_crypto_sign_verify_detached($signature, $canonical, $publicKey)) {
+            return VerificationResult::INVALID_SIGNATURE;
+        }
+
+        return VerificationResult::VALID;
+    }
+
     public static function canonical(
         string $method,
         string $path,

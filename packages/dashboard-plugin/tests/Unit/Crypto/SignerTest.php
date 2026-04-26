@@ -111,4 +111,24 @@ final class SignerTest extends TestCase
 
         new Signer('not-base64-or-wrong-length');
     }
+
+    public function testVerifyRequestReturnsValidForGoodSignedRequest(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+        $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
+
+        $headers = $signer->signRequest('POST', '/x', 'body');
+
+        $result = Signer::verifyRequest(
+            $pair->publicKey,
+            'POST',
+            '/x',
+            'body',
+            $headers,
+            $store
+        );
+
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::VALID, $result);
+    }
 }
