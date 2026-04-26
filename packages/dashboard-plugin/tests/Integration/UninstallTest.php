@@ -40,11 +40,8 @@ final class UninstallTest extends AbstractSchemaTestCase
 
         Uninstaller::uninstall();
 
-        // After uninstall, DESCRIBE returns empty for each table.
         foreach ($tables as $t) {
-            // phpcs:ignore WordPress.DB.PreparedSQL — table names cannot be parameterized.
-            $columns = $wpdb->get_col("DESCRIBE `{$t}`");
-            self::assertEmpty($columns, "Table {$t} should not exist after uninstall");
+            $this->assertTableDoesNotExist($t);
         }
     }
 

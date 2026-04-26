@@ -18,8 +18,9 @@ final class Uninstaller
         global $wpdb;
 
         foreach (Activation::TABLES as $table) {
+            $name = $table::tableName();
             // phpcs:ignore WordPress.DB.PreparedSQL — table names cannot be parameterized.
-            $wpdb->query("DROP TABLE IF EXISTS `{$table::tableName()}`");
+            $wpdb->query("DROP TABLE IF EXISTS `{$name}`");
         }
 
         delete_option(Activation::SCHEMA_OPTION);
