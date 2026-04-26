@@ -32,3 +32,6 @@
 **/.phpunit.result.cache
 coverage.xml
 **/coverage.xml
+
+# Test config (per-developer credentials)
+**/wp-tests-config.php
