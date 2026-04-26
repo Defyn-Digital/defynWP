@@ -103,4 +103,12 @@ final class SignerTest extends TestCase
 
         self::assertNotSame($a['X-Defyn-Signature'], $b['X-Defyn-Signature']);
     }
+
+    public function testConstructorRejectsInvalidPrivateKey(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('64-byte Ed25519 secret key');
+
+        new Signer('not-base64-or-wrong-length');
+    }
 }

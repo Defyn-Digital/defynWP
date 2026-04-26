@@ -18,8 +18,8 @@ use InvalidArgumentException;
  */
 final class Signer
 {
-    /** @var string base64-encoded 64-byte Ed25519 secret key */
-    private $privateKeyBase64;
+    /** @var string raw 64-byte Ed25519 secret key (libsodium format) */
+    private $privateKeyRaw;
 
     public function __construct(string $privateKeyBase64)
     {
@@ -27,19 +27,19 @@ final class Signer
         if ($raw === false || strlen($raw) !== 64) {
             throw new InvalidArgumentException('Signer requires a base64-encoded 64-byte Ed25519 secret key.');
         }
-        $this->privateKeyBase64 = $privateKeyBase64;
+        $this->privateKeyRaw = $raw;
     }
 
     /**
      * @return array{X-Defyn-Timestamp: string, X-Defyn-Nonce: string, X-Defyn-Signature: string}
      */
-    public function signRequest(string $method, string $path, string $body): array
+    public function signRequest(string $method, string $path, string $body = ''): array
     {
         $timestamp = (string) time();
-        $nonce = bin2hex(random_bytes(16));  // 32-char hex nonce
+        $nonce = bin2hex(random_bytes(16));  // 32-char hex nonce; 128 bits of entropy is plenty for uniqueness
         $canonical = self::canonical($method, $path, $timestamp, $nonce, $body);
 
-        $signature = sodium_crypto_sign_detached($canonical, base64_decode($this->privateKeyBase64, true));
+        $signature = sodium_crypto_sign_detached($canonical, $this->privateKeyRaw);
 
         return [
             'X-Defyn-Timestamp' => $timestamp,
