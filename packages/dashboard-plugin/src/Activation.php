@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard;
 
+use Defyn\Dashboard\Schema\ConnectionCodesTable;
 use Defyn\Dashboard\Schema\SitesTable;
 
 /**
@@ -22,6 +23,7 @@ final class Activation
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
         dbDelta(SitesTable::createSql());
+        dbDelta(ConnectionCodesTable::createSql());
 
         update_option(self::SCHEMA_OPTION, self::SCHEMA_VERSION);
     }

@@ -5,36 +5,32 @@ declare(strict_types=1);
 namespace Defyn\Dashboard\Tests\Integration;
 
 use Defyn\Dashboard\Activation;
-use WP_UnitTestCase;
 
 /**
  * @group integration
  */
-final class SitesTableTest extends WP_UnitTestCase
+final class SitesTableTest extends AbstractSchemaTestCase
 {
     public function testActivationCreatesSitesTable(): void
     {
         global $wpdb;
 
-        // wp-phpunit may have already-activated state — drop the table first to ensure clean slate.
-        // Note: wp-phpunit rewrites CREATE TABLE → CREATE TEMPORARY TABLE inside tests, so SHOW TABLES
-        // won't see the table. We assert existence by querying it via DESCRIBE, which works for
-        // temporary tables.
+        // Force a clean slate even if state leaked from a previous PHPUnit invocation.
         $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}defyn_sites");
         delete_option(Activation::SCHEMA_OPTION);
 
         Activation::activate();
 
-        $tableName = $wpdb->prefix . 'defyn_sites';
-        $columns   = $wpdb->get_col("DESCRIBE {$tableName}", 0);
-
-        self::assertNotEmpty($columns, "Table {$tableName} was not created on activation");
-        self::assertContains('id', $columns, "Table {$tableName} created but missing primary key column");
+        $this->assertTableExists($wpdb->prefix . 'defyn_sites');
     }
 
     public function testSitesTableHasRequiredColumns(): void
     {
         global $wpdb;
+
+        // Symmetric setup: don't depend on prior test ordering.
+        $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}defyn_sites");
+        delete_option(Activation::SCHEMA_OPTION);
 
         Activation::activate();
 
