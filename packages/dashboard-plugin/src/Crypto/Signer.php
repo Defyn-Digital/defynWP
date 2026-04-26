@@ -51,11 +51,16 @@ final class Signer
     /**
      * Verify a signed request. Returns one of the VerificationResult constants.
      *
-     * F2 implements only the happy path. Task 7 extends with
-     * MISSING_HEADERS, EXPIRED_TIMESTAMP, INVALID_SIGNATURE, REPLAYED_NONCE.
+     * Order of checks (each cheap rejects before expensive ones):
+     *   1. All three headers present
+     *   2. Timestamp within ±$maxAgeSeconds of $now
+     *   3. Public key + signature decode + length sanity
+     *   4. Signature valid against canonical string
+     *   5. Nonce not previously seen (and store it now if not)
      *
      * @param array<string, string> $headers must contain X-Defyn-Timestamp,
      *                                       X-Defyn-Nonce, X-Defyn-Signature
+     * @param int|null $now overrideable for tests; defaults to time()
      */
     public static function verifyRequest(
         string $publicKeyBase64,
@@ -67,18 +72,41 @@ final class Signer
         int $maxAgeSeconds = 300,
         ?int $now = null
     ): string {
-        $publicKey = base64_decode($publicKeyBase64, true);
-        $signature = base64_decode($headers['X-Defyn-Signature'], true);
-        $canonical = self::canonical(
-            $method,
-            $path,
-            $headers['X-Defyn-Timestamp'],
-            $headers['X-Defyn-Nonce'],
-            $body
-        );
+        if (!isset($headers['X-Defyn-Timestamp'], $headers['X-Defyn-Nonce'], $headers['X-Defyn-Signature'])) {
+            return VerificationResult::MISSING_HEADERS;
+        }
 
+        $timestamp = $headers['X-Defyn-Timestamp'];
+        $nonce     = $headers['X-Defyn-Nonce'];
+        $sigB64    = $headers['X-Defyn-Signature'];
+
+        $now = $now ?? time();
+        $age = abs($now - (int) $timestamp);
+        if ($age > $maxAgeSeconds) {
+            return VerificationResult::EXPIRED_TIMESTAMP;
+        }
+
+        $publicKey = base64_decode($publicKeyBase64, true);
+        $signature = base64_decode($sigB64, true);
+        if ($publicKey === false || $signature === false) {
+            return VerificationResult::INVALID_SIGNATURE;
+        }
+        // Length sanity — Ed25519 has fixed sizes. Without these checks libsodium throws.
+        if (strlen($publicKey) !== 32 || strlen($signature) !== 64) {
+            return VerificationResult::INVALID_SIGNATURE;
+        }
+
+        $canonical = self::canonical($method, $path, $timestamp, $nonce, $body);
         if (!sodium_crypto_sign_verify_detached($signature, $canonical, $publicKey)) {
             return VerificationResult::INVALID_SIGNATURE;
+        }
+
+        // Signature is valid. Now check (and atomically store) the nonce so a
+        // genuine signed request can't be replayed by an attacker who captured it.
+        // TTL = 2 × maxAgeSeconds gives buffer for clock skew while keeping the
+        // store bounded in size.
+        if (!$nonceStore->remember($nonce, $maxAgeSeconds * 2)) {
+            return VerificationResult::REPLAYED_NONCE;
         }
 
         return VerificationResult::VALID;

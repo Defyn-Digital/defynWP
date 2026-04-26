@@ -131,4 +131,138 @@ final class SignerTest extends TestCase
 
         self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::VALID, $result);
     }
+
+    public function testVerifyRequestReturnsMissingHeadersWhenTimestampIsAbsent(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+        $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
+        $headers = $signer->signRequest('GET', '/x', '');
+        unset($headers['X-Defyn-Timestamp']);
+
+        $result = Signer::verifyRequest($pair->publicKey, 'GET', '/x', '', $headers, $store);
+
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::MISSING_HEADERS, $result);
+    }
+
+    public function testVerifyRequestReturnsMissingHeadersWhenNonceIsAbsent(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+        $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
+        $headers = $signer->signRequest('GET', '/x', '');
+        unset($headers['X-Defyn-Nonce']);
+
+        $result = Signer::verifyRequest($pair->publicKey, 'GET', '/x', '', $headers, $store);
+
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::MISSING_HEADERS, $result);
+    }
+
+    public function testVerifyRequestReturnsMissingHeadersWhenSignatureIsAbsent(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+        $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
+        $headers = $signer->signRequest('GET', '/x', '');
+        unset($headers['X-Defyn-Signature']);
+
+        $result = Signer::verifyRequest($pair->publicKey, 'GET', '/x', '', $headers, $store);
+
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::MISSING_HEADERS, $result);
+    }
+
+    public function testVerifyRequestReturnsExpiredTimestampWhenTooOld(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+        $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
+
+        // Sign at "now". Verifier sees "now" as 1h+ later.
+        $headers = $signer->signRequest('GET', '/x', '');
+        $now = time() + 3700;
+
+        $result = Signer::verifyRequest($pair->publicKey, 'GET', '/x', '', $headers, $store, 300, $now);
+
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::EXPIRED_TIMESTAMP, $result);
+    }
+
+    public function testVerifyRequestReturnsExpiredTimestampWhenTooFarInFuture(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+        $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
+
+        $headers = $signer->signRequest('GET', '/x', '');
+        $now = time() - 3700;
+
+        $result = Signer::verifyRequest($pair->publicKey, 'GET', '/x', '', $headers, $store, 300, $now);
+
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::EXPIRED_TIMESTAMP, $result);
+    }
+
+    public function testVerifyRequestReturnsInvalidSignatureWhenBodyTampered(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+        $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
+
+        $headers = $signer->signRequest('POST', '/x', '{"a":1}');
+
+        $result = Signer::verifyRequest(
+            $pair->publicKey,
+            'POST',
+            '/x',
+            '{"a":2}',  // body changed after signing
+            $headers,
+            $store
+        );
+
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::INVALID_SIGNATURE, $result);
+    }
+
+    public function testVerifyRequestReturnsInvalidSignatureWhenSignatureTampered(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+        $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
+
+        $headers = $signer->signRequest('GET', '/x', '');
+        $sig = $headers['X-Defyn-Signature'];
+        $last = substr($sig, -1);
+        $headers['X-Defyn-Signature'] = substr($sig, 0, -1) . ($last === 'A' ? 'B' : 'A');
+
+        $result = Signer::verifyRequest($pair->publicKey, 'GET', '/x', '', $headers, $store);
+
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::INVALID_SIGNATURE, $result);
+    }
+
+    public function testVerifyRequestReturnsReplayedNonceOnSecondVerification(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+        $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
+
+        $headers = $signer->signRequest('GET', '/x', '');
+
+        $first = Signer::verifyRequest($pair->publicKey, 'GET', '/x', '', $headers, $store);
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::VALID, $first, 'first verify should be VALID');
+
+        $second = Signer::verifyRequest($pair->publicKey, 'GET', '/x', '', $headers, $store);
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::REPLAYED_NONCE, $second, 'replay must be detected');
+    }
+
+    public function testVerifyRequestReturnsInvalidSignatureWhenPublicKeyHasWrongLength(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+        $store = new \Defyn\Dashboard\Crypto\InMemoryNonceStore();
+        $headers = $signer->signRequest('GET', '/x', '');
+
+        // 16 bytes (correctly base64-encoded but wrong length for an Ed25519 public key — should be 32).
+        $tooShort = base64_encode(random_bytes(16));
+
+        $result = Signer::verifyRequest($tooShort, 'GET', '/x', '', $headers, $store);
+
+        self::assertSame(\Defyn\Dashboard\Crypto\VerificationResult::INVALID_SIGNATURE, $result);
+    }
 }
