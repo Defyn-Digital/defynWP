@@ -1,1 +1,34 @@
+# Brainstorming workspace
 .superpowers/
+
+# Local by Flywheel runtime files
+/app/
+/conf/
+/logs/
+
+# Composer / Node artifacts
+**/vendor/
+**/node_modules/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Build outputs (added in later F-phases)
+**/dist/
+**/build/
+
+# Environment files (any package may have its own)
+.env
+.env.local
+**/.env
+**/.env.local
+
+# PHPUnit / test artifacts
+.phpunit.result.cache
+**/.phpunit.result.cache
+coverage.xml
+**/coverage.xml
