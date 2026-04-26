@@ -6,7 +6,7 @@
 
 **Architecture:** Monorepo at `~/Local Sites/defynWP/` containing all foundation components in `packages/`. The dashboard plugin lives at `packages/dashboard-plugin/` and is symlinked into a Local-by-Flywheel site's `wp-content/plugins/` directory for development. Bedrock layout is deferred to F10 (Kinsta deployment); for local dev we use Local's vanilla WordPress install — plugin code is identical between the two.
 
-**Tech Stack:** PHP 7.2+ · Composer 2 · WordPress 6.x (Local by Flywheel) · MySQL · PHPUnit 9.x · wp-phpunit · yoast/phpunit-polyfills · GitHub Actions
+**Tech Stack:** PHP 7.4+ · Composer 2 · WordPress 6.x (Local by Flywheel) · MySQL · PHPUnit 9.x · wp-phpunit · yoast/phpunit-polyfills · GitHub Actions
 
 ---
 
@@ -366,7 +366,8 @@ cd "/Users/pradeep/Local Sites/defynWP" && git add packages/dashboard-plugin/com
 F1: Initialize dashboard-plugin Composer package
 
 PSR-4 autoload mapping for Defyn\Dashboard namespace. Dev dependencies:
-PHPUnit, wp-phpunit, polyfills, and roots/wordpress for the test harness.
+PHPUnit, wp-phpunit, polyfills, and johnpbloch/wordpress-core for the
+test harness (installs WP core to vendor/wordpress/).
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF

@@ -1,0 +1,37 @@
+{
+    "name": "defyn/dashboard-plugin",
+    "description": "DefynWP — central dashboard plugin (backend brain).",
+    "type": "wordpress-plugin",
+    "license": "proprietary",
+    "require": {
+        "php": ">=7.4"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6",
+        "wp-phpunit/wp-phpunit": "^6.4",
+        "yoast/phpunit-polyfills": "^2.0",
+        "johnpbloch/wordpress-core": "^6.4",
+        "johnpbloch/wordpress-core-installer": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Defyn\\Dashboard\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Defyn\\Dashboard\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "wordpress-install-dir": "vendor/wordpress"
+    },
+    "config": {
+        "allow-plugins": {
+            "composer/installers": true,
+            "johnpbloch/wordpress-core-installer": true
+        },
+        "sort-packages": true
+    },
+    "minimum-stability": "stable"
+}
