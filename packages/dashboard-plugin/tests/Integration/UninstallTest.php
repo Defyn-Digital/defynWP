@@ -12,6 +12,15 @@ use Defyn\Dashboard\Uninstaller;
  */
 final class UninstallTest extends AbstractSchemaTestCase
 {
+    protected function tearDown(): void
+    {
+        // DROP TABLE is non-transactional DDL — wp-phpunit's rollback can't undo it.
+        // Re-create the schema so any test that runs alphabetically after this one
+        // (today or future) finds the tables intact.
+        Activation::activate();
+        parent::tearDown();
+    }
+
     public function testUninstallDropsAllTables(): void
     {
         global $wpdb;
