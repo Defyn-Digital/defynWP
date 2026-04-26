@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Tests\Integration;
 
-use Defyn\Dashboard\Activation;
-
 /**
  * @group integration
  */
@@ -15,10 +13,7 @@ final class ConnectionCodesTableTest extends AbstractSchemaTestCase
     {
         global $wpdb;
 
-        $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}defyn_connection_codes");
-        delete_option(Activation::SCHEMA_OPTION);
-
-        Activation::activate();
+        $this->freshlyActivate('defyn_connection_codes');
 
         $this->assertTableExists($wpdb->prefix . 'defyn_connection_codes');
     }
@@ -27,10 +22,7 @@ final class ConnectionCodesTableTest extends AbstractSchemaTestCase
     {
         global $wpdb;
 
-        $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}defyn_connection_codes");
-        delete_option(Activation::SCHEMA_OPTION);
-
-        Activation::activate();
+        $this->freshlyActivate('defyn_connection_codes');
 
         $columns = $wpdb->get_col("SHOW COLUMNS FROM {$wpdb->prefix}defyn_connection_codes", 0);
 

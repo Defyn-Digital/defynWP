@@ -11,7 +11,7 @@ namespace Defyn\Dashboard\Schema;
  * dbDelta requires: PRIMARY KEY on its own line; two spaces after PRIMARY KEY;
  * uppercase keywords; one column per line.
  */
-final class SitesTable
+final class SitesTable implements SchemaTable
 {
     public static function tableName(): string
     {

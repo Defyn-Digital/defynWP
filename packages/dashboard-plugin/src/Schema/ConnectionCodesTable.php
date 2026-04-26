@@ -8,7 +8,7 @@ namespace Defyn\Dashboard\Schema;
  * Schema for wp_defyn_connection_codes — see spec § 4.1.
  * Short-lived handshake tokens with 15-minute expiry.
  */
-final class ConnectionCodesTable
+final class ConnectionCodesTable implements SchemaTable
 {
     public static function tableName(): string
     {

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Tests\Integration;
 
-use Defyn\Dashboard\Activation;
-
 /**
  * @group integration
  */
@@ -15,11 +13,7 @@ final class SitesTableTest extends AbstractSchemaTestCase
     {
         global $wpdb;
 
-        // Force a clean slate even if state leaked from a previous PHPUnit invocation.
-        $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}defyn_sites");
-        delete_option(Activation::SCHEMA_OPTION);
-
-        Activation::activate();
+        $this->freshlyActivate('defyn_sites');
 
         $this->assertTableExists($wpdb->prefix . 'defyn_sites');
     }
@@ -28,11 +22,7 @@ final class SitesTableTest extends AbstractSchemaTestCase
     {
         global $wpdb;
 
-        // Symmetric setup: don't depend on prior test ordering.
-        $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}defyn_sites");
-        delete_option(Activation::SCHEMA_OPTION);
-
-        Activation::activate();
+        $this->freshlyActivate('defyn_sites');
 
         $columns = $wpdb->get_col("SHOW COLUMNS FROM {$wpdb->prefix}defyn_sites", 0);
 

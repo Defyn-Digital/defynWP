@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Tests\Integration;
 
+use Defyn\Dashboard\Activation;
 use WP_UnitTestCase;
 
 /**
@@ -14,10 +15,9 @@ use WP_UnitTestCase;
  *     WP_UnitTestCase::start_transaction() rewrites CREATE TABLE to
  *     CREATE TEMPORARY TABLE for isolation, and SHOW TABLES does not list
  *     temp tables. DESCRIBE works on both regular and temporary tables.
- *
- * Subclasses are expected to drop the table + delete the schema option
- * in their own setUp logic if they want a guaranteed clean slate beyond
- * what WP_UnitTestCase's transaction rollback provides.
+ *   - freshlyActivate() — drops the named table, deletes the schema option,
+ *     and re-runs Activation::activate(). Use when a test needs a guaranteed
+ *     clean slate beyond what WP_UnitTestCase's transaction rollback provides.
  */
 abstract class AbstractSchemaTestCase extends WP_UnitTestCase
 {
@@ -39,5 +39,20 @@ abstract class AbstractSchemaTestCase extends WP_UnitTestCase
             $columns,
             "Expected table {$tableName} to exist after activation; DESCRIBE returned no columns."
         );
+    }
+
+    /**
+     * Drop the given table, clear the schema-version option, and re-run activation.
+     * Forces a clean slate even if state leaked from a previous PHPUnit invocation.
+     */
+    protected function freshlyActivate(string $unprefixedTableName): void
+    {
+        global $wpdb;
+
+        // phpcs:ignore WordPress.DB.PreparedSQL — table names cannot be parameterized.
+        $wpdb->query("DROP TABLE IF EXISTS `{$wpdb->prefix}{$unprefixedTableName}`");
+        delete_option(Activation::SCHEMA_OPTION);
+
+        Activation::activate();
     }
 }
