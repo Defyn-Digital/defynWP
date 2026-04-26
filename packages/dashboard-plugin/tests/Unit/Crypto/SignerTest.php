@@ -44,4 +44,63 @@ final class SignerTest extends TestCase
 
         self::assertSame($a, $b);
     }
+
+    public function testSignRequestReturnsThreeExpectedHeaders(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+
+        $headers = $signer->signRequest('POST', '/wp-json/defyn-connector/v1/connect', '{"x":1}');
+
+        self::assertArrayHasKey('X-Defyn-Timestamp', $headers);
+        self::assertArrayHasKey('X-Defyn-Nonce', $headers);
+        self::assertArrayHasKey('X-Defyn-Signature', $headers);
+    }
+
+    public function testSignRequestTimestampIsRecent(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+
+        $headers = $signer->signRequest('GET', '/x', '');
+        $ts = (int) $headers['X-Defyn-Timestamp'];
+
+        self::assertGreaterThanOrEqual(time() - 5, $ts, 'timestamp should be recent');
+        self::assertLessThanOrEqual(time() + 5, $ts);
+    }
+
+    public function testSignRequestNonceIsUniqueAcrossCalls(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+
+        $a = $signer->signRequest('GET', '/x', '');
+        $b = $signer->signRequest('GET', '/x', '');
+
+        self::assertNotSame($a['X-Defyn-Nonce'], $b['X-Defyn-Nonce']);
+    }
+
+    public function testSignRequestSignatureIsBase64Of64Bytes(): void
+    {
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+
+        $headers = $signer->signRequest('GET', '/x', '');
+
+        $raw = base64_decode($headers['X-Defyn-Signature'], true);
+        self::assertNotFalse($raw, 'signature should be valid base64');
+        self::assertSame(64, strlen($raw), 'Ed25519 signatures are 64 bytes');
+    }
+
+    public function testSignRequestProducesDifferentSignaturesForSameInput(): void
+    {
+        // Different timestamp/nonce per call → different canonical → different signature.
+        $pair = \Defyn\Dashboard\Crypto\KeyPair::generate();
+        $signer = new Signer($pair->privateKey);
+
+        $a = $signer->signRequest('GET', '/x', 'body');
+        $b = $signer->signRequest('GET', '/x', 'body');
+
+        self::assertNotSame($a['X-Defyn-Signature'], $b['X-Defyn-Signature']);
+    }
 }
