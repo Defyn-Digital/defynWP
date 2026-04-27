@@ -43,6 +43,12 @@ final class RestRouter
             'callback'            => [new AuthRefreshController(), 'handle'],
             'permission_callback' => '__return_true',  // cookie-validated inside the controller
         ]);
+
+        register_rest_route(self::NAMESPACE, '/auth/logout', [
+            'methods'             => 'POST',
+            'callback'            => [new AuthLogoutController(), 'handle'],
+            'permission_callback' => '__return_true',  // idempotent
+        ]);
     }
 
     /**
