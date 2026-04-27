@@ -16,6 +16,11 @@ final class RestRouter
 
     public function register(): void
     {
-        // Auth endpoints — Tasks 6-9 add controllers and wire them in here.
+        register_rest_route(self::NAMESPACE, '/auth/login', [
+            'methods'             => 'POST',
+            'callback'            => [new AuthLoginController(), 'handle'],
+            'permission_callback' => '__return_true',  // public endpoint
+            'args'                => AuthLoginController::args(),
+        ]);
     }
 }
