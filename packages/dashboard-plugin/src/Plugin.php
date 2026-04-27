@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard;
 
+use Defyn\Dashboard\Rest\RestRouter;
+
 /**
  * Singleton bootstrap. Wires up activation hooks now;
  * additional services (REST controllers, Action Scheduler jobs, etc.) added in later F-phases.
@@ -25,5 +27,9 @@ final class Plugin
     public function boot(): void
     {
         register_activation_hook(DEFYN_DASHBOARD_FILE, [Activation::class, 'activate']);
+
+        add_action('rest_api_init', static function (): void {
+            (new RestRouter())->register();
+        });
     }
 }
