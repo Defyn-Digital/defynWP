@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Rest;
 
+use Defyn\Dashboard\Rest\Middleware\Cors;
 use Defyn\Dashboard\Rest\Middleware\RateLimit;
 use Defyn\Dashboard\Rest\Middleware\RequireAuth;
 
@@ -19,6 +20,8 @@ final class RestRouter
 
     public function register(): void
     {
+        add_filter('rest_pre_serve_request', [Cors::class, 'apply'], 10, 4);
+
         // Normalize permission_callback failures (which can only return WP_Error) to
         // the same {error: {code, message}} envelope our controllers use via
         // ErrorResponse::create. Without this filter the SPA would see WP's native
