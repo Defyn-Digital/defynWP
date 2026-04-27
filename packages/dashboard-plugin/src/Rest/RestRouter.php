@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Rest;
 
+use Defyn\Dashboard\Rest\Middleware\RateLimit;
 use Defyn\Dashboard\Rest\Middleware\RequireAuth;
 
 /**
@@ -28,7 +29,7 @@ final class RestRouter
         register_rest_route(self::NAMESPACE, '/auth/login', [
             'methods'             => 'POST',
             'callback'            => [new AuthLoginController(), 'handle'],
-            'permission_callback' => '__return_true',  // public endpoint
+            'permission_callback' => [RateLimit::class, 'login'],
             'args'                => AuthLoginController::args(),
         ]);
 
