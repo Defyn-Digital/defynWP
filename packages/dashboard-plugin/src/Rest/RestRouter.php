@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Rest;
 
+use Defyn\Dashboard\Rest\Middleware\RequireAuth;
+
 /**
  * Single registration point for every REST route in the plugin.
  *
@@ -21,6 +23,12 @@ final class RestRouter
             'callback'            => [new AuthLoginController(), 'handle'],
             'permission_callback' => '__return_true',  // public endpoint
             'args'                => AuthLoginController::args(),
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/auth/me', [
+            'methods'             => 'GET',
+            'callback'            => [new AuthMeController(), 'handle'],
+            'permission_callback' => [RequireAuth::class, 'check'],
         ]);
     }
 }
