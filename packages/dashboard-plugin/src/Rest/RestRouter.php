@@ -37,6 +37,12 @@ final class RestRouter
             'callback'            => [new AuthMeController(), 'handle'],
             'permission_callback' => [RequireAuth::class, 'check'],
         ]);
+
+        register_rest_route(self::NAMESPACE, '/auth/refresh', [
+            'methods'             => 'POST',
+            'callback'            => [new AuthRefreshController(), 'handle'],
+            'permission_callback' => '__return_true',  // cookie-validated inside the controller
+        ]);
     }
 
     /**
