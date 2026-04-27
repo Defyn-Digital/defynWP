@@ -49,6 +49,12 @@ final class AuthMeTest extends WP_UnitTestCase
         $response = rest_do_request($request);
 
         self::assertSame(401, $response->get_status());
+
+        // Spec envelope: { error: { code, message } } — same shape login uses.
+        $data = $response->get_data();
+        self::assertArrayHasKey('error', $data, 'auth-middleware rejections must use the spec envelope');
+        self::assertSame('auth.missing_token', $data['error']['code']);
+        self::assertNotEmpty($data['error']['message']);
     }
 
     public function testMeWithMalformedAuthHeaderReturns401(): void
