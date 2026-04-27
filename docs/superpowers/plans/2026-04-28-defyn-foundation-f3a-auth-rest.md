@@ -25,7 +25,7 @@ This is **F3a of the F3 split** (F3a = backend auth REST; F3b = SPA scaffold + l
 4. `GET /wp-json/defyn/v1/auth/me` requires `Authorization: Bearer <access>`, returns `{id, email, display_name}` for the authenticated user. Missing/invalid token → 401.
 5. CORS: every `defyn/v1/*` response includes `Access-Control-Allow-Origin: <configured>` + `Access-Control-Allow-Credentials: true`. OPTIONS preflight returns 204 with `Access-Control-Allow-Methods` + `Access-Control-Allow-Headers: Authorization, Content-Type`.
 6. Full PHPUnit suite passes (unit + integration ~30 new tests on top of F1+F2's 50 = ~80 total).
-7. CI green on PHP 7.4 + 8.2.
+7. CI green on PHP 8.1 + 8.2.
 
 ---
 
