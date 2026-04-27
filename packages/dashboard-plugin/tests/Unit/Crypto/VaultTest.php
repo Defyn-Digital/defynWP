@@ -47,12 +47,14 @@ final class VaultTest extends TestCase
         self::assertNotFalse(base64_decode($envelope, true), 'envelope must be valid base64');
     }
 
-    public function testDecryptThrowsWhenCiphertextTampered(): void
+    public function testDecryptThrowsWhenEnvelopeTampered(): void
     {
         $vault = new Vault(Vault::generateKey());
         $envelope = $vault->encrypt('the truth is out there');
 
-        // Flip a byte in the middle of the envelope.
+        // Flip a bit anywhere in the envelope. Sodium's Poly1305 MAC catches
+        // single-bit changes in any region (nonce, MAC, or ciphertext body) —
+        // they all return false from secretbox_open, raising RuntimeException.
         $bytes = base64_decode($envelope, true);
         $mid = (int) (strlen($bytes) / 2);
         $bytes[$mid] = chr(ord($bytes[$mid]) ^ 0x01);
