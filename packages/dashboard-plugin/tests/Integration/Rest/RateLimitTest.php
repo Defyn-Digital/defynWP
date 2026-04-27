@@ -48,6 +48,6 @@ final class RateLimitTest extends WP_UnitTestCase
         self::assertSame(429, $response->get_status(), '6th attempt should be rate-limited');
         $data = $response->get_data();
         // Spec envelope shape (rest_request_after_callbacks filter normalizes WP_Error to this shape).
-        self::assertSame('rate_limited', $data['error']['code']);
+        self::assertSame('auth.rate_limited', $data['error']['code']);
     }
 }

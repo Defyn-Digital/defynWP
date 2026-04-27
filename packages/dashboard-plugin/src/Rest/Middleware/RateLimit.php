@@ -32,7 +32,7 @@ final class RateLimit
 
         if ($count >= self::LOGIN_LIMIT) {
             return new WP_Error(
-                'rate_limited',
+                'auth.rate_limited',
                 'Too many login attempts. Try again in a minute.',
                 ['status' => 429]
             );
