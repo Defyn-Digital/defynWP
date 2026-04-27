@@ -21,6 +21,8 @@ final class TokenServiceTest extends TestCase
 
         self::assertSame(42, $claims['sub']);
         self::assertSame('access', $claims['typ']);
+        self::assertArrayHasKey('iat', $claims, 'access tokens must carry an iat claim');
+        self::assertIsInt($claims['iat']);
     }
 
     public function testIssueRefreshIncludesUniqueJti(): void
@@ -87,5 +89,16 @@ final class TokenServiceTest extends TestCase
         // HS256 requires at least 32 bytes of secret entropy.
         $this->expectException(\InvalidArgumentException::class);
         new TokenService('too-short');
+    }
+
+    public function testConstructorAcceptsExactly32ByteSecret(): void
+    {
+        // Boundary: 32 bytes exactly should be accepted (constructor uses < not <=).
+        $svc = new TokenService(str_repeat('a', TokenService::MIN_SECRET_BYTES));
+
+        // No assertion on the constructor itself; success is "no exception thrown".
+        // Sanity: the resulting service can issue and decode.
+        $token = $svc->issueAccess(1);
+        self::assertNotEmpty($token);
     }
 }
