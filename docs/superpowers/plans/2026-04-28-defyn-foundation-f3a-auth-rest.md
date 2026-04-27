@@ -6,7 +6,9 @@
 
 **Architecture:** JWT auth (HS256, secret in env) backed by WP user system. Access tokens are stateless 15-min JWTs; refresh tokens are JWTs whose JTI is also tracked in `user_meta` (`defyn_refresh_jtis`) so revocation works. Refresh rotation: every refresh issues a new pair, old refresh JTI removed from user_meta. Rate limiter uses WP transients keyed by IP. CORS middleware fronts every `defyn/v1/*` route.
 
-**Tech Stack:** PHP 7.4+ · WordPress REST API · firebase/php-jwt · PHPUnit + wp-phpunit (existing F1 harness) · WP transients for rate limiting · `wp_check_password` for credential validation
+**Tech Stack:** PHP 8.1+ · WordPress REST API · firebase/php-jwt ^7.0 · PHPUnit + wp-phpunit (existing F1 harness) · WP transients for rate limiting · `wp_check_password` for credential validation
+
+> **PHP floor bumped from 7.4 → 8.1 in this phase.** Task 1 originally tried `firebase/php-jwt:^6.0`, but Composer's audit feature blocks v6.x for CVE-2025-45769 (weak encryption in modes we don't use, but advisory still applies). Resolving this triggered a deliberate floor bump from 7.4 (EOL Nov 2022) to 8.1 (currently supported). One-time cost: composer.json + plugin header + CI matrix updates. Bonus: F2's `VerificationResult` constants class can now be promoted to a real enum at any time, and future tasks can use constructor promotion / readonly / match. F1+F2 code uses minimal 8.0+ features and should pass unchanged.
 
 ---
 
@@ -92,27 +94,50 @@ Expected: `OK (50 tests, 107 assertions)` from F2 baseline.
 
 ## Tasks
 
-### Task 1: Add `firebase/php-jwt` + `defyn_jwt_secret` env loading
+### Task 1: Bump PHP floor to 8.1 + add `firebase/php-jwt:^7.0` + env loading
 
-**Why first:** every later task uses JWT encode/decode. Add the dep and the secret-loading mechanism before any code consumes them.
+**Why first:** every later task uses JWT encode/decode. The PHP floor bump came from a Task-1 review of CVE-2025-45769 — see Tech Stack note above. Floor + dep + env loading land together so the rest of F3a runs against a single, internally-consistent environment.
 
 **Files:**
-- Modify: `packages/dashboard-plugin/composer.json` (require firebase/php-jwt)
-- Modify: `packages/dashboard-plugin/defyn-dashboard.php` (define jwt secret constant from env)
+- Modify: `packages/dashboard-plugin/composer.json` (php >=8.1, require firebase/php-jwt:^7.0)
+- Modify: `packages/dashboard-plugin/defyn-dashboard.php` (plugin header `Requires PHP: 8.1`, define jwt secret + spa origin constants from env)
+- Modify: `.github/workflows/test.yml` (matrix bumped to `['8.1', '8.2']`)
 
-- [ ] **Step 1: Add the dep**
+- [ ] **Step 1a: Bump composer.json's PHP floor to >=8.1**
+
+Read the current composer.json. Change the `require` block's `"php": ">=7.4"` to `"php": ">=8.1"`. Other keys unchanged.
+
+- [ ] **Step 1b: Add the JWT dep**
 
 ```bash
-cd "/Users/pradeep/Local Sites/defynWP/packages/dashboard-plugin" && /Users/pradeep/.local/bin/composer require firebase/php-jwt:^6.0
+cd "/Users/pradeep/Local Sites/defynWP/packages/dashboard-plugin" && /Users/pradeep/.local/bin/composer require firebase/php-jwt:^7.0
 ```
 
-> firebase/php-jwt v6.x supports PHP 7.4+ (the package itself uses no 8.0 syntax until v6.10). If composer resolves to a version that complains about PHP 7.4, pin to `^6.0 <6.10` instead.
+Expected: 1 package added, vendor updated, composer.lock changed. v7.x requires PHP 8.0+ — Step 1a's floor bump enables this.
 
-Expected: 1 package added, vendor updated, composer.lock changed.
+- [ ] **Step 1c: Update CI matrix**
 
-- [ ] **Step 2: Add JWT secret loading to plugin bootstrap**
+Edit `/Users/pradeep/Local Sites/defynWP/.github/workflows/test.yml`. The matrix block currently says:
 
-Read the current `defyn-dashboard.php` first, then edit. Insert this block AFTER the `require_once $autoload;` line and BEFORE the `define('DEFYN_DASHBOARD_VERSION'...)` line:
+```yaml
+        php: ['7.4', '8.2']
+```
+
+Change to:
+
+```yaml
+        php: ['8.1', '8.2']
+```
+
+(Other workflow content unchanged.)
+
+- [ ] **Step 2: Update plugin header + add JWT secret/SPA origin loading**
+
+Read the current `defyn-dashboard.php` first.
+
+First: change the plugin header line from `Requires PHP:      7.4` to `Requires PHP:      8.1`.
+
+Then insert this block AFTER the `require_once $autoload;` line and BEFORE the `define('DEFYN_DASHBOARD_VERSION'...)` line:
 
 ```php
 // JWT secret: required for auth REST endpoints in F3a+. Loaded from environment
@@ -151,17 +176,28 @@ Expected: still `OK (50 tests, 107 assertions)`. The dep and constants are inert
 - [ ] **Step 4: Commit**
 
 ```bash
-cd "/Users/pradeep/Local Sites/defynWP" && git add packages/dashboard-plugin/composer.json packages/dashboard-plugin/composer.lock packages/dashboard-plugin/defyn-dashboard.php && git commit -m "$(cat <<'EOF'
-F3a: add firebase/php-jwt + DEFYN_JWT_SECRET / DEFYN_SPA_ORIGIN env loading
+cd "/Users/pradeep/Local Sites/defynWP" && git add packages/dashboard-plugin/composer.json packages/dashboard-plugin/composer.lock packages/dashboard-plugin/defyn-dashboard.php .github/workflows/test.yml && git commit -m "$(cat <<'EOF'
+F3a: bump PHP floor to 8.1 + add firebase/php-jwt:^7.0 + JWT env loading
 
-JWT lib for the four auth endpoints. Constants loaded from env so
-production sets via Bedrock .env (DEFYN_JWT_SECRET, DEFYN_SPA_ORIGIN);
-local dev defaults to a Vite localhost:5173 SPA origin and requires
-DEFYN_JWT_SECRET to be set explicitly.
+Original plan tried firebase/php-jwt:^6.0 but Composer's audit feature
+blocks v6.x for CVE-2025-45769 (weak encryption in modes we don't use,
+but advisory still applies). Resolved by bumping PHP floor from 7.4
+(EOL Nov 2022) to 8.1 (currently supported) so we can use v7.0+.
+
+Three concrete changes:
+- composer.json: "php": ">=8.1", "firebase/php-jwt": "^7.0"
+- defyn-dashboard.php plugin header: Requires PHP: 8.1
+- CI matrix: ['8.1', '8.2'] instead of ['7.4', '8.2']
+
+Plus the env-loaded JWT constants the rest of F3a needs:
+- DEFYN_JWT_SECRET (no default — must be set in .env or wp-config.php)
+- DEFYN_SPA_ORIGIN (defaults to http://localhost:5173 for dev)
 
 Plugin still loads if DEFYN_JWT_SECRET is missing — fatal happens at
 auth endpoints only, with admin-notice fallback so wp-admin stays
 reachable.
+
+F1+F2 code uses minimal 8.0+ features and should pass unchanged on 8.1.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
