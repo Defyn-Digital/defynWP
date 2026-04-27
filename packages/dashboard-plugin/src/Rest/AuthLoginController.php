@@ -55,22 +55,27 @@ final class AuthLoginController
         (new RefreshTokenStore())->remember($userId, $refreshClaims['jti'], (int) $refreshClaims['exp']);
 
         $response = new WP_REST_Response(['access_token' => $access], 200);
-        self::setRefreshCookie($refresh, (int) $refreshClaims['exp']);
+        $response->header('Set-Cookie', self::buildRefreshCookie($refresh, (int) $refreshClaims['exp']));
 
         return $response;
     }
 
-    private static function setRefreshCookie(string $jwt, int $expiresAt): void
+    /**
+     * Build the Set-Cookie header value for the refresh JWT.
+     *
+     * Public so AuthRefreshController and AuthLogoutController can reuse the
+     * same cookie attributes (the WP-idiomatic way is to attach via
+     * `$response->header('Set-Cookie', ...)` rather than the raw header()
+     * call — the former survives output buffering and rest_pre_serve_request
+     * filters).
+     */
+    public static function buildRefreshCookie(string $jwt, int $expiresAt): string
     {
         // HttpOnly + Secure + SameSite=None for cross-origin SPA. Path scoped to auth routes.
-        $cookie = sprintf(
+        return sprintf(
             'defyn_refresh=%s; Path=/wp-json/defyn/v1/auth; Expires=%s; HttpOnly; Secure; SameSite=None',
             $jwt,
             gmdate('D, d M Y H:i:s', $expiresAt) . ' GMT'
         );
-        // headers_sent() is the proper guard in WP REST handler context.
-        if (!headers_sent()) {
-            header('Set-Cookie: ' . $cookie, false);
-        }
     }
 }
