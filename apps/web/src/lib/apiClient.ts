@@ -40,7 +40,7 @@ interface RequestOptions {
   body?: unknown;
 }
 
-async function request<T>(path: string, opts: RequestOptions): Promise<T> {
+async function request<T>(path: string, opts: RequestOptions, isRetry = false): Promise<T> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
   };
@@ -65,6 +65,15 @@ async function request<T>(path: string, opts: RequestOptions): Promise<T> {
   const contentType = response.headers.get('Content-Type') ?? '';
   const data = contentType.includes('application/json') ? await response.json() : null;
 
+  // Auto-refresh-on-401 — only attempt once, and never on /auth/refresh itself.
+  if (response.status === 401 && !isRetry && path !== '/auth/refresh') {
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      return request<T>(path, opts, /*isRetry*/ true);
+    }
+    // Refresh failed; fall through to throw the original 401.
+  }
+
   if (!response.ok) {
     const code = data?.error?.code ?? 'unknown';
     const message = data?.error?.message ?? `Request failed with status ${response.status}`;
@@ -72,6 +81,18 @@ async function request<T>(path: string, opts: RequestOptions): Promise<T> {
   }
 
   return data as T;
+}
+
+/** Try to refresh the access token. Returns true on success, false on failure. */
+async function tryRefresh(): Promise<boolean> {
+  try {
+    const data = await request<{ access_token: string }>('/auth/refresh', { method: 'POST' });
+    setAccessToken(data.access_token);
+    return true;
+  } catch {
+    clearAccessToken();
+    return false;
+  }
 }
 
 export const apiClient = {

@@ -65,4 +65,61 @@ describe('apiClient', () => {
     await apiClient.get('/auth/me');
     expect(captured).toBe('include');
   });
+
+  it('on 401, attempts refresh and retries the original request once', async () => {
+    setAccessToken('expired.access.token');
+    let attempt = 0;
+    server.use(
+      http.get('*/wp-json/defyn/v1/auth/me', ({ request }) => {
+        attempt += 1;
+        const auth = request.headers.get('Authorization');
+        if (attempt === 1) {
+          return HttpResponse.json(
+            { error: { code: 'auth.invalid_token', message: 'Token is invalid or expired.' } },
+            { status: 401 },
+          );
+        }
+        // After refresh, attempt 2 should carry the new token.
+        if (auth === 'Bearer fresh.access.token') {
+          return HttpResponse.json({ id: 1, email: 'x@x.test', display_name: 'X' }, { status: 200 });
+        }
+        return HttpResponse.json({ error: { code: 'auth.invalid_token', message: '' } }, { status: 401 });
+      }),
+      http.post('*/wp-json/defyn/v1/auth/refresh', () =>
+        HttpResponse.json({ access_token: 'fresh.access.token' }, { status: 200 }),
+      ),
+    );
+    const res = await apiClient.get<{ id: number }>('/auth/me');
+    expect(res.id).toBe(1);
+    expect(attempt).toBe(2);
+  });
+
+  it('if refresh itself fails with 401, the original error propagates', async () => {
+    setAccessToken('expired.access.token');
+    server.use(
+      http.get('*/wp-json/defyn/v1/auth/me', () =>
+        HttpResponse.json({ error: { code: 'auth.invalid_token', message: 'expired' } }, { status: 401 }),
+      ),
+      http.post('*/wp-json/defyn/v1/auth/refresh', () =>
+        HttpResponse.json({ error: { code: 'auth.refresh_revoked', message: 'gone' } }, { status: 401 }),
+      ),
+    );
+    await expect(apiClient.get('/auth/me')).rejects.toMatchObject({ status: 401 });
+  });
+
+  it('does not infinite-loop on persistent 401 (refresh once, then give up)', async () => {
+    setAccessToken('always.expired');
+    let meAttempts = 0;
+    server.use(
+      http.get('*/wp-json/defyn/v1/auth/me', () => {
+        meAttempts += 1;
+        return HttpResponse.json({ error: { code: 'auth.invalid_token', message: 'expired' } }, { status: 401 });
+      }),
+      http.post('*/wp-json/defyn/v1/auth/refresh', () =>
+        HttpResponse.json({ access_token: 'still.bad.token' }, { status: 200 }),
+      ),
+    );
+    await expect(apiClient.get('/auth/me')).rejects.toMatchObject({ status: 401 });
+    expect(meAttempts).toBeLessThanOrEqual(2);
+  });
 });
