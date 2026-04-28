@@ -1,0 +1,18 @@
+node_modules/
+dist/
+*.local
+.env*.local
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Test/build artifacts
+coverage/
+.vitest-cache/
+
+# TypeScript project references / composite build output
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
