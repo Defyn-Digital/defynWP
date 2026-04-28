@@ -144,11 +144,14 @@ Write `apps/web/package.json`:
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "@types/node": "^22.9.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
   }
 }
 ```
+
+> **Why `@types/node`?** `vite.config.ts` uses `node:path`, `process.env.VITE_WP_URL`, and `__dirname`. Without `@types/node`, `tsc -b` (run as part of `pnpm build`) fails with TS2307/2580/2304.
 
 - [ ] **Step 2: Write `apps/web/tsconfig.json`**
 
@@ -292,6 +295,11 @@ dist/
 # Test/build artifacts
 coverage/
 .vitest-cache/
+
+# tsc -b composite output (vite.config.ts → vite.config.{js,d.ts}, plus tsbuildinfo)
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
 ```
 
 - [ ] **Step 9: Install + verify**
