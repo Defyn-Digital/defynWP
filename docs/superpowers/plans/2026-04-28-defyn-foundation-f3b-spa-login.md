@@ -794,6 +794,11 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     include: ['tests/**/*.{test,spec}.{ts,tsx}'],
+    env: {
+      // Override apiClient's default API_BASE so test fetches match MSW handlers'
+      // wp-json patterns. Production/dev still uses /api/defyn/v1 via Vite proxy.
+      VITE_API_BASE: 'http://localhost/wp-json/defyn/v1',
+    },
   },
 });
 ```
