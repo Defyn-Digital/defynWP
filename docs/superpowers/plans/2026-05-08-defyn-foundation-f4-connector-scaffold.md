@@ -374,8 +374,50 @@ git commit -m "F4: connector-plugin PHPUnit harness — bootstrap + config templ
 **Files:**
 - Create: `packages/connector-plugin/src/Crypto/KeyPair.php`
 - Create: `packages/connector-plugin/tests/Unit/Crypto/KeyPairTest.php`
+- Create: `packages/connector-plugin/src/Plugin.php` (minimal stub — plan correction; see note below)
 
 > The dashboard-plugin already has its own `Defyn\Dashboard\Crypto\KeyPair` from F2. The connector needs an analogous class in its own namespace. Code is intentionally duplicated rather than shared — these are two independent plugins that may evolve at different rates.
+
+> **Plan correction (backported during execution):** The first attempt to run `phpunit` after Task 3 fataled because `defyn-connector.php` (created in Task 1) calls `\Defyn\Connector\Plugin::instance()->boot()`, but `Plugin.php` was originally deferred to Task 5. The wp-phpunit bootstrap loads the plugin file via `muplugins_loaded`, which means **any** phpunit run between Task 1 and Task 5 needs `Plugin` class to exist. Fix: add a minimal `Plugin.php` stub in this task. Task 5 expands `boot()` to register the activation hook.
+
+After the test+impl files are in place (per the steps below), also create the stub at `packages/connector-plugin/src/Plugin.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Defyn\Connector;
+
+/**
+ * Singleton bootstrap. Stub created in Task 3 so phpunit's wp-phpunit
+ * harness can boot without fataling on a missing Plugin class.
+ *
+ * Task 5 expands boot() to register the activation hook;
+ * later tasks add REST + admin_menu hooks.
+ */
+final class Plugin
+{
+    private static ?self $instance = null;
+
+    public static function instance(): self
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
+    private function __construct() {}
+
+    public function boot(): void
+    {
+        // Hooks registered in Task 5+.
+    }
+}
+```
+
+The Step 5 `git add` should additionally include `packages/connector-plugin/src/Plugin.php`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -646,7 +688,7 @@ git commit -m "F4: TDD ConnectorState — single wp_options JSON row"
 ## Task 5: Plugin singleton + Activation hook
 
 **Files:**
-- Create: `packages/connector-plugin/src/Plugin.php`
+- Modify: `packages/connector-plugin/src/Plugin.php` *(stub created in Task 3 — Step 4 expands `boot()`)*
 - Create: `packages/connector-plugin/src/Activation.php`
 - Create: `packages/connector-plugin/uninstall.php`
 - Create: `packages/connector-plugin/tests/Integration/ActivationTest.php`
@@ -749,7 +791,7 @@ final class Activation
 }
 ```
 
-- [ ] **Step 4: Write `Plugin.php`**
+- [ ] **Step 4: Expand `Plugin.php` to register the activation hook** *(replace the existing Task 3 stub with this fuller version)*
 
 ```php
 <?php
