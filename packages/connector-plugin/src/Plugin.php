@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Connector;
 
+use Defyn\Connector\Admin\SettingsPage;
 use Defyn\Connector\Rest\RestRouter;
 
 final class Plugin
@@ -26,6 +27,10 @@ final class Plugin
 
         add_action('rest_api_init', static function (): void {
             (new RestRouter())->register();
+        });
+
+        add_action('admin_menu', static function (): void {
+            (new SettingsPage())->registerMenu();
         });
     }
 }
