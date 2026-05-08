@@ -1444,7 +1444,11 @@ public function handleGenerate(): void
         'code_expires_at' => $generated['expires_at'],
     ]);
 
-    if (function_exists('wp_safe_redirect')) {
+    // !headers_sent() guard added during execution: WP_UnitTestCase output
+    // means headers are already sent in tests, and wp_safe_redirect would
+    // emit a "headers already sent" warning that fails phpunit (failOnWarning).
+    // In production this is a no-op — admin-post.php hasn't emitted output yet.
+    if (!headers_sent() && function_exists('wp_safe_redirect')) {
         wp_safe_redirect(admin_url('options-general.php?page=' . self::SLUG));
         // tests don't actually exit; production WP will exit() after redirect
     }
@@ -1468,7 +1472,7 @@ public function handleReset(): void
     ];
     $state->save($cleaned);
 
-    if (function_exists('wp_safe_redirect')) {
+    if (!headers_sent() && function_exists('wp_safe_redirect')) {
         wp_safe_redirect(admin_url('options-general.php?page=' . self::SLUG));
     }
 }
