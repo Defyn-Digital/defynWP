@@ -5,11 +5,8 @@ declare(strict_types=1);
 namespace Defyn\Connector;
 
 /**
- * Singleton bootstrap. Stub created in Task 3 so phpunit's wp-phpunit
- * harness can boot without fataling on a missing Plugin class.
- *
- * Task 5 expands boot() to register the activation hook;
- * later tasks add REST + admin_menu hooks.
+ * Singleton bootstrap. Wires activation now;
+ * REST + admin hooks added in later tasks of this plan.
  */
 final class Plugin
 {
@@ -27,6 +24,6 @@ final class Plugin
 
     public function boot(): void
     {
-        // Hooks registered in Task 5+.
+        register_activation_hook(DEFYN_CONNECTOR_FILE, [Activation::class, 'activate']);
     }
 }
