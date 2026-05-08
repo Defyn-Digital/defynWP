@@ -32,5 +32,13 @@ final class Plugin
         add_action('admin_menu', static function (): void {
             (new SettingsPage())->registerMenu();
         });
+
+        add_action('admin_post_' . SettingsPage::ACTION_GENERATE, static function (): void {
+            (new SettingsPage())->handleGenerate();
+        });
+
+        add_action('admin_post_' . SettingsPage::ACTION_RESET, static function (): void {
+            (new SettingsPage())->handleReset();
+        });
     }
 }

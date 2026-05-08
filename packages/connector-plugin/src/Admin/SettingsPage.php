@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Connector\Admin;
 
+use Defyn\Connector\Admin\CodeGenerator;
 use Defyn\Connector\Storage\ConnectorState;
 
 /**
@@ -91,5 +92,54 @@ final class SettingsPage
         echo '<p><button type="submit" class="button">' . esc_html__('Reset / regenerate', 'defyn-connector') . '</button></p>';
         echo '</form>';
         echo '</div>';
+    }
+
+    public function handleGenerate(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Permission denied.', 'defyn-connector'));
+        }
+
+        check_admin_referer(self::NONCE_GENERATE);
+
+        $generated = CodeGenerator::generate();
+
+        (new ConnectorState())->update([
+            'state'           => 'awaiting-handshake',
+            'connection_code' => $generated['code'],
+            'site_nonce'      => $generated['nonce'],
+            'code_created_at' => $generated['created_at'],
+            'code_expires_at' => $generated['expires_at'],
+        ]);
+
+        // In tests, headers may already be sent, so wrap this check
+        if (!headers_sent() && function_exists('wp_safe_redirect')) {
+            wp_safe_redirect(admin_url('options-general.php?page=' . self::SLUG));
+        }
+    }
+
+    public function handleReset(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Permission denied.', 'defyn-connector'));
+        }
+
+        check_admin_referer(self::NONCE_RESET);
+
+        $state = new ConnectorState();
+        $existing = $state->all();
+        // Preserve keypair + generated_at; drop code-related fields.
+        $cleaned = [
+            'state'            => 'unconfigured',
+            'site_public_key'  => $existing['site_public_key'] ?? '',
+            'site_private_key' => $existing['site_private_key'] ?? '',
+            'generated_at'     => $existing['generated_at'] ?? gmdate('c'),
+        ];
+        $state->save($cleaned);
+
+        // In tests, headers may already be sent, so wrap this check
+        if (!headers_sent() && function_exists('wp_safe_redirect')) {
+            wp_safe_redirect(admin_url('options-general.php?page=' . self::SLUG));
+        }
     }
 }
