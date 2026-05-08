@@ -20,7 +20,11 @@ final class RestRouter
         // {error: {code, message}} envelope our controllers use via ErrorResponse.
         add_filter('rest_request_after_callbacks', [self::class, 'normalizeErrorEnvelope'], 10, 3);
 
-        // Routes registered in Task 10.
+        register_rest_route(self::NAMESPACE, '/connect', [
+            'methods'             => 'POST',
+            'callback'            => [new ConnectController(), 'handle'],
+            'permission_callback' => '__return_true',  // public; protected by code-validation logic in the controller
+        ]);
     }
 
     /**
