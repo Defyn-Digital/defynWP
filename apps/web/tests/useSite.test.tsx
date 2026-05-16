@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as React from 'react';
 import { useSite } from '@/lib/queries/useSite';
 import { resetMockSites, mockSites } from '@/test/handlers';
-import { setAccessToken } from '@/lib/apiClient';
+import { setAccessToken, ApiError } from '@/lib/apiClient';
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -35,6 +35,6 @@ describe('useSite', () => {
   it('throws ApiError with sites.not_found code on missing site', async () => {
     const { result } = renderHook(() => useSite(999), { wrapper });
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect((result.current.error as { code: string }).code).toBe('sites.not_found');
+    expect((result.current.error as ApiError).code).toBe('sites.not_found');
   });
 });
