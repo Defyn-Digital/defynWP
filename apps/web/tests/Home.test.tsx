@@ -17,6 +17,7 @@ function makeApp(initialPath: string) {
             <Route path="/login" element={<div>LOGIN PAGE</div>} />
             <Route element={<RequireAuth />}>
               <Route path="/" element={<Home />} />
+              <Route path="/sites" element={<div>SITES PAGE</div>} />
             </Route>
           </Routes>
         </AuthProvider>
@@ -46,7 +47,7 @@ describe('Home route + RequireAuth', () => {
     expect(screen.getByText('LOGIN PAGE')).toBeInTheDocument();
   });
 
-  it('renders Home with welcome message when authenticated', async () => {
+  it('redirects to /sites when authenticated', async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <MemoryRouter initialEntries={['/']}>
@@ -57,6 +58,7 @@ describe('Home route + RequireAuth', () => {
               <Route path="/login" element={<div>LOGIN PAGE</div>} />
               <Route element={<RequireAuth />}>
                 <Route path="/" element={<Home />} />
+                <Route path="/sites" element={<div>SITES PAGE</div>} />
               </Route>
             </Routes>
           </AuthProvider>
@@ -68,6 +70,6 @@ describe('Home route + RequireAuth', () => {
       await userEvent.click(screen.getByText('auth-login'));
     });
 
-    expect(await screen.findByText(/welcome.*admin user/i)).toBeInTheDocument();
+    expect(await screen.findByText('SITES PAGE')).toBeInTheDocument();
   });
 });

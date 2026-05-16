@@ -1,23 +1,10 @@
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/lib/auth';
+import { Navigate } from 'react-router-dom';
 
+/**
+ * The root authenticated route. Sends users to /sites; the welcome card
+ * from F3b moves to either the sites list (post-F5) or a dedicated
+ * dashboard page (post-F9 when activity log lands).
+ */
 export default function Home() {
-  const { user, logout } = useAuth();
-
-  return (
-    <div className="min-h-screen p-8">
-      <Card className="max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle>Welcome, {user?.display_name ?? 'there'}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-zinc-600">Signed in as {user?.email}</p>
-          <Button variant="outline" onClick={() => logout()}>
-            Sign out
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  return <Navigate to="/sites" replace />;
 }
