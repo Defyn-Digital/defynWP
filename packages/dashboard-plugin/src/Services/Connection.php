@@ -42,14 +42,14 @@ final class Connection
 
         // Transport error (DNS, connection refused, timeout).
         if ($response['status'] === 0) {
-            $this->fail($site, $response['error'], 'site.error');
+            $this->fail($site, $this->capMessage($response['error']), 'site.error');
             return;
         }
 
         // Connector returned a non-2xx envelope.
         if ($response['status'] >= 400) {
             $message = $response['body']['error']['message'] ?? "Connector returned HTTP {$response['status']}.";
-            $this->fail($site, (string) $message, 'site.error');
+            $this->fail($site, $this->capMessage((string) $message), 'site.error');
             return;
         }
 
@@ -86,5 +86,16 @@ final class Connection
     {
         $this->repo->markError($site->id, $message);
         $this->logger->log($site->userId, $site->id, $eventType, ['url' => $site->url, 'message' => $message]);
+    }
+
+    /**
+     * Cap untrusted error messages at 500 chars before surfacing them via Site::lastError.
+     * Connector-supplied strings (envelope error.message OR Throwable from transport)
+     * are not trusted — a compromised/misconfigured peer could otherwise stuff arbitrary
+     * content into the dashboard UI or bloat the database.
+     */
+    private function capMessage(string $message): string
+    {
+        return mb_substr($message, 0, 500);
     }
 }
