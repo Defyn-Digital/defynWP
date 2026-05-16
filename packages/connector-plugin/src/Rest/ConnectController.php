@@ -35,8 +35,8 @@ final class ConnectController
         if (!is_string($dashboardPubB64) || $dashboardPubB64 === '') {
             return ErrorResponse::create(400, 'connector.missing_dashboard_key', 'Missing dashboard_public_key field.');
         }
-        if (!is_string($challengeB64) || $challengeB64 === '') {
-            return ErrorResponse::create(400, 'connector.missing_challenge', 'Missing callback_challenge field.');
+        if (!is_string($challengeB64) || $challengeB64 === '' || strlen($challengeB64) > 256) {
+            return ErrorResponse::create(400, 'connector.missing_challenge', 'Missing or oversized callback_challenge field.');
         }
 
         // Validate dashboard public key well-formedness (must be base64 of 32 bytes).
