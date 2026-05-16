@@ -53,6 +53,12 @@ final class RestRouter
             'callback'            => [new AuthLogoutController(), 'handle'],
             'permission_callback' => '__return_true',  // idempotent
         ]);
+
+        register_rest_route(self::NAMESPACE, '/sites', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesCreateController(), 'handle'],
+            'permission_callback' => [RequireAuth::class, 'check'],
+        ]);
     }
 
     /**
