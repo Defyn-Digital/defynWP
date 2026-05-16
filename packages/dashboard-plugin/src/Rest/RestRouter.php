@@ -59,6 +59,12 @@ final class RestRouter
             'callback'            => [new SitesCreateController(), 'handle'],
             'permission_callback' => [RequireAuth::class, 'check'],
         ]);
+
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)', [
+            'methods'             => 'GET',
+            'callback'            => [new SitesShowController(), 'handle'],
+            'permission_callback' => [RequireAuth::class, 'check'],
+        ]);
     }
 
     /**
