@@ -45,4 +45,28 @@ final class ActivationTest extends WP_UnitTestCase
         self::assertSame($first['site_public_key'], $second['site_public_key']);
         self::assertSame($first['site_private_key'], $second['site_private_key']);
     }
+
+    /**
+     * Defensive idempotency: if the wp_option row exists but the keypair is missing
+     * (corrupt / partial state), Activation must NOT regenerate — silently destroying
+     * a private key the dashboard still trusts would break the connection.
+     * Instead the row is preserved as-is and an admin notice is queued.
+     */
+    public function testActivateDoesNotRegenerateWhenStateRowExistsWithoutPublicKey(): void
+    {
+        (new ConnectorState())->save([
+            'state'           => 'awaiting-handshake',
+            'connection_code' => 'PARTIAL12345',
+        ]);
+
+        Activation::activate();
+
+        $state = (new ConnectorState())->all();
+        self::assertSame('awaiting-handshake', $state['state']);
+        self::assertSame('PARTIAL12345', $state['connection_code']);
+        self::assertArrayNotHasKey('site_public_key', $state);
+        self::assertArrayNotHasKey('site_private_key', $state);
+        // admin_notices hook should be queued to warn the operator.
+        self::assertNotFalse(has_action('admin_notices'));
+    }
 }

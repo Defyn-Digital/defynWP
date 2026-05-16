@@ -135,4 +135,27 @@ final class ConnectTest extends WP_UnitTestCase
         self::assertSame(409, $response->get_status());
         self::assertSame('connector.code_consumed', $response->get_data()['error']['code']);
     }
+
+    /**
+     * Locks in the spec § 8 step 7 branch ordering ("exist, not expired, not consumed"):
+     * when a code is BOTH expired AND previously consumed, expiry wins (410, not 409).
+     */
+    public function testConsumedAndExpiredCodeReturns410ExpiryWins(): void
+    {
+        $this->state->update([
+            'state'             => 'code-consumed',
+            'connection_code'   => 'ABCDEFGH2345',
+            'code_expires_at'   => time() - 1,       // expired
+            'code_consumed_at'  => time() - 600,     // also consumed (earlier)
+        ]);
+
+        $request = new WP_REST_Request('POST', '/defyn-connector/v1/connect');
+        $request->set_header('Content-Type', 'application/json');
+        $request->set_body(json_encode(['code' => 'ABCDEFGH2345']));
+
+        $response = rest_do_request($request);
+
+        self::assertSame(410, $response->get_status());
+        self::assertSame('connector.code_expired', $response->get_data()['error']['code']);
+    }
 }
