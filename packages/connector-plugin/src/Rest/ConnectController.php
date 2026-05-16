@@ -38,13 +38,17 @@ final class ConnectController
             return ErrorResponse::create(401, 'connector.invalid_code', 'Connection code does not match.');
         }
 
-        if (!empty($state->get('code_consumed_at'))) {
-            return ErrorResponse::create(409, 'connector.code_consumed', 'Connection code has already been consumed.');
-        }
-
+        // Spec § 8 step 7 ordering: "exist, not expired, not consumed" — expiry takes
+        // precedence over consumption when a code is both. If a code outlived its 15-min
+        // window AND was previously consumed, the user is told to regenerate (410) rather
+        // than reminded it was already used (409). Both lead to the same UX (regenerate).
         $expiresAt = (int) $state->get('code_expires_at', 0);
         if ($expiresAt > 0 && time() >= $expiresAt) {
             return ErrorResponse::create(410, 'connector.code_expired', 'Connection code has expired. Generate a new one.');
+        }
+
+        if (!empty($state->get('code_consumed_at'))) {
+            return ErrorResponse::create(409, 'connector.code_consumed', 'Connection code has already been consumed.');
         }
 
         $state->update([
