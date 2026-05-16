@@ -39,3 +39,66 @@ export const handlers = [
   // /auth/logout — always 204.
   http.post('*/wp-json/defyn/v1/auth/logout', () => new HttpResponse(null, { status: 204 })),
 ];
+
+import type { Site } from '@/types/api';
+
+// In-memory site store for MSW — tests can manipulate this directly between requests.
+export const mockSites: Site[] = [];
+export let nextSiteId = 1;
+
+export function resetMockSites(): void {
+  mockSites.length = 0;
+  nextSiteId = 1;
+}
+
+// POST /sites — create pending site, returns 202.
+handlers.push(
+  http.post('*/wp-json/defyn/v1/sites', async ({ request }) => {
+    const body = (await request.json()) as { url?: string; label?: string; code?: string };
+    if (!body.url || !body.code) {
+      return HttpResponse.json(
+        { error: { code: 'sites.missing_fields', message: 'url and code required' } },
+        { status: 400 },
+      );
+    }
+    if (!body.url.startsWith('https://')) {
+      return HttpResponse.json(
+        { error: { code: 'sites.invalid_url', message: 'URL must use HTTPS' } },
+        { status: 400 },
+      );
+    }
+    if (mockSites.some((s) => s.url.toLowerCase() === body.url!.toLowerCase())) {
+      return HttpResponse.json(
+        { error: { code: 'sites.duplicate_url', message: 'This URL is already managed' } },
+        { status: 409 },
+      );
+    }
+    const site: Site = {
+      id: nextSiteId++,
+      url: body.url,
+      label: body.label ?? '',
+      status: 'pending',
+      last_contact_at: null,
+      last_error: null,
+      created_at: new Date().toISOString().replace('T', ' ').slice(0, 19),
+    };
+    mockSites.push(site);
+    return HttpResponse.json({ site_id: site.id }, { status: 202 });
+  }),
+
+  // GET /sites — list.
+  http.get('*/wp-json/defyn/v1/sites', () => HttpResponse.json({ sites: mockSites }, { status: 200 })),
+
+  // GET /sites/{id} — show.
+  http.get('*/wp-json/defyn/v1/sites/:id', ({ params }) => {
+    const id = Number(params.id);
+    const site = mockSites.find((s) => s.id === id);
+    if (!site) {
+      return HttpResponse.json(
+        { error: { code: 'sites.not_found', message: 'Site not found' } },
+        { status: 404 },
+      );
+    }
+    return HttpResponse.json(site, { status: 200 });
+  }),
+);
