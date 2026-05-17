@@ -30,6 +30,10 @@ final class SitesCreateController
             return ErrorResponse::create(400, 'sites.missing_fields', 'Fields url and code are required.');
         }
 
+        if (strlen($code) !== 12) {
+            return ErrorResponse::create(400, 'sites.invalid_code', 'Connection code must be 12 characters.');
+        }
+
         $validator = new UrlValidator(checkDns: !defined('DEFYN_TESTS_RUNNING'));
         $result = $validator->validate($url);
         if (!$result->isValid) {
