@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard;
 
+use Defyn\Dashboard\Jobs\CompleteConnection;
 use Defyn\Dashboard\Rest\RestRouter;
 
 /**
@@ -31,5 +32,7 @@ final class Plugin
         add_action('rest_api_init', static function (): void {
             (new RestRouter())->register();
         });
+
+        add_action('defyn_complete_connection', [CompleteConnection::class, 'handle'], 10, 3);
     }
 }

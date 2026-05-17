@@ -53,5 +53,25 @@ if (!defined('DEFYN_SPA_ORIGIN')) {
     define('DEFYN_SPA_ORIGIN', ($envOrigin !== false && $envOrigin !== '') ? $envOrigin : 'http://localhost:5173');
 }
 
+// Vault key: required for encrypting per-site dashboard private keys (F5+).
+// Plugin still loads if absent — only fatal at endpoints that touch the vault,
+// with an admin-notice fallback so the operator can fix config without locking
+// themselves out of wp-admin.
+if (!defined('DEFYN_VAULT_KEY')) {
+    $envVaultKey = getenv('DEFYN_VAULT_KEY');
+    if ($envVaultKey !== false && $envVaultKey !== '') {
+        define('DEFYN_VAULT_KEY', $envVaultKey);
+    }
+}
+
+// Action Scheduler: loaded before Plugin::boot() so as_schedule_single_action()
+// and the hook system are available when controllers / Plugin::boot() reference them.
+// Loading is idempotent — if another plugin loaded AS first (its own copy ships
+// inside WooCommerce, for example), this require_once is a no-op.
+$asBootstrap = __DIR__ . '/vendor/woocommerce/action-scheduler/action-scheduler.php';
+if (file_exists($asBootstrap)) {
+    require_once $asBootstrap;
+}
+
 // Boot
 \Defyn\Dashboard\Plugin::instance()->boot();

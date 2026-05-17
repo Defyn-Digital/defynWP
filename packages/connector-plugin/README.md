@@ -9,7 +9,7 @@ A WordPress plugin that turns a managed site into a DefynWP-managed agent. Pairs
 - Lets a WP admin generate a **12-character connection code** (15-minute expiry) to pair the site with the DefynWP Dashboard.
 - Exposes `POST /wp-json/defyn-connector/v1/connect` — the endpoint the dashboard calls to validate the connection code during the handshake.
 
-> **F4 scope:** code-validation only. Ed25519 challenge/response signing of the dashboard's `callback_challenge` is added in F5.
+> **F5 scope:** Code validation + Ed25519 challenge/response handshake. Dashboard provides `dashboard_public_key` and `callback_challenge`; connector returns `site_public_key`, `challenge_signature`, `site_url`, and `site_name`.
 
 ## Requirements
 
@@ -36,7 +36,32 @@ A WordPress plugin that turns a managed site into a DefynWP-managed agent. Pairs
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/wp-json/defyn-connector/v1/connect` | Public; gated by code validation | Validates a posted code; marks it consumed. F5 will extend with crypto challenge-response. |
+| POST | `/wp-json/defyn-connector/v1/connect` | Public; gated by code validation | Performs the handshake: validates code, signs dashboard's challenge with site private key, returns site public key + signature + site metadata. |
+
+### POST /wp-json/defyn-connector/v1/connect
+
+**Request body:**
+
+```json
+{
+  "code": "<12-char connection code>",
+  "dashboard_public_key": "<base64 Ed25519 public key>",
+  "callback_challenge": "<base64 challenge string, max 256 bytes>"
+}
+```
+
+**Success response (200):**
+
+```json
+{
+  "site_public_key": "<base64 Ed25519 public key>",
+  "challenge_signature": "<base64 Ed25519 signature>",
+  "site_url": "https://example.com",
+  "site_name": "Example Site"
+}
+```
+
+State transitions to `connected`; dashboard stores the `challenge_signature` and proceeds to verify it.
 
 ### Error envelope
 
@@ -49,6 +74,9 @@ All non-200 responses use the same envelope:
 | Code | HTTP | Meaning |
 |---|---|---|
 | `connector.missing_code` | 400 | Body is missing the `code` field. |
+| `connector.missing_dashboard_key` | 400 | Body is missing the `dashboard_public_key` field. |
+| `connector.missing_challenge` | 400 | Body is missing the `callback_challenge` field or it exceeds 256 bytes. |
+| `connector.invalid_dashboard_key` | 400 | `dashboard_public_key` is not a valid base64-encoded 32-byte Ed25519 key. |
 | `connector.no_pending_code` | 404 | No code has been generated on this site yet. |
 | `connector.invalid_code` | 401 | Posted code does not match what the connector stored. |
 | `connector.code_expired` | 410 | Code's 15-minute window has passed. |
@@ -69,17 +97,25 @@ The plugin stores a single JSON value under `wp_options['defyn_connector']`:
 
 ```json
 {
-  "state": "unconfigured | awaiting-handshake | code-consumed | connected (F5+)",
-  "site_public_key":  "<base64 Ed25519>",
-  "site_private_key": "<base64 Ed25519>",
-  "generated_at":     "<ISO 8601>",
-  "connection_code":  "<12-char>",
-  "site_nonce":       "<base64 32 bytes>",
-  "code_created_at":  <unix ts>,
-  "code_expires_at":  <unix ts>,
-  "code_consumed_at": <unix ts>
+  "state": "unconfigured | awaiting-handshake | code-consumed | connected",
+  "site_public_key":       "<base64 Ed25519>",
+  "site_private_key":      "<base64 Ed25519>",
+  "generated_at":          "<ISO 8601>",
+  "connection_code":       "<12-char>",
+  "site_nonce":            "<base64 32 bytes>",
+  "code_created_at":       <unix ts>,
+  "code_expires_at":       <unix ts>,
+  "code_consumed_at":      <unix ts>,
+  "dashboard_public_key":  "<base64 Ed25519> (set after successful handshake, F5+)",
+  "connected_at":          "<ISO 8601> (set after successful handshake, F5+)"
 }
 ```
+
+The state machine flow:
+1. `unconfigured` — initial state, no keypair generated yet.
+2. `awaiting-handshake` — keypair generated, connection code issued, ready for dashboard to call `/connect`.
+3. `code-consumed` — intermediate state during handshake (code validated but challenge-response not yet complete).
+4. `connected` — handshake complete, dashboard has validated signature, bi-directional trust established.
 
 ## Uninstall
 

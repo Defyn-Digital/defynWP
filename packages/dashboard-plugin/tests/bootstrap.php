@@ -25,6 +25,10 @@ if (!file_exists($config_path)) {
 }
 putenv('WP_PHPUNIT__TESTS_CONFIG=' . $config_path);
 
+if (!defined('DEFYN_TESTS_RUNNING')) {
+    define('DEFYN_TESTS_RUNNING', true);
+}
+
 // Path to wp-phpunit's bootstrap.
 $wp_tests_dir = __DIR__ . '/../vendor/wp-phpunit/wp-phpunit';
 if (!file_exists($wp_tests_dir . '/includes/functions.php')) {
