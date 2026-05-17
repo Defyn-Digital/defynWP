@@ -74,6 +74,29 @@ final class SettingsPage
             return;
         }
 
+        if ($current === 'connected') {
+            $dashboardPubKey = (string) $state->get('dashboard_public_key', '');
+            $connectedAt     = (string) $state->get('connected_at', '');
+            $fingerprint     = $dashboardPubKey === '' ? '' : substr($dashboardPubKey, 0, 12) . '…';
+
+            echo '<p>' . esc_html__('This site is connected to a DefynWP dashboard.', 'defyn-connector') . '</p>';
+            echo '<table class="form-table"><tbody>';
+            echo '<tr><th>' . esc_html__('Dashboard key fingerprint', 'defyn-connector') . '</th>';
+            echo '<td><code>' . esc_html($fingerprint) . '</code></td></tr>';
+            echo '<tr><th>' . esc_html__('Connected at', 'defyn-connector') . '</th>';
+            echo '<td>' . esc_html($connectedAt) . '</td></tr>';
+            echo '</tbody></table>';
+
+            echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" '
+                . 'onsubmit="return confirm(\'' . esc_js(__('Disconnect this site from the dashboard? You will need a new connection code to reconnect.', 'defyn-connector')) . '\');">';
+            echo '<input type="hidden" name="action" value="' . esc_attr(self::ACTION_RESET) . '">';
+            wp_nonce_field(self::NONCE_RESET);
+            echo '<p><button type="submit" class="button button-secondary">' . esc_html__('Disconnect', 'defyn-connector') . '</button></p>';
+            echo '</form>';
+            echo '</div>';
+            return;
+        }
+
         // Default: unconfigured
         echo '<p>' . esc_html__('Generate a one-time connection code, then paste it into the DefynWP Dashboard.', 'defyn-connector') . '</p>';
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
