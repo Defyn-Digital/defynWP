@@ -154,4 +154,34 @@ final class ConnectionTest extends AbstractSchemaTestCase
         self::assertSame('error', $site->status);
         self::assertStringContainsString('Could not resolve host', $site->lastError);
     }
+
+    public function testCompleteShortCircuitsIfSiteAlreadyActive(): void
+    {
+        // Pre-populate an active site (simulating a prior successful handshake).
+        $id = $this->repo->insertPending(7, 'https://example.test', '', 'OURPUB==', 'OURENC==');
+        $this->repo->markActive($id, 'EXISTING_SITE_PUB==');
+
+        // MockHttpClient that explodes if invoked — proves complete() short-circuited.
+        $callCount = 0;
+        $mock = new MockHttpClient(function () use (&$callCount): MockResponse {
+            $callCount++;
+            return new MockResponse('', ['http_code' => 200]);
+        });
+
+        (new Connection(new SignedHttpClient($mock), $this->repo, new ActivityLogger(), 'OURPUB=='))
+            ->complete($id, 'CODE', 'https://example.test');
+
+        // No HTTP call was made.
+        self::assertSame(0, $callCount);
+
+        // Status preserved.
+        $site = $this->repo->findById($id);
+        self::assertSame('active', $site->status);
+        self::assertSame('EXISTING_SITE_PUB==', $site->sitePublicKey);
+
+        // No new activity log row (existing rows from markActive are not from this test path).
+        global $wpdb;
+        $logs = $wpdb->get_results('SELECT * FROM ' . ActivityLogTable::tableName(), ARRAY_A);
+        self::assertCount(0, $logs);
+    }
 }

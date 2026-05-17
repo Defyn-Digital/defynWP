@@ -31,6 +31,12 @@ final class Connection
             return;
         }
 
+        // Already-active site → AS retry must NOT re-POST to the connector
+        // (would hit connector.code_consumed and corrupt our own status to 'error').
+        if ($site->status === 'active') {
+            return;
+        }
+
         $challenge = base64_encode(random_bytes(32));
         $endpoint  = rtrim($siteUrl, '/') . '/wp-json/defyn-connector/v1/connect';
 
