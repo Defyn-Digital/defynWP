@@ -64,6 +64,19 @@ final class SignerVerifyTest extends TestCase
         );
     }
 
+    public function testMalformedTimestampReturnsMissingHeaders(): void
+    {
+        $kp = $this->freshKeyPair();
+        $this->assertSame(
+            VerificationResult::MISSING_HEADERS,
+            Signer::verifyRequest($kp['public'], 'GET', '/x', '', [
+                'X-Defyn-Timestamp' => 'not-a-number',
+                'X-Defyn-Nonce'     => 'n',
+                'X-Defyn-Signature' => 'sig',
+            ], $this->nonceStore())
+        );
+    }
+
     public function testExpiredTimestampReturnsExpired(): void
     {
         $kp        = $this->freshKeyPair();
