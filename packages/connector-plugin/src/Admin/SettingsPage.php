@@ -65,12 +65,14 @@ final class SettingsPage
             ) . '</p>';
 
             self::renderResetForm();
+            echo '</div>';
             return;
         }
 
         if ($current === 'code-consumed') {
             echo '<p>' . esc_html__('Connection code consumed. Waiting for the dashboard to complete the handshake.', 'defyn-connector') . '</p>';
             self::renderResetForm();
+            echo '</div>';
             return;
         }
 
@@ -87,6 +89,8 @@ final class SettingsPage
             echo '<td>' . esc_html($connectedAt) . '</td></tr>';
             echo '</tbody></table>';
 
+            // Disconnect form intentionally diverges from renderResetForm():
+            // destructive action gets a clearly-different label and a confirm() guard.
             echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" '
                 . 'onsubmit="return confirm(\'' . esc_js(__('Disconnect this site from the dashboard? You will need a new connection code to reconnect.', 'defyn-connector')) . '\');">';
             echo '<input type="hidden" name="action" value="' . esc_attr(self::ACTION_RESET) . '">';
@@ -114,7 +118,6 @@ final class SettingsPage
         wp_nonce_field(self::NONCE_RESET);
         echo '<p><button type="submit" class="button">' . esc_html__('Reset / regenerate', 'defyn-connector') . '</button></p>';
         echo '</form>';
-        echo '</div>';
     }
 
     public function handleGenerate(): void
