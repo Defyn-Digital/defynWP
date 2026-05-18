@@ -176,4 +176,48 @@ final class SitesRepository
             ['%d'],
         );
     }
+
+    /**
+     * Happy-path heartbeat tick: bump last_contact_at + updated_at only.
+     * Does NOT touch status — caller has already confirmed the site is healthy
+     * and not transitioning out of 'offline' (use markRecovered for that).
+     */
+    public function markContactAt(int $id): void
+    {
+        global $wpdb;
+        $now = gmdate('Y-m-d H:i:s');
+        $wpdb->update(
+            SitesTable::tableName(),
+            [
+                'last_contact_at' => $now,
+                'updated_at'      => $now,
+            ],
+            ['id' => $id],
+            ['%s', '%s'],
+            ['%d'],
+        );
+    }
+
+    /**
+     * Recovery transition: flips a previously 'offline' site back to 'active',
+     * clears the stale last_error (important for SPA UX — no ghost error after
+     * recovery), and bumps last_contact_at + updated_at.
+     */
+    public function markRecovered(int $id): void
+    {
+        global $wpdb;
+        $now = gmdate('Y-m-d H:i:s');
+        $wpdb->update(
+            SitesTable::tableName(),
+            [
+                'status'          => 'active',
+                'last_error'      => '',
+                'last_contact_at' => $now,
+                'updated_at'      => $now,
+            ],
+            ['id' => $id],
+            ['%s', '%s', '%s', '%s'],
+            ['%d'],
+        );
+    }
 }
