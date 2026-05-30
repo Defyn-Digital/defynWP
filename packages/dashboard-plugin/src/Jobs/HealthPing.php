@@ -10,8 +10,10 @@ use Defyn\Dashboard\Services\HealthService;
  * Action Scheduler entry point for `defyn_health_ping`.
  *
  * Thin wrapper that delegates to HealthService (which has its own coverage).
- * Plugin::boot() registers HOOK -> handle(). Tests inject a mocked
- * HealthService; production constructs a real one via the default arg.
+ * Plugin::boot() registers HOOK -> handle(). Production constructs a real
+ * HealthService via the default arg; tests smoke-invoke against a non-existent
+ * site id so the service's findById guard early-returns harmlessly
+ * (HealthService is final, so substitution via subclass isn't available).
  *
  * Mirrors SyncSite (Task 15) — same delegation shape, different service.
  */

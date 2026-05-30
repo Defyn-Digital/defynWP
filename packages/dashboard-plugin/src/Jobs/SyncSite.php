@@ -10,12 +10,15 @@ use Defyn\Dashboard\Services\SyncService;
  * Action Scheduler entry point for `defyn_sync_site`.
  *
  * Thin wrapper that delegates to SyncService (which has its own coverage).
- * Plugin::boot() registers HOOK -> handle(). Tests inject a mocked
- * SyncService; production constructs a real one via the default arg.
+ * Plugin::boot() registers HOOK -> handle(). Production constructs a real
+ * SyncService via the default arg; tests smoke-invoke against a non-existent
+ * site id so the service's findById guard early-returns harmlessly (SyncService
+ * is final, so substitution via subclass isn't available).
  *
  * Differs from F5's CompleteConnection (static handle) because SyncService
- * exposes a constructor-injection surface — this lets tests prove delegation
- * without standing up the full vault + HTTP stack.
+ * exposes a constructor-injection surface — keeps production wiring symmetric
+ * with HealthService and leaves room for future test doubles via interface
+ * extraction if needed.
  */
 final class SyncSite
 {
