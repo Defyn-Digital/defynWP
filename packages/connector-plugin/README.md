@@ -37,6 +37,9 @@ A WordPress plugin that turns a managed site into a DefynWP-managed agent. Pairs
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | POST | `/wp-json/defyn-connector/v1/connect` | Public; gated by code validation | Performs the handshake: validates code, signs dashboard's challenge with site private key, returns site public key + signature + site metadata. |
+| GET  | `/wp-json/defyn-connector/v1/status` | Signed (Ed25519, F6) | Returns environment + theme/plugin/SSL snapshot of the site. |
+| GET  | `/wp-json/defyn-connector/v1/heartbeat` | Signed (Ed25519, F6) | Lightweight liveness probe. |
+| POST | `/wp-json/defyn-connector/v1/disconnect` | Signed (Ed25519, F6) | Dashboard-initiated tear-down. Wipes dashboard trust; keeps site keypair. |
 
 ### POST /wp-json/defyn-connector/v1/connect
 
@@ -81,6 +84,80 @@ All non-200 responses use the same envelope:
 | `connector.invalid_code` | 401 | Posted code does not match what the connector stored. |
 | `connector.code_expired` | 410 | Code's 15-minute window has passed. |
 | `connector.code_consumed` | 409 | Code was already consumed by a previous call. |
+| `connector.signature_missing` | 401 | Required signing headers missing or malformed (F6). |
+| `connector.signature_expired` | 401 | Timestamp outside ±300s window (F6). |
+| `connector.signature_replay` | 401 | Nonce already used within TTL (F6). |
+| `connector.signature_invalid` | 401 | Signature does not verify against the stored dashboard public key (F6). |
+| `connector.not_connected` | 404 | Connector is not in `connected` state — handshake not completed (F6). |
+| `connector.signing_failed` | 500 | Site private key corrupted; reset connector and re-handshake (F5 carry-forward, surfaced in F6). |
+
+## F6 — Signed endpoints
+
+Per spec § 5.1 + § 5.2, the connector exposes three signed endpoints once the handshake is complete. The dashboard uses these for sync, health, and tear-down.
+
+### GET /wp-json/defyn-connector/v1/status
+
+Returns a snapshot of the site (collected by `Defyn\Connector\SiteInfo\Collector`):
+
+```json
+{
+  "wp_version": "6.5.2",
+  "php_version": "8.2.10",
+  "active_theme": { "name": "Twenty Twenty-Four", "version": "1.2", "parent": null },
+  "plugin_counts": { "installed": 12, "active": 8 },
+  "theme_counts":  { "installed": 3,  "active": 1 },
+  "ssl_status":     "valid",
+  "ssl_expires_at": "2026-09-12T00:00:00+00:00",
+  "server_time":    1717250400
+}
+```
+
+### GET /wp-json/defyn-connector/v1/heartbeat
+
+Lightweight liveness probe:
+
+```json
+{ "ok": true, "server_time": 1717250400 }
+```
+
+### POST /wp-json/defyn-connector/v1/disconnect
+
+Dashboard-initiated tear-down. **Wipes** `dashboard_public_key`, `connected_at`, and any handshake-code state. **Preserves** the site's own `site_public_key` / `site_private_key` so an operator can re-handshake immediately from the SettingsPage — this mirrors the F4 reset-handler precedent (don't regenerate the site keypair just because the dashboard relationship was reset). Returns **204 No Content** on success.
+
+## Signing protocol (spec § 5.2)
+
+Every signed request MUST include three headers:
+
+| Header | Value |
+|---|---|
+| `X-Defyn-Timestamp` | Unix seconds, string-encoded. |
+| `X-Defyn-Nonce`     | Random hex string, replay-resistance per request. |
+| `X-Defyn-Signature` | Base64 Ed25519 signature of the canonical string. |
+
+**Canonical string** (signed bytes):
+
+```
+METHOD + "\n" + PATH + "\n" + TIMESTAMP + "\n" + NONCE + "\n" + sha256(BODY)
+```
+
+- `METHOD` is uppercased (`GET`, `POST`).
+- `PATH` is the route, e.g. `/defyn-connector/v1/status` (no host, no query).
+- `sha256(BODY)` is the lowercase hex digest of the **exact raw bytes** sent on the wire (empty string for GET).
+
+**Verification order** (cheap rejects first — implemented by `Defyn\Connector\Crypto\Signer::verifyRequest` and wired into REST via `Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::check` as the `permission_callback`):
+
+1. All three headers present and well-formed.
+2. Timestamp within ±300 seconds of server time.
+3. Stored `dashboard_public_key` decodes; signature decodes; lengths sane.
+4. Ed25519 signature validates against the canonical string.
+5. Nonce has not been seen within TTL.
+
+The nonce store is `Defyn\Connector\Crypto\TransientNonceStore` (WP transients backed, 10-minute TTL). It mirrors the dashboard-side `Defyn\Dashboard\Crypto\NonceStore` interface from F2 — this is **intentional duplication**, per spec § 8.2: the two plugins are deployed independently, so each owns its own copy of the signing primitives rather than sharing a package. Future readers: do not "DRY this up" into a shared library — that would re-couple the plugins.
+
+## F5 carry-forwards landed in F6
+
+- **`SettingsPage` connected branch.** Previously, when state was `connected`, the admin page fell through to the dangerous "Generate Connection Code" form. F6 adds a read-only `connected` render branch showing the dashboard fingerprint + `connected_at` + a Disconnect button (with JS confirm) that hits the new signed `/disconnect`.
+- **`ConnectController` signing-failure envelope.** `Signer::sign` is now wrapped in try/catch; a corrupt site private key returns the spec'd `{error: {code: "connector.signing_failed", ...}}` envelope instead of a generic WP 500.
 
 ## Run tests
 
