@@ -245,6 +245,23 @@ REST-originated events (currently `auth.login` and `auth.login_failed`) populate
 
 Sensitive fields stay hidden from the SPA: `user_id` and `ip_address` are operator-only. The SPA receives `id`, `site_id`, `event_type`, `details` (decoded JSON), `created_at`.
 
+## F10 — Hardening + deploy readiness
+
+F10 closes the foundation. Key changes:
+
+- **Signed POST empty-body fix.** `Http\SignedHttpClient::signedPostJson` now signs over `""` (zero bytes) and sends no entity body when the input array is empty. This matches what `WP_REST_Request::get_body()` returns on the connector side. Before F10, dashboard signed `"[]"` while wire body was `""` — the connector silently rejected every signed POST. **Don't reintroduce this drift**: the byte-agreement contract is documented in both `SignedHttpClient::signedPostJson` and `VerifySignatureMiddleware::check`.
+- **`UrlValidator` IPv6 support.** Swapped `gethostbyname` -> `dns_get_record($host, DNS_A | DNS_AAAA)`. IPv6-only hosts now pass validation. Constructor accepts an optional `?Closure $dnsResolver` for testability.
+- **WP-native 404/405 envelope normalization.** `RestRouter::normalizeRouteNotFound` is hooked to `rest_post_dispatch` so that WP-native `rest_no_route` responses for `/defyn/v1/*` routes are rewrapped to `{error: {code: "rest.route_not_found", ...}}` matching spec § 9.1. Non-defyn routes untouched.
+- **Action Scheduler admin submenu hidden.** `Tools → Scheduled Actions` is removed from the admin menu (info-leak surface — exposed pending job arguments including site IDs + connection codes).
+
+### Deploy runbooks
+
+See `docs/deploy/`:
+
+- `kinsta-backend.md` — Bedrock + plugin + env vars + server cron + CORS + rate limits
+- `cloudflare-pages-spa.md` — build command + env vars + DNS + caching + SPA routing
+- `programmatic-e2e.md` — foundation E2E smoke runbook (handshake → sync → ping → activity → disconnect)
+
 ## Run tests
 
 ```bash
