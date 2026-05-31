@@ -4,6 +4,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useSite } from '@/lib/queries/useSite';
 import { ApiError } from '@/lib/apiClient';
+import { SiteRuntimeInfo } from '@/components/sites/SiteRuntimeInfo';
+import { SiteActions } from '@/components/sites/SiteActions';
 
 export default function SiteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -63,6 +65,10 @@ export default function SiteDetail() {
           {data.status === 'error' && data.last_error && (
             <Alert><AlertDescription>{data.last_error}</AlertDescription></Alert>
           )}
+
+          {data.status !== 'pending' && <SiteRuntimeInfo site={data} />}
+
+          {data.status !== 'pending' && <SiteActions site={data} />}
 
           <Button asChild variant="outline">
             <Link to="/sites">Back to sites</Link>

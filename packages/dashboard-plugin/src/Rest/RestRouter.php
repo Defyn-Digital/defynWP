@@ -60,10 +60,21 @@ final class RestRouter
             'permission_callback' => [RequireAuth::class, 'check'],
         ]);
 
+        // Combined-methods registration: GET (F5 SitesShow) + DELETE (F8 SitesDelete)
+        // must share the same route pattern. WP REST requires multiple methods on
+        // one path to be registered as a list of method-descriptors in a single
+        // register_rest_route call — registering them separately would clobber.
         register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)', [
-            'methods'             => 'GET',
-            'callback'            => [new SitesShowController(), 'handle'],
-            'permission_callback' => [RequireAuth::class, 'check'],
+            [
+                'methods'             => 'GET',
+                'callback'            => [new SitesShowController(), 'handle'],
+                'permission_callback' => [RequireAuth::class, 'check'],
+            ],
+            [
+                'methods'             => 'DELETE',
+                'callback'            => [new SitesDeleteController(), 'handle'],
+                'permission_callback' => [RequireAuth::class, 'check'],
+            ],
         ]);
 
         register_rest_route(self::NAMESPACE, '/sites', [

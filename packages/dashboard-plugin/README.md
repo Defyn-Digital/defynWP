@@ -58,6 +58,7 @@ All endpoints live under `/wp-json/defyn/v1/`. All failure responses use the env
 | GET  | `/sites/{id}` | → 200 site JSON OR 404 `sites.not_found`. User-scoped (404 if not the owner). |
 | POST | `/sites/{id}/sync` | (F6) → 202 `{site_id, scheduled: true}`. Schedules a `defyn_sync_site` Action Scheduler job. 404 `sites.not_found` if site is missing or not owned by caller. |
 | POST | `/sites/{id}/ping` | (F6) → 202 `{site_id, scheduled: true}`. Schedules a `defyn_health_ping` Action Scheduler job. Same guards as `/sync`. |
+| DELETE | `/sites/{id}` | (F8) → 204 No Content. Soft disconnect: signs `POST /disconnect` to the connector (best-effort) then DELETEs the dashboard row. **Failure-tolerant** — the row is deleted even if the connector call fails (transport error, 4xx, 5xx, decrypt failure) so the operator isn't stranded with an unrecoverable state. 404 `sites.not_found` if site is missing or not owned. |
 
 ### Error codes
 
@@ -173,6 +174,42 @@ Each `*_all` master is a thin enqueuer — it runs `SitesRepository::findAllSche
 ### Immediate first sync after handshake
 
 F7 modifies `Defyn\Dashboard\Services\Connection::complete()` so that a successful handshake also schedules a one-shot `defyn_sync_site($siteId)` immediately. A newly connected site shows runtime info (`wp_version`, `php_version`, theme/plugin counts, SSL status) within seconds, rather than waiting up to 30 minutes for the next `defyn_sync_all_sites` tick.
+
+## F8 — Sites UI polish + Disconnect
+
+F8 adds the `DELETE /sites/{id}` endpoint above and expands `Defyn\Dashboard\Models\Site::toJson()` so the SPA sees the F6/F7 runtime fields it had been missing.
+
+### Site JSON shape (expanded in F8)
+
+`Site::toJson()` now exposes these fields to the SPA on top of the F5 originals:
+
+| Field | Source | Notes |
+|---|---|---|
+| `last_sync_at` | `lastSyncAt` | set by `SitesRepository::markSynced` (F6). |
+| `wp_version` | `wpVersion` | (F6) site's WordPress version captured in last sync. |
+| `php_version` | `phpVersion` | (F6) site's PHP version. |
+| `active_theme` | `activeTheme` | (F6) JSON-decoded `{name, version, parent}` or null. |
+| `plugin_counts` | `pluginCounts` | (F6) JSON-decoded `{installed, active}` or null. |
+| `theme_counts` | `themeCounts` | (F6) JSON-decoded `{installed, active}` or null. |
+| `ssl_status` | `sslStatus` | (F6) `'enabled'` / `'disabled'` / `'unknown'`. |
+| `ssl_expires_at` | `sslExpiresAt` | (F6) DATETIME string (UTC) or null — not a unix int. |
+
+**Sensitive fields still hidden** (F5 contract preserved): `user_id`, `our_public_key`, `our_private_key`, `site_public_key`.
+
+### Status enum
+
+The `status` field can now be `pending | active | error | offline`. `offline` was added backend-side in F6 (and now exposed via the SPA schema in F8) — distinct from `error` (config-broken) since `offline` means connectivity-failed but possibly recoverable.
+
+### Soft disconnect — `DisconnectService`
+
+`Defyn\Dashboard\Services\DisconnectService::disconnect(int $siteId, int $userId): bool` orchestrates the soft tear-down:
+
+1. `findByIdForUser($siteId, $userId)` → null returns false (404 envelope at controller layer; non-owner can't trigger the endpoint).
+2. `Vault::decrypt($site->ourPrivateKey)` → on failure, swallow and proceed.
+3. `SignedHttpClient::signedPostJson(...connector .../disconnect, [], $privateKey, '/defyn-connector/v1/disconnect')` → on transport error or non-2xx, swallow and proceed.
+4. `SitesRepository::deleteForUser($siteId, $userId)` → returns true iff the row was deleted.
+
+The connector tear-down is **best-effort by design**. An offline / deactivated / key-corrupted connector must not strand the operator with a row they can't remove. The connector's stale `dashboard_public_key` (if any) will be overwritten by the next handshake the operator runs against a fresh code.
 
 ## Run tests
 

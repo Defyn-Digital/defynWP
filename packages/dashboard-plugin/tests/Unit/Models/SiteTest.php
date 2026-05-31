@@ -62,8 +62,17 @@ final class SiteTest extends TestCase
             'label'           => '',
             'status'          => 'active',
             'last_contact_at' => '2026-05-11 00:07:00',
+            'last_sync_at'    => null,
             'last_error'      => null,
             'created_at'      => '2026-05-11 00:00:00',
+            // F8: runtime fields default to null when the row hasn't synced.
+            'wp_version'      => null,
+            'php_version'     => null,
+            'active_theme'    => null,
+            'plugin_counts'   => null,
+            'theme_counts'    => null,
+            'ssl_status'      => null,
+            'ssl_expires_at'  => null,
         ], $site->toJson());
     }
 }

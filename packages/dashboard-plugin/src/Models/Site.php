@@ -14,8 +14,13 @@ namespace Defyn\Dashboard\Models;
  * dashboard surfacing site health, and SyncService itself reads
  * $ourPrivateKey to decrypt the per-site keypair.
  *
- * toJson() intentionally still hides user_id, our_public_key, and
- * our_private_key — those are internal to the dashboard.
+ * F8 expands toJson() so the SPA detail view sees the F6/F7 runtime
+ * fields (wp_version, php_version, active_theme, plugin/theme counts,
+ * ssl_status, ssl_expires_at, last_sync_at).
+ *
+ * toJson() intentionally still hides user_id, our_public_key,
+ * our_private_key, and site_public_key — those are internal to the
+ * dashboard and must never reach the SPA wire.
  */
 final class Site
 {
@@ -98,8 +103,18 @@ final class Site
             'label'           => $this->label,
             'status'          => $this->status,
             'last_contact_at' => $this->lastContactAt,
+            'last_sync_at'    => $this->lastSyncAt,
             'last_error'      => $this->lastError,
             'created_at'      => $this->createdAt,
+            // F8: expose F6/F7 runtime info to the SPA. Null for sites
+            // that haven't successfully synced yet.
+            'wp_version'      => $this->wpVersion,
+            'php_version'     => $this->phpVersion,
+            'active_theme'    => $this->activeTheme,
+            'plugin_counts'   => $this->pluginCounts,
+            'theme_counts'    => $this->themeCounts,
+            'ssl_status'      => $this->sslStatus,
+            'ssl_expires_at'  => $this->sslExpiresAt,
         ];
     }
 }
