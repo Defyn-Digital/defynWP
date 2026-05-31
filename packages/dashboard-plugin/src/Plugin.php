@@ -64,5 +64,14 @@ final class Plugin
         add_action(CleanupExpiredCodes::HOOK, static function (): void {
             (new CleanupExpiredCodes())->handle();
         }, 10, 0);
+
+        add_action('admin_menu', static function (): void {
+            // Hide Action Scheduler's auto-registered Tools → Scheduled Actions submenu.
+            // The AS admin UI exposes pending/failed job arguments (site_id, code, url)
+            // which is an unnecessary info-leak surface in DefynWP context. Foundation
+            // policy: hide entirely. Post-foundation, a dedicated operator role can
+            // selectively re-enable it.
+            remove_submenu_page('tools.php', 'action-scheduler');
+        }, 999);
     }
 }
