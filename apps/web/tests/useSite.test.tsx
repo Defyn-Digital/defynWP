@@ -24,8 +24,16 @@ describe('useSite', () => {
       label: '',
       status: 'pending',
       last_contact_at: null,
+      last_sync_at: null,
       last_error: null,
       created_at: '2026-05-11 00:00:00',
+      wp_version: null,
+      php_version: null,
+      active_theme: null,
+      plugin_counts: null,
+      theme_counts: null,
+      ssl_status: null,
+      ssl_expires_at: null,
     });
     const { result } = renderHook(() => useSite(42), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

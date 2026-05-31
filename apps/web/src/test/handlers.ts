@@ -79,8 +79,16 @@ handlers.push(
       label: body.label ?? '',
       status: 'pending',
       last_contact_at: null,
+      last_sync_at: null,
       last_error: null,
       created_at: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      wp_version: null,
+      php_version: null,
+      active_theme: null,
+      plugin_counts: null,
+      theme_counts: null,
+      ssl_status: null,
+      ssl_expires_at: null,
     };
     mockSites.push(site);
     return HttpResponse.json({ site_id: site.id }, { status: 202 });
@@ -101,4 +109,96 @@ handlers.push(
     }
     return HttpResponse.json(site, { status: 200 });
   }),
+
+  // DELETE /sites/{id} — soft disconnect, returns 204.
+  http.delete('*/wp-json/defyn/v1/sites/:id', ({ params }) => {
+    const id = Number(params.id);
+    const idx = mockSites.findIndex((s) => s.id === id);
+    if (idx === -1) {
+      return HttpResponse.json(
+        { error: { code: 'sites.not_found', message: 'Site not found' } },
+        { status: 404 },
+      );
+    }
+    mockSites.splice(idx, 1);
+    return new HttpResponse(null, { status: 204 });
+  }),
 );
+
+// Helper for tests/dev: seeds mockSites with one site of each status,
+// covering active/offline/error/pending. Tests that need the seed call this
+// after resetMockSites(). Idempotent against an already-empty store.
+export function seedMockSitesAllStatuses(): void {
+  const seedTime = '2026-05-31T00:00:00Z';
+  const createdAt = '2026-05-01 00:00:00';
+  mockSites.push(
+    {
+      id: nextSiteId++,
+      url: 'https://example.test',
+      label: 'Example',
+      status: 'active',
+      last_contact_at: seedTime,
+      last_sync_at: seedTime,
+      last_error: null,
+      created_at: createdAt,
+      wp_version: '6.9.4',
+      php_version: '8.2.27',
+      active_theme: { name: 'Twenty Twenty-Four', version: '1.0', parent: null },
+      plugin_counts: { installed: 10, active: 5 },
+      theme_counts: { installed: 2, active: 1 },
+      ssl_status: 'enabled',
+      ssl_expires_at: '2027-01-01T00:00:00Z',
+    },
+    {
+      id: nextSiteId++,
+      url: 'https://offline.test',
+      label: 'Offline Site',
+      status: 'offline',
+      last_contact_at: '2026-05-30T00:00:00Z',
+      last_sync_at: '2026-05-30T00:00:00Z',
+      last_error: 'host unreachable',
+      created_at: createdAt,
+      wp_version: '6.8.0',
+      php_version: '8.2.0',
+      active_theme: null,
+      plugin_counts: null,
+      theme_counts: null,
+      ssl_status: 'unknown',
+      ssl_expires_at: null,
+    },
+    {
+      id: nextSiteId++,
+      url: 'https://broken.test',
+      label: 'Broken Site',
+      status: 'error',
+      last_contact_at: null,
+      last_sync_at: null,
+      last_error: 'Challenge signature invalid',
+      created_at: createdAt,
+      wp_version: null,
+      php_version: null,
+      active_theme: null,
+      plugin_counts: null,
+      theme_counts: null,
+      ssl_status: null,
+      ssl_expires_at: null,
+    },
+    {
+      id: nextSiteId++,
+      url: 'https://pending.test',
+      label: 'Pending Site',
+      status: 'pending',
+      last_contact_at: null,
+      last_sync_at: null,
+      last_error: null,
+      created_at: createdAt,
+      wp_version: null,
+      php_version: null,
+      active_theme: null,
+      plugin_counts: null,
+      theme_counts: null,
+      ssl_status: null,
+      ssl_expires_at: null,
+    },
+  );
+}
