@@ -5,7 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SiteDetail from '@/routes/SiteDetail';
 import SitesList from '@/routes/SitesList';
-import { resetMockSites, mockSites } from '@/test/handlers';
+import { resetMockSites, mockSites, resetMockActivity, seedMockActivity } from '@/test/handlers';
 import { setAccessToken } from '@/lib/apiClient';
 
 function renderAt(id: number) {
@@ -206,5 +206,48 @@ describe('SiteDetail actions', () => {
     await user.click(await screen.findByRole('button', { name: /Disconnect/i }));
     expect(await screen.findByText(/Disconnect Example/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Cancel/i })).toBeInTheDocument();
+  });
+});
+
+describe('SiteDetail activity panel', () => {
+  beforeEach(() => {
+    resetMockSites();
+    resetMockActivity();
+    seedMockActivity();
+    setAccessToken('fake');
+    mockSites.push({
+      id: 1,
+      url: 'https://example.test',
+      label: 'Example',
+      status: 'active',
+      last_contact_at: '2026-05-31T00:00:01Z',
+      last_sync_at: '2026-05-31T00:00:02Z',
+      last_error: null,
+      created_at: '2026-05-01T00:00:00Z',
+      wp_version: '6.9.4',
+      php_version: '8.2.27',
+      active_theme: { name: 'Twenty Twenty-Four', version: '1.0', parent: null },
+      plugin_counts: { installed: 10, active: 5 },
+      theme_counts: { installed: 2, active: 1 },
+      ssl_status: 'enabled',
+      ssl_expires_at: '2027-01-01T00:00:00Z',
+    });
+  });
+
+  it('shows the Recent activity heading', async () => {
+    renderAt(1);
+    expect(await screen.findByText(/Recent activity/i)).toBeInTheDocument();
+  });
+
+  it('renders events for this site', async () => {
+    renderAt(1);
+    expect(await screen.findByText(/synced/i)).toBeInTheDocument();
+    expect(await screen.findByText(/health_ok/i)).toBeInTheDocument();
+  });
+
+  it('shows empty state when no events for this site', async () => {
+    resetMockActivity();
+    renderAt(1);
+    expect(await screen.findByText(/No activity yet/i)).toBeInTheDocument();
   });
 });
