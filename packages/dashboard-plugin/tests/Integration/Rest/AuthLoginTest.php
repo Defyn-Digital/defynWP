@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Tests\Integration\Rest;
 
+use Defyn\Dashboard\Activation;
 use WP_REST_Request;
 use WP_UnitTestCase;
 
@@ -20,6 +21,10 @@ final class AuthLoginTest extends WP_UnitTestCase
         if (!defined('DEFYN_JWT_SECRET')) {
             define('DEFYN_JWT_SECRET', 'test-secret-32-chars-padding-padding');
         }
+        // F9: AuthLoginController now writes to wp_defyn_activity_log on every
+        // attempt. Ensure the schema exists so the write doesn't blow up with a
+        // "table not found" error (dbDelta is idempotent — safe to call here).
+        Activation::activate();
         // Ensure REST routes are registered for the test server.
         do_action('rest_api_init');
     }

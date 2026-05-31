@@ -21,28 +21,35 @@ use Throwable;
  * persistence is the side effect; callers read state back through
  * SitesRepository.
  *
- * TODO (later phase): also write an activity log row (`site.synced` /
- * `site.sync_failed`). Activity log table is not yet defined; this service
- * establishes only the persistence behavior in F6.
+ * F9: every code path that touches persistence also writes an ActivityLogger
+ * row — `site.synced` on the happy path, `site.sync_failed` on every failure
+ * branch. IP address is left null since this service is invoked from an
+ * Action Scheduler job that has no request context.
  */
 final class SyncService
 {
     public function __construct(
         private readonly SignedHttpClient $httpClient = new SignedHttpClient(),
         private readonly ?SitesRepository $repo = null,
+        private readonly ?ActivityLogger $logger = null,
     ) {}
 
     public function sync(int $siteId): void
     {
-        $repo = $this->repo ?? new SitesRepository();
+        $repo   = $this->repo ?? new SitesRepository();
+        $logger = $this->logger ?? new ActivityLogger();
+
         $site = $repo->findById($siteId);
         if ($site === null) {
-            // Site deleted between scheduling and execution — no-op.
+            // Site deleted between scheduling and execution — no-op. No log
+            // either: the user_id is unknown and the row no longer exists.
             return;
         }
 
         if ($site->ourPrivateKey === null || $site->ourPrivateKey === '') {
-            $repo->markError($siteId, 'Site is missing its encrypted private key.');
+            $message = 'Site is missing its encrypted private key.';
+            $repo->markError($siteId, $message);
+            $logger->log($site->userId, $siteId, 'site.sync_failed', ['error' => $message]);
             return;
         }
 
@@ -52,7 +59,9 @@ final class SyncService
         } catch (Throwable $e) {
             // Broad catch covers libsodium RuntimeException and InvalidArgumentException;
             // we don't surface the underlying message — could leak key-shape details.
-            $repo->markError($siteId, 'Failed to decrypt site keypair.');
+            $message = 'Failed to decrypt site keypair.';
+            $repo->markError($siteId, $message);
+            $logger->log($site->userId, $siteId, 'site.sync_failed', ['error' => $message]);
             return;
         }
 
@@ -63,19 +72,25 @@ final class SyncService
 
         if ($response['error'] !== '') {
             $repo->markError($siteId, $response['error']);
+            $logger->log($site->userId, $siteId, 'site.sync_failed', ['error' => $response['error']]);
             return;
         }
         if ($response['status'] < 200 || $response['status'] >= 300) {
-            $repo->markError($siteId, 'Connector returned status ' . $response['status']);
+            $message = 'Connector returned status ' . $response['status'];
+            $repo->markError($siteId, $message);
+            $logger->log($site->userId, $siteId, 'site.sync_failed', ['error' => $message]);
             return;
         }
 
         $info = $response['body'];
         if (!isset($info['wp_version'], $info['php_version'])) {
-            $repo->markError($siteId, 'Connector returned malformed /status payload.');
+            $message = 'Connector returned malformed /status payload.';
+            $repo->markError($siteId, $message);
+            $logger->log($site->userId, $siteId, 'site.sync_failed', ['error' => $message]);
             return;
         }
 
         $repo->markSynced($siteId, $info);
+        $logger->log($site->userId, $siteId, 'site.synced', ['wp_version' => $info['wp_version'] ?? null]);
     }
 }
