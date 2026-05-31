@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard;
 
+use Defyn\Dashboard\Jobs\Scheduler;
 use Defyn\Dashboard\Schema\ActivityLogTable;
 use Defyn\Dashboard\Schema\ConnectionCodesTable;
 use Defyn\Dashboard\Schema\SchemaTable;
@@ -40,5 +41,11 @@ final class Activation
         }
 
         update_option(self::SCHEMA_OPTION, self::SCHEMA_VERSION);
+
+        // F7 — install recurring AS schedules (fan-out + cleanup). Runs AFTER
+        // schema setup so the AS tables (provided by WC AS) are guaranteed to
+        // be loaded by the time recurring rows are inserted. Idempotent — safe
+        // on re-activation (see Scheduler::installRecurringSchedules()).
+        Scheduler::installRecurringSchedules();
     }
 }
