@@ -40,7 +40,7 @@ export const handlers = [
   http.post('*/wp-json/defyn/v1/auth/logout', () => new HttpResponse(null, { status: 204 })),
 ];
 
-import type { Site } from '@/types/api';
+import type { ActivityEvent, Site } from '@/types/api';
 
 // In-memory site store for MSW — tests can manipulate this directly between requests.
 export const mockSites: Site[] = [];
@@ -49,6 +49,21 @@ export let nextSiteId = 1;
 export function resetMockSites(): void {
   mockSites.length = 0;
   nextSiteId = 1;
+}
+
+// In-memory activity event store for MSW — mirrors mockSites pattern.
+export const mockActivityEvents: ActivityEvent[] = [];
+
+export function resetMockActivity(): void {
+  mockActivityEvents.length = 0;
+}
+
+export function seedMockActivity(): void {
+  mockActivityEvents.push(
+    { id: 1, site_id: 1, event_type: 'site.synced',    details: { wp_version: '6.9.4' },   created_at: '2026-05-31T01:00:00Z' },
+    { id: 2, site_id: 1, event_type: 'site.health_ok', details: null,                       created_at: '2026-05-31T00:30:00Z' },
+    { id: 3, site_id: 2, event_type: 'site.connected', details: { url: 'https://b.test' }, created_at: '2026-05-30T00:00:00Z' },
+  );
 }
 
 // POST /sites — create pending site, returns 202.
@@ -96,6 +111,51 @@ handlers.push(
 
   // GET /sites — list.
   http.get('*/wp-json/defyn/v1/sites', () => HttpResponse.json({ sites: mockSites }, { status: 200 })),
+
+  // GET /activity — global activity feed (paginated, filterable).
+  http.get('*/wp-json/defyn/v1/activity', ({ request }) => {
+    const url = new URL(request.url);
+    const eventType = url.searchParams.get('event_type');
+    const siteIdParam = url.searchParams.get('site_id');
+    const page = Number(url.searchParams.get('page') ?? '1');
+    const perPage = Number(url.searchParams.get('per_page') ?? '50');
+
+    // Newest first (mirrors the server's ORDER BY created_at DESC, id DESC).
+    const sorted = [...mockActivityEvents].sort((a, b) => {
+      if (a.created_at !== b.created_at) return b.created_at.localeCompare(a.created_at);
+      return b.id - a.id;
+    });
+    const filtered = sorted.filter((e) =>
+      (eventType === null || e.event_type === eventType) &&
+      (siteIdParam === null || e.site_id === Number(siteIdParam))
+    );
+    const start = (Math.max(1, page) - 1) * perPage;
+    const slice = filtered.slice(start, start + perPage);
+    return HttpResponse.json(
+      { events: slice, total: filtered.length, page, per_page: perPage },
+      { status: 200 },
+    );
+  }),
+
+  // GET /sites/{id}/activity — per-site activity feed (paginated).
+  http.get('*/wp-json/defyn/v1/sites/:id/activity', ({ params, request }) => {
+    const siteId = Number(params.id);
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get('page') ?? '1');
+    const perPage = Number(url.searchParams.get('per_page') ?? '10');
+
+    const sorted = [...mockActivityEvents].sort((a, b) => {
+      if (a.created_at !== b.created_at) return b.created_at.localeCompare(a.created_at);
+      return b.id - a.id;
+    });
+    const filtered = sorted.filter((e) => e.site_id === siteId);
+    const start = (Math.max(1, page) - 1) * perPage;
+    const slice = filtered.slice(start, start + perPage);
+    return HttpResponse.json(
+      { events: slice, total: filtered.length, page, per_page: perPage },
+      { status: 200 },
+    );
+  }),
 
   // GET /sites/{id} — show.
   http.get('*/wp-json/defyn/v1/sites/:id', ({ params }) => {

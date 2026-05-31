@@ -51,3 +51,20 @@ export const createSiteResponseSchema = z.object({
   site_id: z.number().int().positive(),
 });
 export type CreateSiteResponse = z.infer<typeof createSiteResponseSchema>;
+
+export const activityEventSchema = z.object({
+  id: z.number().int().positive(),
+  site_id: z.number().int().positive().nullable(),
+  event_type: z.string(),
+  details: z.record(z.unknown()).nullable(),
+  created_at: z.string(),
+});
+export type ActivityEvent = z.infer<typeof activityEventSchema>;
+
+export const activityListResponseSchema = z.object({
+  events: z.array(activityEventSchema),
+  total: z.number().int().nonnegative(),
+  page: z.number().int().positive(),
+  per_page: z.number().int().positive(),
+});
+export type ActivityListResponse = z.infer<typeof activityListResponseSchema>;
