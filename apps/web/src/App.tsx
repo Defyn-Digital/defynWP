@@ -5,6 +5,7 @@ import RequireAuth from './routes/RequireAuth';
 import SitesList from './routes/SitesList';
 import SiteAdd from './routes/SiteAdd';
 import SiteDetail from './routes/SiteDetail';
+import Activity from './routes/Activity';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/sites" element={<SitesList />} />
         <Route path="/sites/add" element={<SiteAdd />} />
         <Route path="/sites/:id" element={<SiteDetail />} />
+        <Route path="/activity" element={<Activity />} />
       </Route>
     </Routes>
   );

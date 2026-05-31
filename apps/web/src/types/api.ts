@@ -56,7 +56,7 @@ export const activityEventSchema = z.object({
   id: z.number().int().positive(),
   site_id: z.number().int().positive().nullable(),
   event_type: z.string(),
-  details: z.record(z.unknown()).nullable(),
+  details: z.record(z.string(), z.unknown()).nullable(),
   created_at: z.string(),
 });
 export type ActivityEvent = z.infer<typeof activityEventSchema>;
