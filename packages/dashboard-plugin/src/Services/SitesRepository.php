@@ -69,6 +69,29 @@ final class SitesRepository
         return array_map([Site::class, 'fromRow'], $rows ?: []);
     }
 
+    /**
+     * Site IDs eligible for background sync/ping. Active + offline + error (all
+     * have a completed handshake and a private key on file; even error sites
+     * might recover). Excludes pending (handshake not yet complete).
+     *
+     * TODO (F10+): paginate when sites > 500 — current naive LIMIT keeps the
+     * fan-out within Kinsta's 300s PHP budget.
+     *
+     * @return list<int>
+     */
+    public function findAllSchedulable(int $limit = 500): array
+    {
+        global $wpdb;
+        $table = SitesTable::tableName();
+        $rows = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT id FROM {$table} WHERE status IN ('active', 'offline', 'error') ORDER BY id ASC LIMIT %d",
+                $limit,
+            ),
+        );
+        return array_map('intval', $rows ?: []);
+    }
+
     public function existsForUser(int $userId, string $url): bool
     {
         global $wpdb;
