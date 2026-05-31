@@ -29,6 +29,13 @@ final class RestRouter
         // controller-emitted errors — silent inconsistency.
         add_filter('rest_request_after_callbacks', [self::class, 'normalizeErrorEnvelope'], 10, 3);
 
+        // F10: WP itself short-circuits with 404 (rest_no_route) and 405
+        // (rest_no_method) BEFORE any handler/permission_callback runs, so the
+        // rest_request_after_callbacks filter above never sees them. Hook
+        // rest_post_dispatch to rewrap those specific WP-native shapes for
+        // defyn/v1 routes only, so the SPA always sees {error:{code,message}}.
+        add_filter('rest_post_dispatch', [self::class, 'normalizeRouteNotFound'], 10, 3);
+
         register_rest_route(self::NAMESPACE, '/auth/login', [
             'methods'             => 'POST',
             'callback'            => [new AuthLoginController(), 'handle'],
@@ -135,5 +142,60 @@ final class RestRouter
             (string) $response->get_error_code(),
             (string) $response->get_error_message()
         );
+    }
+
+    /**
+     * Rewrap WP-native 404 (rest_no_route) + 405 (rest_no_method) responses for
+     * routes under defyn/v1/* so the SPA sees the same {error:{code,message}}
+     * envelope as every other defyn-emitted error (spec § 9.1).
+     *
+     * F5 only normalized errors that flowed through controllers / permission
+     * callbacks (rest_request_after_callbacks). 404/405 come from the dispatcher
+     * BEFORE any handler runs, so F5's filter didn't catch them.
+     *
+     * Note: WP_REST_Server itself only emits rest_no_route (404) — it does NOT
+     * distinguish path-mismatch from method-mismatch. The 405 branch below is
+     * defensive coverage in case a third-party plugin (or a future WP release)
+     * surfaces rest_no_method.
+     *
+     * @param \WP_REST_Response $response
+     * @param \WP_REST_Server   $server
+     * @param \WP_REST_Request  $request
+     * @return \WP_REST_Response
+     */
+    public static function normalizeRouteNotFound($response, $server, $request)
+    {
+        if (!$response instanceof \WP_REST_Response) {
+            return $response;
+        }
+        if (!$request instanceof \WP_REST_Request) {
+            return $response;
+        }
+        if (strpos($request->get_route(), '/' . self::NAMESPACE) !== 0) {
+            return $response;
+        }
+        $status = $response->get_status();
+        if ($status === 404) {
+            $data = $response->get_data();
+            if (is_array($data) && isset($data['code']) && $data['code'] === 'rest_no_route') {
+                $response->set_data([
+                    'error' => [
+                        'code'    => 'rest.route_not_found',
+                        'message' => 'Route not found.',
+                    ],
+                ]);
+            }
+        } elseif ($status === 405) {
+            $data = $response->get_data();
+            if (is_array($data) && isset($data['code']) && $data['code'] === 'rest_no_method') {
+                $response->set_data([
+                    'error' => [
+                        'code'    => 'rest.method_not_allowed',
+                        'message' => 'Method not allowed.',
+                    ],
+                ]);
+            }
+        }
+        return $response;
     }
 }

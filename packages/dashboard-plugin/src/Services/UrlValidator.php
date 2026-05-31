@@ -13,8 +13,15 @@ namespace Defyn\Dashboard\Services;
  */
 final class UrlValidator
 {
+    /**
+     * @param (\Closure(string): array<int, array<string, mixed>>)|null $dnsResolver
+     *   Optional resolver injected for tests. When null, a real DNS lookup
+     *   is performed with dns_get_record() against DNS_A | DNS_AAAA so that
+     *   IPv4-only, IPv6-only, and dual-stack hosts all resolve.
+     */
     public function __construct(
         private readonly bool $checkDns = true,
+        private readonly ?\Closure $dnsResolver = null,
     ) {}
 
     public function validate(string $url): ValidationResult
@@ -34,9 +41,13 @@ final class UrlValidator
             return ValidationResult::invalid('sites.invalid_url', 'URL must include a host.');
         }
 
-        if ($this->checkDns && gethostbyname($parts['host']) === $parts['host']) {
-            // gethostbyname returns the input unchanged on lookup failure.
-            return ValidationResult::invalid('sites.invalid_url', 'URL host does not resolve.');
+        if ($this->checkDns) {
+            $resolver = $this->dnsResolver ?? static fn(string $host): array =>
+                (array) (dns_get_record($host, DNS_A | DNS_AAAA) ?: []);
+            $records = $resolver($parts['host']);
+            if (empty($records)) {
+                return ValidationResult::invalid('sites.invalid_url', 'URL host does not resolve in DNS.');
+            }
         }
 
         return ValidationResult::valid();

@@ -194,6 +194,10 @@ The state machine flow:
 3. `code-consumed` — intermediate state during handshake (code validated but challenge-response not yet complete).
 4. `connected` — handshake complete, dashboard has validated signature, bi-directional trust established.
 
+## F10 — Hardening note (signed POST body bytes)
+
+F10 closed a body-bytes mismatch that silently broke every signed POST from the dashboard. Connector-side detail: `VerifySignatureMiddleware::check` reads `WP_REST_Request::get_body()` which returns `""` for an empty-body POST (no entity body on the wire). Dashboard's `SignedHttpClient::signedPostJson` now signs over that same `""` for empty inputs and sends no body. **Don't change `VerifySignatureMiddleware` to decode/re-encode the body** — the contract is "verify against exactly the raw bytes that arrived" and the dashboard agrees on the same bytes. The byte-agreement contract is documented in both `SignedHttpClient::signedPostJson` and `VerifySignatureMiddleware::check`.
+
 ## Uninstall
 
 `uninstall.php` removes `wp_options['defyn_connector']` on full plugin uninstall, including the keypair.
