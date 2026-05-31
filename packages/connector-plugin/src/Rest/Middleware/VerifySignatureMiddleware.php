@@ -57,6 +57,14 @@ final class VerifySignatureMiddleware
             'X-Defyn-Signature' => (string) ($request->get_header('x_defyn_signature') ?? ''),
         ];
 
+        // EMPTY-BODY CONTRACT (F10 Task 1, mirror of dashboard SignedHttpClient):
+        //   Pass $request->get_body() through UNMODIFIED. For an empty POST
+        //   (e.g. /disconnect) get_body() returns "" — the dashboard side signs
+        //   over "" for empty inputs to match. Any normalisation here (trim,
+        //   re-encode, json_decode/encode round-trip) would change the bytes
+        //   the verifier sees and break signature verification for empty
+        //   payloads. See SignedHttpClient::signedPostJson for the matching
+        //   contract on the signer side.
         $result = Signer::verifyRequest(
             $publicKey,
             strtoupper((string) $request->get_method()),

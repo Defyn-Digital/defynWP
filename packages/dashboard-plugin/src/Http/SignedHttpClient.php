@@ -77,14 +77,37 @@ final class SignedHttpClient
      * exact bytes that go on the wire (otherwise the connector recomputes a
      * different hash and rejects).
      *
+     * EMPTY-BODY CONTRACT (F10 Task 1, fixes F8/F9 carry-forward):
+     *   When $body is [] we MUST sign over "" (zero bytes) and send NO entity
+     *   body — not "[]". The connector reads its inbound body via
+     *   WP_REST_Request::get_body(), which returns "" for an empty POST. If
+     *   the dashboard signs "[]" while the connector verifies against "", the
+     *   sha256 in the canonical string disagrees and verification fails with
+     *   INVALID_SIGNATURE (401). This bit the F8 soft-disconnect path silently
+     *   because DisconnectService swallows connector errors.
+     *
+     *   Mirror invariant on the connector: VerifySignatureMiddleware MUST keep
+     *   passing $request->get_body() unmodified into Signer::verifyRequest.
+     *   Any normalisation there (e.g. trimming or re-encoding) would re-open
+     *   the gap. See VerifySignatureMiddleware.php for the matching comment.
+     *
      * @param array<string, mixed> $body
      * @return array{status: int, body: array<string, mixed>, error: string}
      */
     public function signedPostJson(string $url, array $body, string $privateKeyBase64, string $canonicalPath): array
     {
-        $serialized = json_encode($body, JSON_UNESCAPED_SLASHES);
-        if ($serialized === false) {
-            return ['status' => 0, 'body' => [], 'error' => 'Failed to serialize body'];
+        // Empty input → no wire body, sign over "". Non-empty → encode once
+        // and sign + send the encoded bytes (Content-Type still application/json).
+        if ($body === []) {
+            $serialized = '';
+            $wireBody   = null;
+        } else {
+            $encoded = json_encode($body, JSON_UNESCAPED_SLASHES);
+            if ($encoded === false) {
+                return ['status' => 0, 'body' => [], 'error' => 'Failed to serialize body'];
+            }
+            $serialized = $encoded;
+            $wireBody   = $encoded;
         }
 
         $signer  = new Signer($privateKeyBase64);
@@ -92,7 +115,7 @@ final class SignedHttpClient
             ['Content-Type' => 'application/json'],
             $signer->signRequest('POST', $canonicalPath, $serialized)
         );
-        return $this->sendSigned('POST', $url, $serialized, $headers);
+        return $this->sendSigned('POST', $url, $wireBody, $headers);
     }
 
     /**
