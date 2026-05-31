@@ -27,11 +27,14 @@ final class DisconnectService
     public function __construct(
         private readonly SignedHttpClient $httpClient = new SignedHttpClient(),
         private readonly ?SitesRepository $repo = null,
+        private readonly ?ActivityLogger $logger = null,
     ) {}
 
     public function disconnect(int $siteId, int $userId): bool
     {
-        $repo = $this->repo ?? new SitesRepository();
+        $repo   = $this->repo ?? new SitesRepository();
+        $logger = $this->logger ?? new ActivityLogger();
+
         $site = $repo->findByIdForUser($siteId, $userId);
         if ($site === null) {
             // 404 envelope at the controller layer. No connector call, no delete.
@@ -55,6 +58,13 @@ final class DisconnectService
             // the "always delete the row" contract.
         }
 
-        return $repo->deleteForUser($siteId, $userId);
+        $deleted = $repo->deleteForUser($siteId, $userId);
+        if ($deleted) {
+            // F9: log AFTER the row is gone. site_id is NULL because the row no
+            // longer exists; URL goes in details for traceability. IP capture
+            // would have to flow from SitesDeleteController — deferred to F10.
+            $logger->log($userId, null, 'site.disconnected', ['url' => $site->url]);
+        }
+        return $deleted;
     }
 }

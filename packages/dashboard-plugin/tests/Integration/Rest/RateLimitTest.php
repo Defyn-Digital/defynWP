@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Tests\Integration\Rest;
 
+use Defyn\Dashboard\Activation;
 use WP_REST_Request;
 use WP_UnitTestCase;
 
@@ -18,6 +19,9 @@ final class RateLimitTest extends WP_UnitTestCase
         if (!defined('DEFYN_JWT_SECRET')) {
             define('DEFYN_JWT_SECRET', 'test-secret-32-chars-padding-padding');
         }
+        // F9: AuthLoginController writes to wp_defyn_activity_log on every
+        // attempt, so the schema must exist (dbDelta is idempotent).
+        Activation::activate();
         $_SERVER['REMOTE_ADDR'] = '203.0.113.42';  // TEST-NET-3 IP
         do_action('rest_api_init');
     }

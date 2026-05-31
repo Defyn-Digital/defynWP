@@ -26,20 +26,25 @@ use Throwable;
  * `void` — persistence is the side effect; callers read state back through
  * SitesRepository.
  *
- * TODO (later phase): activity-log rows for `site.health_ok` /
- * `site.health_fail`. The activity_log table is not yet defined; this
- * service establishes only the persistence behavior in F6.
+ * F9: every persistence-touching branch also writes an ActivityLogger row.
+ * Success paths emit `site.health_ok` (steady-state ping) or `site.recovered`
+ * (transition from offline → active); every failure branch emits
+ * `site.health_failed` with the same message that was persisted to last_error.
+ * IP address is left null — this service runs from Action Scheduler.
  */
 final class HealthService
 {
     public function __construct(
         private readonly SignedHttpClient $httpClient = new SignedHttpClient(),
         private readonly ?SitesRepository $repo = null,
+        private readonly ?ActivityLogger $logger = null,
     ) {}
 
     public function ping(int $siteId): void
     {
-        $repo = $this->repo ?? new SitesRepository();
+        $repo   = $this->repo ?? new SitesRepository();
+        $logger = $this->logger ?? new ActivityLogger();
+
         $site = $repo->findById($siteId);
         if ($site === null) {
             // Site deleted between scheduling and execution — no-op.
@@ -47,7 +52,9 @@ final class HealthService
         }
 
         if ($site->ourPrivateKey === null || $site->ourPrivateKey === '') {
-            $repo->markOffline($siteId, 'Site is missing its encrypted private key.');
+            $message = 'Site is missing its encrypted private key.';
+            $repo->markOffline($siteId, $message);
+            $logger->log($site->userId, $siteId, 'site.health_failed', ['error' => $message]);
             return;
         }
 
@@ -57,7 +64,9 @@ final class HealthService
         } catch (Throwable $e) {
             // Mirror SyncService: broad catch covers libsodium runtime exceptions
             // without leaking key-shape details into the persisted message.
-            $repo->markOffline($siteId, 'Failed to decrypt site keypair.');
+            $message = 'Failed to decrypt site keypair.';
+            $repo->markOffline($siteId, $message);
+            $logger->log($site->userId, $siteId, 'site.health_failed', ['error' => $message]);
             return;
         }
 
@@ -68,17 +77,22 @@ final class HealthService
 
         if ($response['error'] !== '') {
             $repo->markOffline($siteId, $response['error']);
+            $logger->log($site->userId, $siteId, 'site.health_failed', ['error' => $response['error']]);
             return;
         }
         if ($response['status'] < 200 || $response['status'] >= 300) {
-            $repo->markOffline($siteId, 'Connector returned status ' . $response['status']);
+            $message = 'Connector returned status ' . $response['status'];
+            $repo->markOffline($siteId, $message);
+            $logger->log($site->userId, $siteId, 'site.health_failed', ['error' => $message]);
             return;
         }
 
         if ($site->status === 'offline') {
             $repo->markRecovered($siteId);
+            $logger->log($site->userId, $siteId, 'site.recovered');
         } else {
             $repo->markContactAt($siteId);
+            $logger->log($site->userId, $siteId, 'site.health_ok');
         }
     }
 }

@@ -9,6 +9,7 @@ use Defyn\Dashboard\Auth\PasswordVerifier;
 use Defyn\Dashboard\Auth\RefreshTokenStore;
 use Defyn\Dashboard\Auth\TokenService;
 use Defyn\Dashboard\Rest\Responses\ErrorResponse;
+use Defyn\Dashboard\Services\ActivityLogger;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -35,6 +36,7 @@ final class AuthLoginController
     {
         $email    = (string) $request->get_param('email');
         $password = (string) $request->get_param('password');
+        $ip       = $_SERVER['REMOTE_ADDR'] ?? null;
 
         if ($email === '' || $password === '') {
             return ErrorResponse::create(400, 'auth.missing_fields', 'Email and password are required.');
@@ -43,6 +45,11 @@ final class AuthLoginController
         try {
             $userId = (new PasswordVerifier())->verify($email, $password);
         } catch (InvalidCredentialsException $e) {
+            // F9: record the failed attempt with the submitted email + caller IP
+            // so operators can spot credential-stuffing waves in the activity feed.
+            // RateLimit middleware (auth.rate_limited) short-circuits BEFORE this
+            // controller, so we never log a rate-limited attempt here.
+            (new ActivityLogger())->log(null, null, 'auth.login_failed', ['email' => $email], $ip);
             return ErrorResponse::create(401, 'auth.invalid_credentials', 'Invalid email or password.');
         }
 
@@ -53,6 +60,10 @@ final class AuthLoginController
 
         // Track JTI so logout/revocation works.
         (new RefreshTokenStore())->remember($userId, $refreshClaims['jti'], (int) $refreshClaims['exp']);
+
+        // F9: successful login — IP captured here is the only F9 IP-capture
+        // call site (other auth events are out of scope this phase).
+        (new ActivityLogger())->log($userId, null, 'auth.login', null, $ip);
 
         $response = new WP_REST_Response(['access_token' => $access], 200);
         $response->header('Set-Cookie', self::buildRefreshCookie($refresh, (int) $refreshClaims['exp']));
