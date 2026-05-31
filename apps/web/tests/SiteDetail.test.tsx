@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SiteDetail from '@/routes/SiteDetail';
+import SitesList from '@/routes/SitesList';
 import { resetMockSites, mockSites } from '@/test/handlers';
 import { setAccessToken } from '@/lib/apiClient';
 
@@ -12,6 +14,7 @@ function renderAt(id: number) {
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[`/sites/${id}`]}>
         <Routes>
+          <Route path="/sites" element={<SitesList />} />
           <Route path="/sites/:id" element={<SiteDetail />} />
         </Routes>
       </MemoryRouter>
@@ -156,5 +159,52 @@ describe('SiteDetail runtime info', () => {
     expect(screen.queryByText(/Active theme/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Plugins/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/SSL/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('SiteDetail actions', () => {
+  beforeEach(() => {
+    resetMockSites();
+    setAccessToken('fake');
+    mockSites.push({
+      id: 1,
+      url: 'https://example.test',
+      label: 'Example',
+      status: 'active',
+      last_contact_at: '2026-05-31T00:00:01Z',
+      last_sync_at: '2026-05-31T00:00:02Z',
+      last_error: null,
+      created_at: '2026-05-01 00:00:00',
+      wp_version: '6.9.4',
+      php_version: '8.2.27',
+      active_theme: { name: 'Twenty Twenty-Four', version: '1.0', parent: null },
+      plugin_counts: { installed: 10, active: 5 },
+      theme_counts: { installed: 2, active: 1 },
+      ssl_status: 'enabled',
+      ssl_expires_at: '2027-01-01T00:00:00Z',
+    });
+  });
+
+  it('shows Refresh, Ping, and Disconnect buttons on an active site', async () => {
+    renderAt(1);
+    expect(await screen.findByRole('button', { name: /Refresh/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ping/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Disconnect/i })).toBeInTheDocument();
+  });
+
+  it('clicking Refresh transitions the button to syncing state', async () => {
+    const user = userEvent.setup();
+    renderAt(1);
+    const button = await screen.findByRole('button', { name: /Refresh/i });
+    await user.click(button);
+    expect(await screen.findByRole('button', { name: /Syncing/i })).toBeInTheDocument();
+  });
+
+  it('Disconnect opens a confirmation dialog with Cancel option', async () => {
+    const user = userEvent.setup();
+    renderAt(1);
+    await user.click(await screen.findByRole('button', { name: /Disconnect/i }));
+    expect(await screen.findByText(/Disconnect Example/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Cancel/i })).toBeInTheDocument();
   });
 });

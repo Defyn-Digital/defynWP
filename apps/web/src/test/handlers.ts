@@ -110,6 +110,30 @@ handlers.push(
     return HttpResponse.json(site, { status: 200 });
   }),
 
+  // POST /sites/{id}/sync — schedule an immediate sync, returns 202.
+  http.post('*/wp-json/defyn/v1/sites/:id/sync', ({ params }) => {
+    const id = Number(params.id);
+    if (!mockSites.some((s) => s.id === id)) {
+      return HttpResponse.json(
+        { error: { code: 'sites.not_found', message: 'Site not found' } },
+        { status: 404 },
+      );
+    }
+    return HttpResponse.json({ site_id: id, scheduled: true }, { status: 202 });
+  }),
+
+  // POST /sites/{id}/ping — schedule an immediate ping, returns 202.
+  http.post('*/wp-json/defyn/v1/sites/:id/ping', ({ params }) => {
+    const id = Number(params.id);
+    if (!mockSites.some((s) => s.id === id)) {
+      return HttpResponse.json(
+        { error: { code: 'sites.not_found', message: 'Site not found' } },
+        { status: 404 },
+      );
+    }
+    return HttpResponse.json({ site_id: id, scheduled: true }, { status: 202 });
+  }),
+
   // DELETE /sites/{id} — soft disconnect, returns 204.
   http.delete('*/wp-json/defyn/v1/sites/:id', ({ params }) => {
     const id = Number(params.id);
