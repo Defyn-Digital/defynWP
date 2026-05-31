@@ -59,6 +59,8 @@ All endpoints live under `/wp-json/defyn/v1/`. All failure responses use the env
 | POST | `/sites/{id}/sync` | (F6) → 202 `{site_id, scheduled: true}`. Schedules a `defyn_sync_site` Action Scheduler job. 404 `sites.not_found` if site is missing or not owned by caller. |
 | POST | `/sites/{id}/ping` | (F6) → 202 `{site_id, scheduled: true}`. Schedules a `defyn_health_ping` Action Scheduler job. Same guards as `/sync`. |
 | DELETE | `/sites/{id}` | (F8) → 204 No Content. Soft disconnect: signs `POST /disconnect` to the connector (best-effort) then DELETEs the dashboard row. **Failure-tolerant** — the row is deleted even if the connector call fails (transport error, 4xx, 5xx, decrypt failure) so the operator isn't stranded with an unrecoverable state. 404 `sites.not_found` if site is missing or not owned. |
+| GET | `/sites/{id}/activity` | (F9) → 200 `{events, total, page, per_page}`. Per-site, user-scoped (404 `sites.not_found` if missing or not owned). Supports `?page=1&per_page=50`. |
+| GET | `/activity` | (F9) → 200 `{events, total, page, per_page}`. User-scoped feed across the caller's sites + their auth events. Supports `?event_type=X&site_id=N&page=1&per_page=50`. `per_page` clamped to 200. |
 
 ### Error codes
 
@@ -210,6 +212,38 @@ The `status` field can now be `pending | active | error | offline`. `offline` wa
 4. `SitesRepository::deleteForUser($siteId, $userId)` → returns true iff the row was deleted.
 
 The connector tear-down is **best-effort by design**. An offline / deactivated / key-corrupted connector must not strand the operator with a row they can't remove. The connector's stale `dashboard_public_key` (if any) will be overwritten by the next handshake the operator runs against a fresh code.
+
+## F9 — Activity log
+
+F9 adds the two `/activity` endpoints above plus a new `ActivityLogRepository` (sole SQL touch-point for `wp_defyn_activity_log`) and backfills log writes across the previously-silent services.
+
+### Event types
+
+| Event type | Source | Notes |
+|---|---|---|
+| `site.connected` | `Connection::complete` (F5) | Handshake success. |
+| `site.connection_rejected` | `Connection::complete` (F5) | Bad challenge signature. |
+| `site.error` | `Connection::complete` (F5) | Transport / 4xx / 5xx during handshake. |
+| `site.synced` | `SyncService::sync` (F9) | Successful `/status` pull; `details.wp_version`. |
+| `site.sync_failed` | `SyncService::sync` (F9) | Any failure path (transport, non-2xx, decrypt failure, malformed payload). |
+| `site.health_ok` | `HealthService::ping` (F9) | Successful heartbeat. |
+| `site.recovered` | `HealthService::ping` (F9) | Site flipped `offline` → `active`. |
+| `site.health_failed` | `HealthService::ping` (F9) | Transport error or non-2xx; site flips to `offline`. |
+| `site.disconnected` | `DisconnectService::disconnect` (F9) | `site_id=null` since row is gone; `details.url` preserves traceability. |
+| `auth.login` | `AuthLoginController` (F9) | Successful login; `ip_address` captured. |
+| `auth.login_failed` | `AuthLoginController` (F9) | Invalid credentials; `ip_address` captured. |
+
+### IP capture
+
+REST-originated events (currently `auth.login` and `auth.login_failed`) populate `ip_address` from `$_SERVER['REMOTE_ADDR']`. AS-originated background events (sync, health) leave `ip_address` null because background jobs have no request context.
+
+### User scoping
+
+`ActivityLogRepository::paginateForUser($userId, ...)` returns events where `user_id = $userId` OR `site_id` belongs to a site owned by `$userId`. Events for other users' sites never leak into this user's feed — defense in depth via subquery against `wp_defyn_sites`.
+
+### `Defyn\Dashboard\Models\ActivityEvent::toJson`
+
+Sensitive fields stay hidden from the SPA: `user_id` and `ip_address` are operator-only. The SPA receives `id`, `site_id`, `event_type`, `details` (decoded JSON), `created_at`.
 
 ## Run tests
 
