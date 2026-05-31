@@ -94,6 +94,12 @@ final class RestRouter
             'callback'            => [new SitesPingController(), 'handle'],
             'permission_callback' => [RequireAuth::class, 'check'],
         ]);
+
+        register_rest_route(self::NAMESPACE, '/activity', [
+            'methods'             => 'GET',
+            'callback'            => [new ActivityListController(), 'handle'],
+            'permission_callback' => [RequireAuth::class, 'check'],
+        ]);
     }
 
     /**
