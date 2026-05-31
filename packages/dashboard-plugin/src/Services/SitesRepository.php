@@ -57,6 +57,22 @@ final class SitesRepository
         return $site;
     }
 
+    /**
+     * User-scoped delete. Returns true if a row was deleted (caller is the owner),
+     * false if not found OR not owned. Caller must NOT echo "deleted" on false —
+     * use the same 404 envelope as an unowned-site lookup.
+     */
+    public function deleteForUser(int $id, int $userId): bool
+    {
+        global $wpdb;
+        $affected = $wpdb->delete(
+            SitesTable::tableName(),
+            ['id' => $id, 'user_id' => $userId],
+            ['%d', '%d'],
+        );
+        return (int) $affected === 1;
+    }
+
     /** @return list<Site> */
     public function findAllForUser(int $userId): array
     {
