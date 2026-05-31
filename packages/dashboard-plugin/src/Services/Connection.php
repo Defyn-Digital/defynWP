@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Defyn\Dashboard\Services;
 
 use Defyn\Dashboard\Http\SignedHttpClient;
+use Defyn\Dashboard\Jobs\SyncSite;
 use Defyn\Dashboard\Models\Site;
 
 /**
@@ -85,6 +86,14 @@ final class Connection
 
         // All good — flip to active and log it.
         $this->repo->markActive($siteId, $sitePubBase64);
+
+        // F7 UX: schedule a one-shot sync_site immediately so the freshly-connected
+        // site shows runtime info (wp_version, php_version, ssl_status) within seconds
+        // instead of waiting up to 30 min for the next sync_all fan-out.
+        if (function_exists('as_schedule_single_action')) {
+            as_schedule_single_action(time(), SyncSite::HOOK, [$siteId], 'defyn');
+        }
+
         $this->logger->log($site->userId, $siteId, 'site.connected', ['url' => $siteUrl]);
     }
 

@@ -132,6 +132,48 @@ The status column already accepts an enum-as-string in `VARCHAR(20)`. F6 adds:
 | `sslExpiresAt`    | `ssl_expires_at` |
 | `lastSyncAt`      | `last_sync_at` — set by `SitesRepository::markSynced`. |
 
+## F7 — Background scheduling
+
+Per spec § 6.3, the dashboard runs three recurring Action Scheduler jobs that fan out leaf work across every schedulable site. The single-site F6 leaf jobs (`defyn_sync_site`, `defyn_health_ping`) are unchanged — F7 only adds the master fan-out and cleanup layer on top.
+
+### Recurring hooks
+
+Cadences are defined as a `private const SCHEDULES` map in `Defyn\Dashboard\Jobs\Scheduler` (single source of truth):
+
+| Hook | Cadence | Handler | accepted_args |
+|---|---|---|---|
+| `defyn_sync_all_sites`        | every 1800s (30 minutes) | `Defyn\Dashboard\Jobs\SyncAllSites::handle`        | 0 |
+| `defyn_health_ping_all`       | every 300s (5 minutes)   | `Defyn\Dashboard\Jobs\HealthPingAll::handle`       | 0 |
+| `defyn_cleanup_expired_codes` | every 3600s (1 hour)     | `Defyn\Dashboard\Jobs\CleanupExpiredCodes::handle` | 0 |
+
+### Fan-out pattern
+
+Each `*_all` master is a thin enqueuer — it runs `SitesRepository::findAllSchedulable()` and schedules **one leaf job per site** via `as_enqueue_async_action`. The master itself does no outbound HTTP. This keeps each individual PHP run well under Kinsta's 300s budget regardless of how many sites are managed, since the heavy work is spread across many short leaf jobs picked up by subsequent Action Scheduler ticks.
+
+- `defyn_sync_all_sites` → fan-outs to `defyn_sync_site($siteId)` leafs (F6 handler).
+- `defyn_health_ping_all` → fan-outs to `defyn_health_ping($siteId)` leafs (F6 handler).
+- `defyn_cleanup_expired_codes` → purges stale `wp_defyn_connection_codes` rows directly (no per-site fan-out).
+
+### Schedulable site filter
+
+`SitesRepository::findAllSchedulable(int $limit = 500): list<int>` is the source-of-truth for "which sites the fan-out masters should touch". It returns site ids where `status IN ('active', 'offline', 'error')` with a 500-row LIMIT.
+
+- `pending` sites are deliberately excluded — they haven't completed the handshake yet, so the dashboard has no private key with which to sign outbound requests.
+- The 500-row LIMIT is a soft ceiling for F7. Once managed-site counts approach this, pagination across multiple fan-out ticks becomes F10 (deploy-hardening) work.
+
+### Connection-code cleanup
+
+`Defyn\Dashboard\Repositories\ConnectionCodesRepository::deleteExpiredAndConsumed(): int` is a new repo class — the only F1-defined reader/writer for the `wp_defyn_connection_codes` table. It deletes rows that are either `expires_at < NOW()` or `consumed_at IS NOT NULL`, and returns the affected row count for the AS job log.
+
+### Lifecycle
+
+- **Activation** — `Defyn\Dashboard\Activation::activate()` runs schema setup, then calls `Scheduler::installRecurringSchedules()`. Install is **idempotent**: it unschedules all three hooks first, so reactivating the plugin never creates duplicate recurring rows.
+- **Deactivation** — `register_deactivation_hook` runs `Scheduler::uninstallRecurringSchedules()`, which calls `as_unschedule_all_actions` for each hook in the map. No orphaned recurring schedules remain after deactivation.
+
+### Immediate first sync after handshake
+
+F7 modifies `Defyn\Dashboard\Services\Connection::complete()` so that a successful handshake also schedules a one-shot `defyn_sync_site($siteId)` immediately. A newly connected site shows runtime info (`wp_version`, `php_version`, theme/plugin counts, SSL status) within seconds, rather than waiting up to 30 minutes for the next `defyn_sync_all_sites` tick.
+
 ## Run tests
 
 ```bash
