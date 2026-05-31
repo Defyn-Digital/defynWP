@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Defyn\Dashboard;
 
 use Defyn\Dashboard\Jobs\CompleteConnection;
+use Defyn\Dashboard\Jobs\HealthPing;
+use Defyn\Dashboard\Jobs\SyncSite;
 use Defyn\Dashboard\Rest\RestRouter;
 
 /**
@@ -34,5 +36,13 @@ final class Plugin
         });
 
         add_action('defyn_complete_connection', [CompleteConnection::class, 'handle'], 10, 3);
+
+        add_action(SyncSite::HOOK, static function (int $siteId): void {
+            (new SyncSite())->handle($siteId);
+        }, 10, 1);
+
+        add_action(HealthPing::HOOK, static function (int $siteId): void {
+            (new HealthPing())->handle($siteId);
+        }, 10, 1);
     }
 }

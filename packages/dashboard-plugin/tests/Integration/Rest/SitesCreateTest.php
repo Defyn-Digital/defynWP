@@ -77,15 +77,15 @@ final class SitesCreateTest extends AbstractSchemaTestCase
 
     public function testInvalidUrlReturns400(): void
     {
-        $r = $this->postSite(['url' => 'http://insecure.test', 'label' => '', 'code' => 'X']);
+        $r = $this->postSite(['url' => 'http://insecure.test', 'label' => '', 'code' => 'ABCDEFGH2345']);
         self::assertSame(400, $r->get_status());
         self::assertSame('sites.invalid_url', $r->get_data()['error']['code']);
     }
 
     public function testDuplicateUrlForUserReturns409(): void
     {
-        $this->postSite(['url' => 'https://defyn.test', 'label' => '', 'code' => 'X']);
-        $r = $this->postSite(['url' => 'https://defyn.test', 'label' => '', 'code' => 'X']);
+        $this->postSite(['url' => 'https://defyn.test', 'label' => '', 'code' => 'ABCDEFGH2345']);
+        $r = $this->postSite(['url' => 'https://defyn.test', 'label' => '', 'code' => 'ABCDEFGH2345']);
 
         self::assertSame(409, $r->get_status());
         self::assertSame('sites.duplicate_url', $r->get_data()['error']['code']);
@@ -95,7 +95,7 @@ final class SitesCreateTest extends AbstractSchemaTestCase
     {
         $req = new WP_REST_Request('POST', '/defyn/v1/sites');
         $req->set_header('Content-Type', 'application/json');
-        $req->set_body(json_encode(['url' => 'https://defyn.test', 'label' => '', 'code' => 'X']));
+        $req->set_body(json_encode(['url' => 'https://defyn.test', 'label' => '', 'code' => 'ABCDEFGH2345']));
         $r = rest_do_request($req);
 
         self::assertSame(401, $r->get_status());

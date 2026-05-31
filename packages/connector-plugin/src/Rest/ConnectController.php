@@ -69,7 +69,15 @@ final class ConnectController
 
         // Happy path: sign the dashboard's challenge with K_site, persist handshake state.
         $privateKeyBase64 = (string) $state->get('site_private_key', '');
-        $signature = Signer::sign($challengeB64, $privateKeyBase64);
+        try {
+            $signature = Signer::sign($challengeB64, $privateKeyBase64);
+        } catch (\InvalidArgumentException $e) {
+            return ErrorResponse::create(
+                500,
+                'connector.signing_failed',
+                'Site keypair is corrupted; reset the connector and re-handshake.'
+            );
+        }
 
         $now = time();
         $state->update([

@@ -25,6 +25,24 @@ final class RestRouter
             'callback'            => [new ConnectController(), 'handle'],
             'permission_callback' => '__return_true',  // public; protected by code-validation logic in the controller
         ]);
+
+        register_rest_route(self::NAMESPACE, '/status', [
+            'methods'             => 'GET',
+            'callback'            => [new StatusController(), 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/heartbeat', [
+            'methods'             => 'GET',
+            'callback'            => [new HeartbeatController(), 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/disconnect', [
+            'methods'             => 'POST',
+            'callback'            => [new DisconnectController(), 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ]);
     }
 
     /**

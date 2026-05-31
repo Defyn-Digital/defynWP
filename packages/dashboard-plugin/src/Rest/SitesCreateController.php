@@ -14,6 +14,8 @@ use WP_REST_Response;
 
 final class SitesCreateController
 {
+    private const CONNECTION_CODE_LENGTH = 12;
+
     public function handle(WP_REST_Request $request): WP_REST_Response
     {
         $userId = (int) $request->get_param('_authenticated_user_id');
@@ -28,6 +30,10 @@ final class SitesCreateController
 
         if ($url === '' || $code === '') {
             return ErrorResponse::create(400, 'sites.missing_fields', 'Fields url and code are required.');
+        }
+
+        if (strlen($code) !== self::CONNECTION_CODE_LENGTH) {
+            return ErrorResponse::create(400, 'sites.invalid_code', 'Connection code must be ' . self::CONNECTION_CODE_LENGTH . ' characters.');
         }
 
         $validator = new UrlValidator(checkDns: !defined('DEFYN_TESTS_RUNNING'));

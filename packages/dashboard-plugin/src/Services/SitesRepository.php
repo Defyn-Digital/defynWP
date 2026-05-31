@@ -116,4 +116,108 @@ final class SitesRepository
             ['%d'],
         );
     }
+
+    /**
+     * Persist runtime info from a successful /status pull (spec § 5.1).
+     * JSON-encodes the structured fields and bumps last_sync_at + last_contact_at.
+     *
+     * @param array{
+     *   wp_version: string,
+     *   php_version: string,
+     *   active_theme: array<string, mixed>,
+     *   plugin_counts: array<string, int>,
+     *   theme_counts: array<string, int>,
+     *   ssl_status: string,
+     *   ssl_expires_at: ?string,
+     *   server_time?: int
+     * } $info
+     */
+    public function markSynced(int $id, array $info): void
+    {
+        global $wpdb;
+        $now = gmdate('Y-m-d H:i:s');
+        $wpdb->update(
+            SitesTable::tableName(),
+            [
+                'wp_version'      => $info['wp_version'],
+                'php_version'     => $info['php_version'],
+                'active_theme'    => (string) wp_json_encode($info['active_theme']),
+                'plugin_counts'   => (string) wp_json_encode($info['plugin_counts']),
+                'theme_counts'    => (string) wp_json_encode($info['theme_counts']),
+                'ssl_status'      => $info['ssl_status'],
+                'ssl_expires_at'  => $info['ssl_expires_at'],
+                'last_sync_at'    => $now,
+                'last_contact_at' => $now,
+                'updated_at'      => $now,
+            ],
+            ['id' => $id],
+            ['%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s'],
+            ['%d'],
+        );
+    }
+
+    /**
+     * Mark the site as offline after a failed health check (Task 14).
+     * 'offline' is a new status value alongside F1's pending/active/error;
+     * it fits the existing VARCHAR(20) so no schema bump is needed.
+     */
+    public function markOffline(int $id, string $message): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            SitesTable::tableName(),
+            [
+                'status'     => 'offline',
+                'last_error' => $message,
+                'updated_at' => gmdate('Y-m-d H:i:s'),
+            ],
+            ['id' => $id],
+            ['%s', '%s', '%s'],
+            ['%d'],
+        );
+    }
+
+    /**
+     * Happy-path heartbeat tick: bump last_contact_at + updated_at only.
+     * Does NOT touch status — caller has already confirmed the site is healthy
+     * and not transitioning out of 'offline' (use markRecovered for that).
+     */
+    public function markContactAt(int $id): void
+    {
+        global $wpdb;
+        $now = gmdate('Y-m-d H:i:s');
+        $wpdb->update(
+            SitesTable::tableName(),
+            [
+                'last_contact_at' => $now,
+                'updated_at'      => $now,
+            ],
+            ['id' => $id],
+            ['%s', '%s'],
+            ['%d'],
+        );
+    }
+
+    /**
+     * Recovery transition: flips a previously 'offline' site back to 'active',
+     * clears the stale last_error (important for SPA UX — no ghost error after
+     * recovery), and bumps last_contact_at + updated_at.
+     */
+    public function markRecovered(int $id): void
+    {
+        global $wpdb;
+        $now = gmdate('Y-m-d H:i:s');
+        $wpdb->update(
+            SitesTable::tableName(),
+            [
+                'status'          => 'active',
+                'last_error'      => '',
+                'last_contact_at' => $now,
+                'updated_at'      => $now,
+            ],
+            ['id' => $id],
+            ['%s', '%s', '%s', '%s'],
+            ['%d'],
+        );
+    }
 }

@@ -71,6 +71,18 @@ final class RestRouter
             'callback'            => [new SitesListController(), 'handle'],
             'permission_callback' => [RequireAuth::class, 'check'],
         ]);
+
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/sync', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesSyncController(), 'handle'],
+            'permission_callback' => [RequireAuth::class, 'check'],
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/ping', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesPingController(), 'handle'],
+            'permission_callback' => [RequireAuth::class, 'check'],
+        ]);
     }
 
     /**
