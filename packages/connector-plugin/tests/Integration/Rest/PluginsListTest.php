@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Defyn\Connector\Tests\Integration\Rest;
 
 use Defyn\Connector\Activation;
+use Defyn\Connector\Crypto\Signer;
 use Defyn\Connector\Storage\ConnectorState;
 use WP_REST_Request;
 use WP_UnitTestCase;
@@ -57,7 +58,7 @@ final class PluginsListTest extends WP_UnitTestCase
 
         $timestamp = (string) time();
         $nonce     = bin2hex(random_bytes(8));
-        $canonical = "GET\n/defyn-connector/v1/plugins\n{$timestamp}\n{$nonce}\n" . hash('sha256', '');
+        $canonical = Signer::canonical('GET', '/defyn-connector/v1/plugins', $timestamp, $nonce, '');
         $sig       = base64_encode(sodium_crypto_sign_detached($canonical, $privRaw));
 
         $req = new WP_REST_Request('GET', '/defyn-connector/v1/plugins');
