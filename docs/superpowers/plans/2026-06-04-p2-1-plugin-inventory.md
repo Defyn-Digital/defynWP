@@ -329,6 +329,17 @@ final class PluginsListTest extends WP_UnitTestCase
 
     public function testUnsignedRequestReturns401(): void
     {
+        // The middleware short-circuits to 404 connector.not_connected when
+        // state != connected, BEFORE checking signature headers. To test the
+        // signature gate itself (this test's purpose), establish a connected
+        // state first — same pattern as VerifySignatureMiddlewareTest.
+        $pubRaw = sodium_crypto_sign_publickey(sodium_crypto_sign_keypair());
+        (new ConnectorState())->update([
+            'state'                => 'connected',
+            'dashboard_public_key' => base64_encode($pubRaw),
+            'connected_at'         => gmdate('c'),
+        ]);
+
         $req = new WP_REST_Request('GET', '/defyn-connector/v1/plugins');
         $res = rest_do_request($req);
         self::assertSame(401, $res->get_status());
@@ -474,6 +485,15 @@ final class PluginsRefreshTest extends WP_UnitTestCase
 
     public function testUnsignedRequestReturns401(): void
     {
+        // Establish connected state first so the middleware reaches the
+        // signature-headers check (same pattern as Task 2 + VerifySignatureMiddlewareTest).
+        $pubRaw = sodium_crypto_sign_publickey(sodium_crypto_sign_keypair());
+        (new ConnectorState())->update([
+            'state'                => 'connected',
+            'dashboard_public_key' => base64_encode($pubRaw),
+            'connected_at'         => gmdate('c'),
+        ]);
+
         $req = new WP_REST_Request('POST', '/defyn-connector/v1/plugins/refresh');
         $res = rest_do_request($req);
         self::assertSame(401, $res->get_status());
