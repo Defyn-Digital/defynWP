@@ -27,7 +27,10 @@ final class Signer
         $raw = base64_decode($privateKeyBase64, true);
         if ($raw === false || strlen($raw) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
             throw new InvalidArgumentException(
-                'Signer requires a base64-encoded ' . SODIUM_CRYPTO_SIGN_SECRETKEYBYTES . '-byte Ed25519 secret key.'
+                sprintf(
+                    'Signer requires a base64-encoded %d-byte Ed25519 secret key.',
+                    (int) SODIUM_CRYPTO_SIGN_SECRETKEYBYTES
+                )
             );
         }
 

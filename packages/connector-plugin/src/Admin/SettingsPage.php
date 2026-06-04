@@ -55,13 +55,13 @@ final class SettingsPage
         echo '<h2>' . esc_html__('Connection', 'defyn-connector') . '</h2>';
 
         if ($current === 'awaiting-handshake') {
-            $secondsLeft = max(0, $expires - time());
+            $secondsLeft = (int) max(0, $expires - time());
             echo '<p><strong>' . esc_html__('Connection code:', 'defyn-connector') . '</strong></p>';
             echo '<p style="font-size:2rem;font-family:monospace;">' . esc_html($code) . '</p>';
             echo '<p>' . sprintf(
                 /* translators: %d: seconds remaining until the code expires */
                 esc_html__('Expires in %d seconds. Paste this code into the DefynWP Dashboard "Add Site" form.', 'defyn-connector'),
-                $secondsLeft
+                (int) $secondsLeft
             ) . '</p>';
 
             self::renderResetForm();
