@@ -59,6 +59,12 @@ final class RestRouter
             'callback'            => [new PluginsListController(), 'handle'],
             'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
         ]);
+
+        register_rest_route(self::NAMESPACE, '/plugins/refresh', [
+            'methods'             => 'POST',
+            'callback'            => [new PluginsRefreshController(), 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ]);
     }
 
     /**
