@@ -341,7 +341,7 @@ final class PluginsListTest extends WP_UnitTestCase
         $pubRaw  = sodium_crypto_sign_publickey($kp);
 
         $state = new ConnectorState();
-        $state->setState([
+        $state->update([
             'state'                => 'connected',
             'dashboard_public_key' => base64_encode($pubRaw),
             'connected_at'         => gmdate('c'),
@@ -485,7 +485,7 @@ final class PluginsRefreshTest extends WP_UnitTestCase
         $privRaw = sodium_crypto_sign_secretkey($kp);
         $pubRaw  = sodium_crypto_sign_publickey($kp);
 
-        (new ConnectorState())->setState([
+        (new ConnectorState())->update([
             'state'                => 'connected',
             'dashboard_public_key' => base64_encode($pubRaw),
             'connected_at'         => gmdate('c'),
@@ -666,7 +666,7 @@ final class PluginsCacheHeadersTest extends WP_UnitTestCase
         $privRaw = sodium_crypto_sign_secretkey($kp);
         $pubRaw  = sodium_crypto_sign_publickey($kp);
 
-        (new ConnectorState())->setState([
+        (new ConnectorState())->update([
             'state'                => 'connected',
             'dashboard_public_key' => base64_encode($pubRaw),
             'connected_at'         => gmdate('c'),
