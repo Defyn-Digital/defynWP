@@ -104,6 +104,51 @@ final class SitesRepositoryF6Test extends AbstractSchemaTestCase
         self::assertSame('2027-01-01 00:00:00', $row['ssl_expires_at']);
     }
 
+    /**
+     * Recovery contract: a successful sync after an error/offline state must
+     * clear `status` back to `active` and wipe `last_error`. Without this
+     * the SPA would display a stale error indefinitely even though syncs
+     * are succeeding. Found live on smartcoding.com.au (2026-06-04): site
+     * stuck at `status=error, last_error="Connector returned status 401"`
+     * after five consecutive successful syncs because WP.com Batcache had
+     * served a stale 401 once.
+     */
+    public function testMarkSyncedClearsErrorStateOnRecovery(): void
+    {
+        $id = $this->repo->insertPending(
+            userId: 1,
+            url: 'https://recover.test',
+            label: 'Recover',
+            ourPublicKey: base64_encode(random_bytes(32)),
+            ourPrivateKeyEncrypted: 'cipher',
+        );
+        $this->repo->markActive($id, base64_encode(random_bytes(32)));
+        $this->repo->markError($id, 'Connector returned status 401');
+
+        // Sanity: error state landed.
+        $errored = $this->repo->findById($id);
+        self::assertNotNull($errored);
+        self::assertSame('error', $errored->status);
+        self::assertSame('Connector returned status 401', $errored->lastError);
+
+        // Successful sync arrives.
+        $this->repo->markSynced($id, [
+            'wp_version'     => '7.0',
+            'php_version'    => '8.3.31',
+            'active_theme'   => ['name' => 'Smart Coding', 'version' => '1.0.29', 'parent' => null],
+            'plugin_counts'  => ['installed' => 21, 'active' => 20],
+            'theme_counts'   => ['installed' => 8, 'active' => 1],
+            'ssl_status'     => 'enabled',
+            'ssl_expires_at' => null,
+        ]);
+
+        $recovered = $this->repo->findById($id);
+        self::assertNotNull($recovered);
+        self::assertSame('active', $recovered->status, 'sync should clear error status');
+        self::assertSame('', $recovered->lastError ?? '', 'sync should clear last_error');
+        self::assertSame('7.0', $recovered->wpVersion);
+    }
+
     public function testMarkOfflineFlipsStatusAndRecordsError(): void
     {
         $id = $this->repo->insertPending(

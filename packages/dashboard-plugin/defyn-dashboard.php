@@ -3,7 +3,7 @@
  * Plugin Name:       DefynWP Dashboard
  * Plugin URI:        https://defyn.dev
  * Description:       Central dashboard for managing multiple WordPress sites — the backend brain.
- * Version:           0.1.0
+ * Version:           0.1.1
  * Requires at least: 5.5
  * Requires PHP:      8.1
  * Author:            DefynWP

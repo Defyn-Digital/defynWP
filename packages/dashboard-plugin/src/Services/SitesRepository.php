@@ -178,6 +178,13 @@ final class SitesRepository
         $wpdb->update(
             SitesTable::tableName(),
             [
+                // A successful /status pull proves the site is alive and the
+                // dashboard ↔ connector trust still works, so clear any prior
+                // error/offline state. Without this the SPA would show stale
+                // `status=error` + `last_error` forever after a single bad
+                // sync (e.g. transient 404/401 while WP.com Batcache warmed).
+                'status'          => 'active',
+                'last_error'      => '',
                 'wp_version'      => $info['wp_version'],
                 'php_version'     => $info['php_version'],
                 'active_theme'    => (string) wp_json_encode($info['active_theme']),
@@ -190,7 +197,7 @@ final class SitesRepository
                 'updated_at'      => $now,
             ],
             ['id' => $id],
-            ['%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s'],
+            ['%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s'],
             ['%d'],
         );
     }

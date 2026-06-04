@@ -36,6 +36,18 @@ final class RestRouter
         // defyn/v1 routes only, so the SPA always sees {error:{code,message}}.
         add_filter('rest_post_dispatch', [self::class, 'normalizeRouteNotFound'], 10, 3);
 
+        // Post-foundation: ensure no upstream cache (Kinsta full-page cache,
+        // Cloudflare edge, WP.com Batcache when the connector is hosted on
+        // Atomic) ever caches a defyn/v1 response. Caching produced the
+        // "Failed to fetch" + stale sites-list bugs found during the first
+        // live deploy: Kinsta's edge served a pre-handshake empty sites list
+        // for minutes after the first site connected, and WP.com Batcache
+        // served pre-handshake 404s on the connector's /status to the
+        // dashboard. Setting explicit no-store headers on every dashboard
+        // REST response is the cheapest defensive fix; the connector plugin
+        // gets the same treatment in its own RestRouter.
+        add_filter('rest_post_dispatch', [self::class, 'applyNoCacheHeaders'], 11, 3);
+
         register_rest_route(self::NAMESPACE, '/auth/login', [
             'methods'             => 'POST',
             'callback'            => [new AuthLoginController(), 'handle'],
@@ -196,6 +208,44 @@ final class RestRouter
                 ]);
             }
         }
+        return $response;
+    }
+
+    /**
+     * Forbid every upstream cache from storing defyn/v1 responses.
+     *
+     * Why this exists: REST API responses are *dynamic* (they depend on the
+     * authenticated user, the current site state, and recently-written DB
+     * rows). When Kinsta's edge cache or WP.com Batcache stores them they
+     * survive long after the underlying state changes — the SPA sees stale
+     * data and we see "Failed to fetch" when cached responses replay without
+     * CORS headers attached. Setting Cache-Control: no-store + private (and
+     * the legacy Pragma/Expires pair for older intermediaries) on every
+     * defyn/v1 response is the simplest cross-host-compatible fix.
+     *
+     * Sets headers on the WP_REST_Response object directly (rather than
+     * calling nocache_headers()) so the headers survive the response
+     * serialization path even if a downstream filter rebuilds it.
+     *
+     * @param \WP_REST_Response $response
+     * @param \WP_REST_Server   $server
+     * @param \WP_REST_Request  $request
+     * @return \WP_REST_Response
+     */
+    public static function applyNoCacheHeaders($response, $server, $request)
+    {
+        if (!$response instanceof \WP_REST_Response) {
+            return $response;
+        }
+        if (!$request instanceof \WP_REST_Request) {
+            return $response;
+        }
+        if (strpos($request->get_route(), '/' . self::NAMESPACE) !== 0) {
+            return $response;
+        }
+        $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+        $response->header('Pragma', 'no-cache');
+        $response->header('Expires', '0');
         return $response;
     }
 }
