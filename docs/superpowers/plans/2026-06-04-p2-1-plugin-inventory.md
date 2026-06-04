@@ -705,7 +705,12 @@ final class PluginsCacheHeadersTest extends WP_UnitTestCase
         $req->set_header('X-Defyn-Nonce',     $nonce);
         $req->set_header('X-Defyn-Signature', $sig);
 
+        // rest_do_request() calls WP_REST_Server::dispatch() directly, which
+        // skips the rest_post_dispatch filter pipeline that applyNoCacheHeaders
+        // is hooked on. Invoke the filter manually here to exercise the same
+        // code path production HTTP traffic uses via serve_request().
         $res = rest_do_request($req);
+        $res = apply_filters('rest_post_dispatch', $res, rest_get_server(), $req);
         return array_change_key_case($res->get_headers(), CASE_LOWER);
     }
 }
