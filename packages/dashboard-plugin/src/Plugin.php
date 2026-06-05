@@ -12,6 +12,7 @@ use Defyn\Dashboard\Jobs\RefreshSitePlugins;
 use Defyn\Dashboard\Jobs\Scheduler;
 use Defyn\Dashboard\Jobs\SyncAllSites;
 use Defyn\Dashboard\Jobs\SyncSite;
+use Defyn\Dashboard\Jobs\UpdateSitePlugin;
 use Defyn\Dashboard\Rest\RestRouter;
 
 /**
@@ -57,6 +58,13 @@ final class Plugin
         add_action('defyn_refresh_site_plugins', static function (int $siteId): void {
             (new RefreshSitePlugins())->handle($siteId);
         }, 10, 1);
+
+        // P2.2 — operator-triggered plugin update. Scheduled by
+        // SitesPluginsUpdateController; handler calls connector /plugins/{slug}/update
+        // with a 120s HTTP timeout, branches on success / 409 retry / failure.
+        add_action(UpdateSitePlugin::HOOK, static function (int $siteId, string $slug, int $attempt = 0): void {
+            (new UpdateSitePlugin())->handle($siteId, $slug, $attempt);
+        }, 10, 3);
 
         // F7 — fan-out + cleanup master jobs. Master jobs take no args
         // (accepted_args=0); they enumerate sites/codes internally and
