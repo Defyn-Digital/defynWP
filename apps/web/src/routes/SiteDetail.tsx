@@ -7,6 +7,7 @@ import { ApiError } from '@/lib/apiClient';
 import { SiteRuntimeInfo } from '@/components/sites/SiteRuntimeInfo';
 import { SiteActions } from '@/components/sites/SiteActions';
 import { SiteActivityPanel } from '@/components/sites/SiteActivityPanel';
+import { SitePluginsPanel } from '@/components/sites/SitePluginsPanel';
 
 export default function SiteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -17,7 +18,7 @@ export default function SiteDetail() {
     const apiErr = error as ApiError;
     if (apiErr.code === 'sites.not_found') {
       return (
-        <div className="min-h-screen p-8 max-w-xl mx-auto">
+        <div className="min-h-screen p-8 max-w-3xl mx-auto">
           <Card>
             <CardHeader>
               <CardTitle>Site not found</CardTitle>
@@ -32,7 +33,7 @@ export default function SiteDetail() {
       );
     }
     return (
-      <div className="min-h-screen p-8 max-w-xl mx-auto">
+      <div className="min-h-screen p-8 max-w-3xl mx-auto">
         <Alert><AlertDescription>{apiErr.message}</AlertDescription></Alert>
       </div>
     );
@@ -40,14 +41,14 @@ export default function SiteDetail() {
 
   if (isLoading || !data) {
     return (
-      <div className="min-h-screen p-8 max-w-xl mx-auto">
+      <div className="min-h-screen p-8 max-w-3xl mx-auto">
         <p className="text-sm text-zinc-500">Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-8 max-w-xl mx-auto">
+    <div className="min-h-screen p-8 max-w-3xl mx-auto">
       <Card>
         <CardHeader>
           <CardTitle>{data.label || data.url}</CardTitle>
