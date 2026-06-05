@@ -1508,7 +1508,7 @@ final class SyncPluginsService
             }
         }
 
-        $this->log->log($siteId, null, 'plugin_inventory.synced', [
+        $this->log->log(null, $siteId, 'plugin_inventory.synced', [
             'plugin_count'            => count($incoming),
             'updates_available_count' => $updatesAvailable,
             'source'                  => $source,
@@ -1705,7 +1705,7 @@ final class RefreshSitePlugins
         $response = $this->httpClient->signedPostJson($site, '/plugins/refresh', []);
 
         if (!($response['ok'] ?? false)) {
-            $this->log->log($siteId, null, 'plugin_inventory.sync_failed', [
+            $this->log->log(null, $siteId, 'plugin_inventory.sync_failed', [
                 'error'  => (string) ($response['errorMessage'] ?? 'unknown'),
                 'source' => 'refresh',
             ]);
@@ -1892,7 +1892,7 @@ Read the current `packages/dashboard-plugin/src/Jobs/SyncSite.php`. After the su
             $error = $code === 'rest.route_not_found'
                 ? 'connector_below_v0.1.3'
                 : (string) ($pluginsResponse['errorMessage'] ?? 'unknown');
-            $this->log->log($siteId, null, 'plugin_inventory.sync_failed', [
+            $this->log->log(null, $siteId, 'plugin_inventory.sync_failed', [
                 'error'  => $error,
                 'source' => 'background',
             ]);
@@ -2280,7 +2280,7 @@ final class SitesPluginsRefreshController
 
         as_schedule_single_action(time(), 'defyn_refresh_site_plugins', [$siteId], 'defyn');
 
-        (new ActivityLogger())->log($siteId, $userId, 'plugin_inventory.refresh_requested', null);
+        (new ActivityLogger())->log($userId, $siteId, 'plugin_inventory.refresh_requested', null);
 
         return new WP_REST_Response(['scheduled' => true, 'site_id' => $siteId], 202);
     }
