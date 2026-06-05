@@ -136,4 +136,105 @@ final class SitePluginsRepository
             throw $e;
         }
     }
+
+    /**
+     * P2.2 — fetch the raw row for a (site_id, slug) pair. Used by controller guards
+     * (e.g. PluginUpdateController) before queuing an update.
+     *
+     * @return array<string, string|null>|null
+     */
+    public function findRowForSiteAndSlug(int $siteId, string $slug): ?array
+    {
+        global $wpdb;
+        $table = SitePluginsTable::tableName();
+        $row   = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM {$table} WHERE site_id = %d AND slug = %s",
+                $siteId,
+                $slug
+            ),
+            ARRAY_A,
+        );
+        return $row ?: null;
+    }
+
+    /**
+     * P2.2 — transition update_state to 'queued', clear any prior error,
+     * stamp last_update_attempt_at. Called when an update is enqueued.
+     */
+    public function markUpdateRequested(int $siteId, string $slug, string $now): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            SitePluginsTable::tableName(),
+            [
+                'update_state'           => 'queued',
+                'last_update_error'      => null,
+                'last_update_attempt_at' => $now,
+                'updated_at'             => $now,
+            ],
+            ['site_id' => $siteId, 'slug' => $slug],
+            ['%s', '%s', '%s', '%s'],
+            ['%d', '%s'],
+        );
+    }
+
+    /**
+     * P2.2 — transition update_state to 'updating' as the AS job starts work.
+     */
+    public function markUpdating(int $siteId, string $slug, string $now): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            SitePluginsTable::tableName(),
+            ['update_state' => 'updating', 'updated_at' => $now],
+            ['site_id' => $siteId, 'slug' => $slug],
+            ['%s', '%s'],
+            ['%d', '%s'],
+        );
+    }
+
+    /**
+     * P2.2 — successful update: clear the badge, bump version, drop any
+     * lingering error, and return state to 'idle'.
+     */
+    public function markUpdateSucceeded(int $siteId, string $slug, string $newVersion, string $now): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            SitePluginsTable::tableName(),
+            [
+                'update_state'      => 'idle',
+                'version'           => $newVersion,
+                'update_available'  => 0,
+                'update_version'    => null,
+                'last_update_error' => null,
+                'updated_at'        => $now,
+            ],
+            ['site_id' => $siteId, 'slug' => $slug],
+            ['%s', '%s', '%d', '%s', '%s', '%s'],
+            ['%d', '%s'],
+        );
+    }
+
+    /**
+     * P2.2 — failed update: record truncated error (max 1000 chars per spec),
+     * keep version untouched, set state to 'failed'.
+     */
+    public function markUpdateFailed(int $siteId, string $slug, string $errorMessage, string $now): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            SitePluginsTable::tableName(),
+            [
+                'update_state'           => 'failed',
+                'last_update_error'      => substr($errorMessage, 0, 1000),
+                'last_update_attempt_at' => $now,
+                'updated_at'             => $now,
+            ],
+            ['site_id' => $siteId, 'slug' => $slug],
+            ['%s', '%s', '%s', '%s'],
+            ['%d', '%s'],
+        );
+    }
 }
