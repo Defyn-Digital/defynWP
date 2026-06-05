@@ -135,6 +135,18 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'pluginsRefresh'],
         ]);
 
+        // P2.2 — per-plugin update trigger. Same auth-chain pattern as the
+        // refresh route above; RateLimit::pluginsUpdate adds a per-(user, site,
+        // slug) 6/hour throttle on top of RequireAuth::check. The slug regex is
+        // intentionally narrower than the connector's accepts-anything route —
+        // dashboard-side defense-in-depth so a malformed slug 404s at the route
+        // layer instead of reaching the controller's inventory lookup.
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/plugins/(?P<slug>[a-z0-9-]{1,80})/update', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesPluginsUpdateController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'pluginsUpdate'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],
