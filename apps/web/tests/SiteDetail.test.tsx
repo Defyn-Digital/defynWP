@@ -156,9 +156,12 @@ describe('SiteDetail runtime info', () => {
     renderAt(1);
 
     expect(await screen.findByText(/6\.8\.0/)).toBeInTheDocument();
-    expect(screen.queryByText(/Active theme/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Plugins/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/SSL/i)).not.toBeInTheDocument();
+    // Scope each negative assertion to SiteRuntimeInfo's <dt> rows. Page-wide
+    // queryByText also matches the SitePluginsPanel heading ("Plugins") and any
+    // other "SSL" / "Active theme" text added after this test was written.
+    expect(screen.queryByText('Active theme', { selector: 'dt' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Plugins', { selector: 'dt' })).not.toBeInTheDocument();
+    expect(screen.queryByText('SSL', { selector: 'dt' })).not.toBeInTheDocument();
   });
 });
 
@@ -187,7 +190,8 @@ describe('SiteDetail actions', () => {
 
   it('shows Refresh, Ping, and Disconnect buttons on an active site', async () => {
     renderAt(1);
-    expect(await screen.findByRole('button', { name: /Refresh/i })).toBeInTheDocument();
+    // Exact match — SitePluginsPanel adds its own "Refresh plugins" button.
+    expect(await screen.findByRole('button', { name: /^Refresh$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Ping/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Disconnect/i })).toBeInTheDocument();
   });
@@ -195,7 +199,7 @@ describe('SiteDetail actions', () => {
   it('clicking Refresh transitions the button to syncing state', async () => {
     const user = userEvent.setup();
     renderAt(1);
-    const button = await screen.findByRole('button', { name: /Refresh/i });
+    const button = await screen.findByRole('button', { name: /^Refresh$/i });
     await user.click(button);
     expect(await screen.findByRole('button', { name: /Syncing/i })).toBeInTheDocument();
   });

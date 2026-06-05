@@ -45,7 +45,7 @@ export function SitePluginsPanel({ siteId }: Props) {
             size="sm"
             onClick={() => refresh()}
             disabled={isRefreshing}
-            aria-label="Refresh"
+            aria-label="Refresh plugins"
           >
             <RefreshCw className={isRefreshing ? 'animate-spin' : ''} size={14} />
           </Button>

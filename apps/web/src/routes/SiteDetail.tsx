@@ -74,6 +74,8 @@ export default function SiteDetail() {
 
           {data.status !== 'pending' && <SiteActivityPanel site={data} />}
 
+          {data.status !== 'pending' && <SitePluginsPanel siteId={siteId} />}
+
           <Button asChild variant="outline">
             <Link to="/sites">Back to sites</Link>
           </Button>
