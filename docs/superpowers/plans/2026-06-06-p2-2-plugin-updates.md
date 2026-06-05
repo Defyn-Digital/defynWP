@@ -29,6 +29,46 @@
 - **`SignedHttpClient::signedPostJson` shape:** `(string $url, array $body, string $privateKeyBase64, string $canonicalPath, int $timeoutSeconds = 30): array` returning `['status' => int, 'body' => array, 'error' => string]`. Use Vault decryption + URL building + branch on `error` then `status` (pattern from `SyncService`). (Plan-bug lesson from P2.1 Task 8 — caught + fixed inline.)
 - **wp-phpunit `hello.php` fixture quirk:** the only plugin shipped with the wp-phpunit harness is `hello.php` and it is a **single-file plugin**, so `get_plugins()` returns the key `'hello.php'` — NOT `'hello/hello.php'`. Its `Version` header is currently `1.7.2` (not `1.6.2`). When seeding the `update_plugins` site transient in connector tests (Tasks 3, 4, 5), use slug `'hello.php'` and key `'hello.php'`, and assert `previous_version === '1.7.2'`. The production route regex `^[a-z0-9-]{1,80}$` excludes `.` so single-file plugins never reach the controller in real traffic — the fixture quirk is contained to PHPUnit tests. The `strtok($file, '/')` algorithm in `PluginUpgraderService` handles both shapes identically. (Plan-bug lesson from P2.2 Task 2 — caught + fixed inline in `0d9d445`.)
 
+### wp-phpunit gotchas for connector REST integration tests (Tasks 3, 4, 5)
+
+Caught by P2.2 Task 3 implementer (commit `67c91cb`). Document inline because Tasks 4 + 5 reuse the same scaffolding:
+
+1. **`add_filter('all_plugins', …)` IS A DEAD END.** `get_plugins()` short-circuits on `wp_cache_get('plugins', 'plugins')` and never applies an `all_plugins` filter (that hook name is misleading — nothing fires it). To inject a synthetic plugin into `get_plugins()` in tests, populate the plugin object cache directly:
+
+    ```php
+    wp_cache_set('plugins', ['' => [
+        'fake-plugin/fake-plugin.php' => [
+            'Name' => 'Fake', 'Version' => '1.0.0', 'PluginURI' => '',
+            'AuthorURI' => '', 'Description' => '', 'Author' => '',
+            'Title' => 'Fake', 'AuthorName' => '',
+        ],
+    ]], 'plugins');
+    ```
+
+    The outer `['' => [...]]` shape matches what `get_plugins()` stores (subdirectory keyed by `$plugin_folder`; empty string = scan root).
+
+2. **`get_plugin_data()` reads from disk via `file_get_contents()`** — it bypasses the cache. The post-upgrade re-read in `PluginUpgraderService::upgrade()` calls `get_plugin_data(WP_PLUGIN_DIR . '/' . $pluginFile, …)`, so any test exercising the success path MUST also write a real stub file at `WP_PLUGIN_DIR/{slug}/{slug}.php` (and clean it up in tearDown). Minimal stub:
+
+    ```php
+    $dir = WP_PLUGIN_DIR . '/fake-plugin';
+    @mkdir($dir, 0777, true);
+    file_put_contents($dir . '/fake-plugin.php', "<?php\n/**\n * Plugin Name: Fake\n * Version: 1.0.0\n */");
+    // tearDown: unlink + rmdir + wp_cache_delete('plugins', 'plugins')
+    ```
+
+3. **REST routes must register on the `rest_api_init` action**, not directly in `setUp()`. wp-phpunit will assert with "REST API routes must be registered on the `rest_api_init` action" otherwise. Wrap registration:
+
+    ```php
+    add_action('rest_api_init', static function () use ($controller) {
+        register_rest_route('defyn-connector/v1', '/plugins/(?P<slug>[a-z0-9-]{1,80})/update', [...]);
+    });
+    do_action('rest_api_init');
+    ```
+
+    Match the pattern already used by `HeartbeatTest.php` and `PluginsRefreshTest.php`.
+
+4. **WP's route regex is case-insensitive (`@^…$@i`)**, so a slug like `INVALID` matches `[a-z0-9-]` and reaches the controller (which then fails with `unknown_slug` after `get_plugins()` lookup, not the desired router-level rejection). To exercise the route-level rejection in `testInvalidSlugReturns404FromRouter`, use a character that's genuinely outside the class — `under_score` (underscore) or `dot.test` (period). **Production implication for Task 5:** an operator sending `MY-PLUGIN` will hit the controller and resolve via case-sensitive `get_plugins()`, getting `unknown_slug` 404 rather than a router 404 — acceptable behavior, just not what the regex initially suggests.
+
 ---
 
 ## File structure overview
