@@ -29,12 +29,16 @@ final class SitePluginsTable implements SchemaTable
             version VARCHAR(40) NULL,
             update_available TINYINT(1) NOT NULL DEFAULT 0,
             update_version VARCHAR(40) NULL,
+            update_state ENUM('idle','queued','updating','failed') NOT NULL DEFAULT 'idle',
+            last_update_error TEXT NULL,
+            last_update_attempt_at DATETIME NULL,
             last_seen_at DATETIME NOT NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
             UNIQUE KEY site_slug (site_id, slug),
             KEY update_available (update_available),
+            KEY update_state (update_state),
             KEY site_id (site_id)
         ) {$charset};";
     }

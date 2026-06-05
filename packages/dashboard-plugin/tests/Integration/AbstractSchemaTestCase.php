@@ -90,4 +90,46 @@ abstract class AbstractSchemaTestCase extends WP_UnitTestCase
             dbDelta(\Defyn\Dashboard\Schema\SitePluginsTable::createSql());
         }
     }
+
+    /**
+     * Return DESCRIBE output keyed by column name.
+     *
+     * Each value is the raw row returned by `DESCRIBE <table>`, with keys
+     * `Field`, `Type`, `Null`, `Key`, `Default`, `Extra`.
+     *
+     * @return array<string, array<string, string|null>>
+     */
+    protected function describeTable(string $table): array
+    {
+        global $wpdb;
+
+        // phpcs:ignore WordPress.DB.PreparedSQL — table name cannot be parameterized.
+        $rows = $wpdb->get_results("DESCRIBE `{$table}`", ARRAY_A);
+        $out  = [];
+        foreach ($rows ?: [] as $row) {
+            $out[$row['Field']] = $row;
+        }
+        return $out;
+    }
+
+    /**
+     * Assert that the given table carries an index with the given Key_name.
+     *
+     * Uses SHOW INDEX FROM; works for both regular and TEMPORARY tables.
+     */
+    protected function assertHasIndex(string $table, string $indexName): void
+    {
+        global $wpdb;
+
+        // phpcs:ignore WordPress.DB.PreparedSQL — table name cannot be parameterized; index name is parameterized via prepare().
+        $rows = $wpdb->get_results(
+            $wpdb->prepare("SHOW INDEX FROM `{$table}` WHERE Key_name = %s", $indexName),
+            ARRAY_A
+        );
+
+        self::assertNotEmpty(
+            $rows,
+            "Expected index `{$indexName}` on `{$table}`"
+        );
+    }
 }

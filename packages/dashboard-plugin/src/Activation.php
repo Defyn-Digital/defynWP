@@ -20,7 +20,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 2;
+    public const SCHEMA_VERSION = 3;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
