@@ -126,6 +126,15 @@ final class RestRouter
             'permission_callback' => [RequireAuth::class, 'check'],
         ]);
 
+        // P2.1 — operator-triggered refresh. RateLimit::pluginsRefresh chains
+        // RequireAuth::check internally (so no separate auth permission_callback)
+        // and adds a per-(user, site) 6/min throttle on top.
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/plugins/refresh', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesPluginsRefreshController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'pluginsRefresh'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],
