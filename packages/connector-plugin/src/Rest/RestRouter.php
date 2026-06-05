@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Defyn\Connector\Rest;
 
+use Defyn\Connector\Rest\PluginUpdateController;
+
 /**
  * Single registration point for every REST route on the connector.
  *
@@ -63,6 +65,12 @@ final class RestRouter
         register_rest_route(self::NAMESPACE, '/plugins/refresh', [
             'methods'             => 'POST',
             'callback'            => [new PluginsRefreshController(), 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/plugins/(?P<slug>[a-z0-9-]{1,80})/update', [
+            'methods'             => 'POST',
+            'callback'            => [new PluginUpdateController(), 'handle'],
             'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
         ]);
     }
