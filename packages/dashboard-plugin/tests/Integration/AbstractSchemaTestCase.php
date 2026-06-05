@@ -81,5 +81,13 @@ abstract class AbstractSchemaTestCase extends WP_UnitTestCase
         delete_option(Activation::SCHEMA_OPTION);
 
         Activation::activate();
+
+        // P2.1: SitePluginsTable joins Activation::TABLES in Task 12. Until then,
+        // create it directly so tests using freshlyActivate('defyn_site_plugins') work.
+        // After Task 12 this becomes harmless (dbDelta is idempotent).
+        if ($unprefixedTableName === 'defyn_site_plugins') {
+            require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+            dbDelta(\Defyn\Dashboard\Schema\SitePluginsTable::createSql());
+        }
     }
 }
