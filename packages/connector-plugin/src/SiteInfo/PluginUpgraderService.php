@@ -67,16 +67,13 @@ final class PluginUpgraderService
             throw new UpgradeFailedException((string) $result->get_error_message());
         }
 
-        // Re-read the version after the upgrade. In production this picks up the
+        // Re-read the version after the upgrade. We use get_plugin_data() to parse
+        // just the one plugin's header instead of rescanning every plugin in
+        // wp-content/plugins/ via get_plugins(). In production this picks up the
         // new version from disk; under test the stub doesn't actually swap files,
         // so we'll see the same version back.
-        $newVersion = $previousVersion;
-        foreach (get_plugins() as $file => $data) {
-            if ($file === $pluginFile) {
-                $newVersion = (string) ($data['Version'] ?? $previousVersion);
-                break;
-            }
-        }
+        $pluginData = get_plugin_data(WP_PLUGIN_DIR . '/' . $pluginFile, false, false);
+        $newVersion = (string) ($pluginData['Version'] ?? $previousVersion);
 
         return [
             'success'          => true,
