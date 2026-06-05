@@ -30,6 +30,16 @@ final class RateLimit
     public const PLUGINS_REFRESH_LIMIT  = 6;
     public const PLUGINS_REFRESH_WINDOW = 60;
 
+    // P2.2 — per-plugin update button on SitePluginsPanel. Bucket is per
+    // (userId, siteId, slug) because a single user might legitimately fan out
+    // updates across many plugins on one site in quick succession; bucketing by
+    // (userId, siteId) alone would let a 6-plugin batch lock out the 7th. The
+    // hour-long window matches the update workflow's natural cadence — heavier
+    // than a refresh (real download + write + activation hook), one-shot per
+    // plugin rather than a poll loop.
+    public const PLUGINS_UPDATE_LIMIT  = 6;
+    public const PLUGINS_UPDATE_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -85,6 +95,46 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::PLUGINS_REFRESH_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /sites/{id}/plugins/{slug}/update.
+     *
+     * Same auth-chain pattern as pluginsRefresh — RequireAuth::check first so
+     * the bucket key has a real userId. Bucket adds the plugin slug (hashed —
+     * slugs can contain characters that are unfriendly to transient option
+     * names) so concurrent updates of different plugins on the same site don't
+     * starve each other within the hour window.
+     *
+     * On rate-limit, returns plugins.rate_limited (same code as the refresh
+     * limiter — both surface as the same toast in the SPA) with status 429.
+     *
+     * @return true|WP_Error
+     */
+    public static function pluginsUpdate(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+        $slug   = (string) $request['slug'];
+
+        $key   = sprintf('defyn_rl_pluginsUpdate_%d_%d_%s', $userId, $siteId, md5($slug));
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::PLUGINS_UPDATE_LIMIT) {
+            return new WP_Error(
+                'plugins.rate_limited',
+                'Too many update requests for this plugin. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::PLUGINS_UPDATE_WINDOW);
         return true;
     }
 
