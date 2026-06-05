@@ -41,6 +41,7 @@ export const handlers = [
 ];
 
 import type { ActivityEvent, Site } from '@/types/api';
+import type { Plugin } from '@/types/api/plugins';
 
 // In-memory site store for MSW — tests can manipulate this directly between requests.
 export const mockSites: Site[] = [];
@@ -286,3 +287,39 @@ export function seedMockSitesAllStatuses(): void {
     },
   );
 }
+
+// === P2.1 plugin inventory ===
+// In-memory plugin store, keyed by siteId. Tests can read/write directly.
+export const mockSitePlugins: Record<number, { plugins: Plugin[]; last_synced_at: string | null }> = {};
+
+export function resetMockSitePlugins(): void {
+  for (const key of Object.keys(mockSitePlugins)) {
+    delete mockSitePlugins[Number(key)];
+  }
+}
+
+handlers.push(
+  http.get('*/wp-json/defyn/v1/sites/:id/plugins', ({ params }) => {
+    const siteId = Number(params.id);
+    const bucket = mockSitePlugins[siteId] ?? { plugins: [], last_synced_at: null };
+    return HttpResponse.json(
+      {
+        plugins: bucket.plugins,
+        total: bucket.plugins.length,
+        last_synced_at: bucket.last_synced_at,
+      },
+      { status: 200 },
+    );
+  }),
+
+  http.post('*/wp-json/defyn/v1/sites/:id/plugins/refresh', ({ params }) => {
+    const siteId = Number(params.id);
+    // Test default: bump last_synced_at on the in-memory store after a short delay,
+    // so the useRefreshSitePlugins polling test (Task 15) can observe the advance.
+    setTimeout(() => {
+      const bucket = mockSitePlugins[siteId] ?? { plugins: [], last_synced_at: null };
+      mockSitePlugins[siteId] = { ...bucket, last_synced_at: new Date().toISOString() };
+    }, 20);
+    return HttpResponse.json({ scheduled: true, site_id: siteId }, { status: 202 });
+  }),
+);
