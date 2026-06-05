@@ -65,11 +65,11 @@ final class SignedHttpClient
      *
      * @return array{status: int, body: array<string, mixed>, error: string}
      */
-    public function signedGet(string $url, string $privateKeyBase64, string $canonicalPath): array
+    public function signedGet(string $url, string $privateKeyBase64, string $canonicalPath, int $timeoutSeconds = 30): array
     {
         $signer  = new Signer($privateKeyBase64);
         $headers = $signer->signRequest('GET', $canonicalPath, '');
-        return $this->sendSigned('GET', $url, null, $headers);
+        return $this->sendSigned('GET', $url, null, $headers, $timeoutSeconds);
     }
 
     /**
@@ -94,7 +94,7 @@ final class SignedHttpClient
      * @param array<string, mixed> $body
      * @return array{status: int, body: array<string, mixed>, error: string}
      */
-    public function signedPostJson(string $url, array $body, string $privateKeyBase64, string $canonicalPath): array
+    public function signedPostJson(string $url, array $body, string $privateKeyBase64, string $canonicalPath, int $timeoutSeconds = 30): array
     {
         // Empty input → no wire body, sign over "". Non-empty → encode once
         // and sign + send the encoded bytes (Content-Type still application/json).
@@ -115,7 +115,7 @@ final class SignedHttpClient
             ['Content-Type' => 'application/json'],
             $signer->signRequest('POST', $canonicalPath, $serialized)
         );
-        return $this->sendSigned('POST', $url, $wireBody, $headers);
+        return $this->sendSigned('POST', $url, $wireBody, $headers, $timeoutSeconds);
     }
 
     /**
@@ -123,14 +123,14 @@ final class SignedHttpClient
      * @param array<string, string> $headers
      * @return array{status: int, body: array<string, mixed>, error: string}
      */
-    private function sendSigned(string $method, string $url, ?string $body, array $headers): array
+    private function sendSigned(string $method, string $url, ?string $body, array $headers, int $timeoutSeconds = 30): array
     {
         $client = $this->httpClient ?? HttpClient::create([
             'timeout'      => 10,
             'max_duration' => 30,
         ]);
 
-        $options = ['headers' => $headers];
+        $options = ['headers' => $headers, 'timeout' => $timeoutSeconds];
         if ($body !== null) {
             $options['body'] = $body;
         }
