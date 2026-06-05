@@ -883,12 +883,36 @@ final class SitePluginsTableTest extends AbstractSchemaTestCase
 }
 ```
 
-Inspect `packages/dashboard-plugin/tests/Integration/AbstractSchemaTestCase.php` and extend its `freshlyActivate($key)` switch with:
+**Extend `AbstractSchemaTestCase::freshlyActivate`** with a transitional dbDelta for `defyn_site_plugins`. The existing method just drops the named table + reruns `Activation::activate()` — but `SitePluginsTable` isn't in `Activation::TABLES` until Task 12. Add an `if` branch so the table is created directly during the transitional period. Modify `packages/dashboard-plugin/tests/Integration/AbstractSchemaTestCase.php` — current method (lines 75-84):
 
 ```php
-            case 'defyn_site_plugins':
-                $sql = \Defyn\Dashboard\Schema\SitePluginsTable::createSql();
-                break;
+protected function freshlyActivate(string $unprefixedTableName): void
+{
+    global $wpdb;
+    $wpdb->query("DROP TABLE IF EXISTS `{$wpdb->prefix}{$unprefixedTableName}`");
+    delete_option(Activation::SCHEMA_OPTION);
+    Activation::activate();
+}
+```
+
+Becomes:
+
+```php
+protected function freshlyActivate(string $unprefixedTableName): void
+{
+    global $wpdb;
+    $wpdb->query("DROP TABLE IF EXISTS `{$wpdb->prefix}{$unprefixedTableName}`");
+    delete_option(Activation::SCHEMA_OPTION);
+    Activation::activate();
+
+    // P2.1: SitePluginsTable joins Activation::TABLES in Task 12. Until then,
+    // create it directly so tests using freshlyActivate('defyn_site_plugins') work.
+    // After Task 12 this becomes harmless (dbDelta is idempotent).
+    if ($unprefixedTableName === 'defyn_site_plugins') {
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        dbDelta(\Defyn\Dashboard\Schema\SitePluginsTable::createSql());
+    }
+}
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -915,10 +939,14 @@ namespace Defyn\Dashboard\Schema;
  * P2.1 — drives idempotent dashboard schema migrations.
  *
  * Foundation (F1-F10) implicitly = version 1. P2.1 bumps to 2.
+ *
+ * Reuses the existing Activation::SCHEMA_OPTION literal so Activation
+ * and SchemaVersion read/write the same option — one source of truth.
  */
 final class SchemaVersion
 {
-    public const OPTION = 'defyn_schema_version';
+    /** Same literal as Activation::SCHEMA_OPTION (one option, two callers). */
+    public const OPTION = 'defyn_dashboard_schema_version';
 
     public static function current(): int
     {
