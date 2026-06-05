@@ -120,6 +120,12 @@ final class RestRouter
             'permission_callback' => [RequireAuth::class, 'check'],
         ]);
 
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/plugins', [
+            'methods'             => 'GET',
+            'callback'            => [new SitesPluginsListController(), 'handle'],
+            'permission_callback' => [RequireAuth::class, 'check'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],
