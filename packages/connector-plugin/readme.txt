@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 5.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.1.3
+Stable tag: 0.1.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -39,6 +39,9 @@ No. It only responds to signed requests from the specific DefynWP Dashboard inst
 The plugin's stored state (including the Ed25519 keypair) is removed from `wp_options` via `uninstall.php`.
 
 == Changelog ==
+
+= 0.1.4 =
+* Feature: new POST /plugins/{slug}/update signed endpoint runs Plugin_Upgrader for the requested plugin and returns the new version. Per-site transient lock prevents concurrent upgrades on the same install (P2.2).
 
 = 0.1.3 =
 * Feature: new `/plugins` (GET) and `/plugins/refresh` (POST) signed endpoints expose the site's plugin inventory + update-available flags. Lays the read foundation for dashboard-driven plugin management (P2.1).
