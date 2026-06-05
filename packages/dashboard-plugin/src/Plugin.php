@@ -8,6 +8,7 @@ use Defyn\Dashboard\Jobs\CleanupExpiredCodes;
 use Defyn\Dashboard\Jobs\CompleteConnection;
 use Defyn\Dashboard\Jobs\HealthPing;
 use Defyn\Dashboard\Jobs\HealthPingAll;
+use Defyn\Dashboard\Jobs\RefreshSitePlugins;
 use Defyn\Dashboard\Jobs\Scheduler;
 use Defyn\Dashboard\Jobs\SyncAllSites;
 use Defyn\Dashboard\Jobs\SyncSite;
@@ -48,6 +49,13 @@ final class Plugin
 
         add_action(HealthPing::HOOK, static function (int $siteId): void {
             (new HealthPing())->handle($siteId);
+        }, 10, 1);
+
+        // P2.1 — operator-triggered plugin inventory refresh. Scheduled by
+        // SitesPluginsRefreshController; handler hits connector /plugins/refresh
+        // then delta-syncs via SyncPluginsService.
+        add_action('defyn_refresh_site_plugins', static function (int $siteId): void {
+            (new RefreshSitePlugins())->handle($siteId);
         }, 10, 1);
 
         // F7 — fan-out + cleanup master jobs. Master jobs take no args

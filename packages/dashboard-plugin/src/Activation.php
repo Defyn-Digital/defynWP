@@ -8,6 +8,8 @@ use Defyn\Dashboard\Jobs\Scheduler;
 use Defyn\Dashboard\Schema\ActivityLogTable;
 use Defyn\Dashboard\Schema\ConnectionCodesTable;
 use Defyn\Dashboard\Schema\SchemaTable;
+use Defyn\Dashboard\Schema\SchemaVersion;
+use Defyn\Dashboard\Schema\SitePluginsTable;
 use Defyn\Dashboard\Schema\SitesTable;
 
 /**
@@ -18,7 +20,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 1;
+    public const SCHEMA_VERSION = 2;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -30,6 +32,7 @@ final class Activation
         SitesTable::class,
         ConnectionCodesTable::class,
         ActivityLogTable::class,
+        SitePluginsTable::class,
     ];
 
     public static function activate(): void
@@ -40,7 +43,10 @@ final class Activation
             dbDelta($table::createSql());
         }
 
-        update_option(self::SCHEMA_OPTION, self::SCHEMA_VERSION);
+        // P2.1: SchemaVersion is the canonical migration cursor; we coalesce with
+        // any in-DB value via max() so a future install starting at v3 isn't
+        // silently downgraded if an older copy of this code re-runs activate.
+        SchemaVersion::set(max(SchemaVersion::current(), self::SCHEMA_VERSION));
 
         // F7 — install recurring AS schedules (fan-out + cleanup). Runs AFTER
         // schema setup so the AS tables (provided by WC AS) are guaranteed to
