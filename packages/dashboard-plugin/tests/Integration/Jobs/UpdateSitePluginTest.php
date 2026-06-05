@@ -132,4 +132,84 @@ final class UpdateSitePluginTest extends AbstractSchemaTestCase
         $types = array_column($rows, 'event_type');
         self::assertSame(['plugin_update.started', 'plugin_update.succeeded'], $types);
     }
+
+    public function testInProgress409ReschedulesWithExponentialBackoff(): void
+    {
+        $siteId = $this->makeActiveSite();
+        $this->seedAkismetRow($siteId);
+
+        $body    = (string) json_encode(['error' => ['code' => 'plugins.update_in_progress', 'message' => 'busy']]);
+        $factory = fn () => new MockResponse($body, [
+            'http_code'        => 409,
+            'response_headers' => ['content-type: application/json'],
+        ]);
+        $job = new UpdateSitePlugin(
+            new SitesRepository(),
+            new SitePluginsRepository(),
+            new SignedHttpClient(new MockHttpClient($factory)),
+            new ActivityLogger(),
+            new Vault(DEFYN_VAULT_KEY),
+        );
+
+        $scheduled = [];
+        \add_filter('pre_as_schedule_single_action', function ($pre, $when, $hook, $args) use (&$scheduled) {
+            $scheduled[] = ['when' => $when, 'hook' => $hook, 'args' => $args];
+            return 999; // pretend AS returned an action ID
+        }, 10, 4);
+
+        $job->handle($siteId, 'akismet', 0);
+        $job->handle($siteId, 'akismet', 1);
+        $job->handle($siteId, 'akismet', 2);
+
+        self::assertCount(3, $scheduled);
+
+        // Backoff: 60, 120, 240 seconds from now
+        $now = time();
+        self::assertEqualsWithDelta($now + 60, $scheduled[0]['when'], 5);
+        self::assertEqualsWithDelta($now + 120, $scheduled[1]['when'], 5);
+        self::assertEqualsWithDelta($now + 240, $scheduled[2]['when'], 5);
+
+        // Each schedule increments the attempt arg
+        self::assertSame([$siteId, 'akismet', 1], $scheduled[0]['args']);
+        self::assertSame([$siteId, 'akismet', 2], $scheduled[1]['args']);
+        self::assertSame([$siteId, 'akismet', 3], $scheduled[2]['args']);
+
+        // Row stays in 'updating' across retries (don't flip to failed yet)
+        $row = (new SitePluginsRepository())->findRowForSiteAndSlug($siteId, 'akismet');
+        self::assertSame('updating', $row['update_state']);
+
+        // plugin_update.retry events logged
+        global $wpdb;
+        $count = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM " . ActivityLogTable::tableName() .
+            " WHERE event_type = 'plugin_update.retry'"
+        );
+        self::assertSame(3, $count);
+    }
+
+    public function testFifthRetryMarksFailed(): void
+    {
+        $siteId = $this->makeActiveSite();
+        $this->seedAkismetRow($siteId);
+
+        $body    = (string) json_encode(['error' => ['code' => 'plugins.update_in_progress', 'message' => 'busy']]);
+        $factory = fn () => new MockResponse($body, [
+            'http_code'        => 409,
+            'response_headers' => ['content-type: application/json'],
+        ]);
+        $job = new UpdateSitePlugin(
+            new SitesRepository(),
+            new SitePluginsRepository(),
+            new SignedHttpClient(new MockHttpClient($factory)),
+            new ActivityLogger(),
+            new Vault(DEFYN_VAULT_KEY),
+        );
+
+        // attempt = 5 means we've exhausted retries
+        $job->handle($siteId, 'akismet', 5);
+
+        $row = (new SitePluginsRepository())->findRowForSiteAndSlug($siteId, 'akismet');
+        self::assertSame('failed', $row['update_state']);
+        self::assertStringContainsString('busy after 5 retries', $row['last_update_error']);
+    }
 }

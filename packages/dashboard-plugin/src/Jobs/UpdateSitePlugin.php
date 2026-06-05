@@ -95,8 +95,40 @@ final class UpdateSitePlugin
             return;
         }
 
-        // Generic failure fallback for Task 10. Tasks 11 (409 retry) + 12
-        // (non-409 branched error messages) replace this with proper handling.
+        // 409 + plugins.update_in_progress → exponential backoff retry (up to 5).
+        // Spec § 6.3: 60s, 120s, 240s, 480s, 960s — ~32 min total budget.
+        if (
+            $response['status'] === 409
+            && ($response['body']['error']['code'] ?? '') === 'plugins.update_in_progress'
+        ) {
+            if ($attempt >= 5) {
+                $this->repo->markUpdateFailed(
+                    $siteId,
+                    $slug,
+                    'Site is busy after 5 retries.',
+                    $now,
+                );
+                $this->log->log(null, $siteId, 'plugin_update.failed', [
+                    'slug'              => $slug,
+                    'error_message'     => 'Site is busy after 5 retries.',
+                    'attempted_version' => $row['update_version'] ?? null,
+                ]);
+                return;
+            }
+
+            $delay   = 60 * (2 ** $attempt); // 60, 120, 240, 480, 960
+            $nextRun = time() + $delay;
+            \as_schedule_single_action($nextRun, self::HOOK, [$siteId, $slug, $attempt + 1]);
+            $this->log->log(null, $siteId, 'plugin_update.retry', [
+                'slug'        => $slug,
+                'attempt'     => $attempt,
+                'next_run_at' => gmdate('Y-m-d H:i:s', $nextRun),
+            ]);
+            return;
+        }
+
+        // Generic failure fallback for Task 10/11. Task 12 (non-409 branched
+        // error messages) will replace this with proper handling.
         $errorMessage = sprintf('Connector returned HTTP %d.', $response['status']);
         $this->repo->markUpdateFailed($siteId, $slug, $errorMessage, $now);
         $this->log->log(null, $siteId, 'plugin_update.failed', [
