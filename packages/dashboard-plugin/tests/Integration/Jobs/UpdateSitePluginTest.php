@@ -212,4 +212,64 @@ final class UpdateSitePluginTest extends AbstractSchemaTestCase
         self::assertSame('failed', $row['update_state']);
         self::assertStringContainsString('busy after 5 retries', $row['last_update_error']);
     }
+
+    public function testTransportErrorMarksFailed(): void
+    {
+        $siteId = $this->makeActiveSite();
+        $this->seedAkismetRow($siteId);
+
+        // MockHttpClient with a factory closure that throws TransportException →
+        // SignedHttpClient catches and returns ['status' => 0, 'error' => '<msg>'].
+        $factory = fn () => throw new \Symfony\Component\HttpClient\Exception\TransportException('Connection refused');
+        $job = new UpdateSitePlugin(
+            new SitesRepository(),
+            new SitePluginsRepository(),
+            new SignedHttpClient(new MockHttpClient($factory)),
+            new ActivityLogger(),
+            new Vault(DEFYN_VAULT_KEY),
+        );
+
+        $job->handle($siteId, 'akismet', 0);
+
+        $row = (new SitePluginsRepository())->findRowForSiteAndSlug($siteId, 'akismet');
+        self::assertSame('failed', $row['update_state']);
+        self::assertStringContainsString('Connection refused', $row['last_update_error']);
+    }
+
+    public function testUpgradeFailedFromConnectorMarksFailed(): void
+    {
+        $siteId = $this->makeActiveSite();
+        $this->seedAkismetRow($siteId);
+
+        $body    = (string) json_encode([
+            'error' => [
+                'code'    => 'plugins.update_failed',
+                'message' => 'Could not copy file. /wp-content/upgrade/akismet/akismet.php',
+            ],
+        ]);
+        $factory = fn () => new MockResponse($body, [
+            'http_code'        => 502,
+            'response_headers' => ['content-type: application/json'],
+        ]);
+        $job = new UpdateSitePlugin(
+            new SitesRepository(),
+            new SitePluginsRepository(),
+            new SignedHttpClient(new MockHttpClient($factory)),
+            new ActivityLogger(),
+            new Vault(DEFYN_VAULT_KEY),
+        );
+
+        $job->handle($siteId, 'akismet', 0);
+
+        $row = (new SitePluginsRepository())->findRowForSiteAndSlug($siteId, 'akismet');
+        self::assertSame('failed', $row['update_state']);
+        self::assertStringContainsString('Could not copy file', $row['last_update_error']);
+
+        global $wpdb;
+        $msg = $wpdb->get_var(
+            "SELECT JSON_EXTRACT(details, '$.error_message') FROM " . ActivityLogTable::tableName() .
+            " WHERE event_type = 'plugin_update.failed' ORDER BY id DESC LIMIT 1"
+        );
+        self::assertStringContainsString('Could not copy file', (string) $msg);
+    }
 }

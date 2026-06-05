@@ -127,9 +127,17 @@ final class UpdateSitePlugin
             return;
         }
 
-        // Generic failure fallback for Task 10/11. Task 12 (non-409 branched
-        // error messages) will replace this with proper handling.
-        $errorMessage = sprintf('Connector returned HTTP %d.', $response['status']);
+        // Failure-message extraction order (spec § 6.3):
+        //   1. Connector envelope `body.error.message` — preferred, this is the
+        //      human-readable upgrade failure (e.g. "Could not copy file ...").
+        //   2. SignedHttpClient transport error — populated when status === 0
+        //      because the wire request never completed (DNS, refused, TLS,
+        //      timeout). Surfaces "Connection refused" etc. to the operator.
+        //   3. Generic "HTTP %d" fallback — only when both upstream sources are
+        //      empty (e.g. HTML 502 from a reverse proxy with no JSON body).
+        $errorMessage = $response['body']['error']['message']
+            ?? ($response['error'] !== '' ? $response['error'] : sprintf('Connector returned HTTP %d.', $response['status']));
+
         $this->repo->markUpdateFailed($siteId, $slug, $errorMessage, $now);
         $this->log->log(null, $siteId, 'plugin_update.failed', [
             'slug'              => $slug,
