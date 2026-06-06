@@ -24,6 +24,20 @@ final class SyncPluginsService
         $incoming = $payload['plugins'] ?? [];
         $now      = gmdate('Y-m-d H:i:s');
 
+        // P2.2 — normalize each slug to folder-only via strtok before persist.
+        // P2.1's connector PluginListCollector sends `slug` as the WP plugin_file
+        // (`akismet/akismet.php`), but P2.2's update route regex `^[a-z0-9-]{1,80}$`
+        // expects folder-only (`akismet`) — slug formats disagreed. Strip
+        // everything from the first `/` so `findRowForSiteAndSlug` lookups + the
+        // route regex agree. Existing site_plugins rows heal on the next sync.
+        $incoming = array_map(
+            static function (array $p): array {
+                $p['slug'] = (string) strtok((string) ($p['slug'] ?? ''), '/');
+                return $p;
+            },
+            $incoming
+        );
+
         $this->repo->replaceForSite($siteId, $incoming, $now);
 
         $updatesAvailable = 0;
