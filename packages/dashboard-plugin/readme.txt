@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 5.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.3.1
+Stable tag: 0.4.0
 License: Proprietary
 License URI: https://defyn.dev/license
 
@@ -39,6 +39,9 @@ No. It only signs and sends requests to the specific managed sites you connect t
 The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_refresh_tokens`, `wp_defyn_activity_log`, `wp_defyn_site_plugins`) and stored options are removed via `uninstall.php`.
 
 == Changelog ==
+
+= 0.4.0 =
+* Feature: operator can view + update themes on managed sites from the DefynWP dashboard. New GET /defyn/v1/sites/{id}/themes returns the inventory (slug, name, version, parent_slug, is_active, update_available, update_version). POST /defyn/v1/sites/{id}/themes/refresh schedules a fresh inventory pull. POST /defyn/v1/sites/{id}/themes/{slug}/update schedules an AS job that calls the connector's /themes/{slug}/update endpoint with a 120s HTTP timeout. Schema bumps v3 → v4 — adds wp_defyn_site_themes table + drops the now-redundant wp_defyn_sites.active_theme column (the new themes table's is_active=1 row is the source of truth). Auto-runs via plugins_loaded self-heal — no manual deact/react required (P2.3).
 
 = 0.3.1 =
 * Fix: schema self-heal on `plugins_loaded` automatically re-installs missing tables (no more manual deact + react after every release).
