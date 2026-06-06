@@ -275,4 +275,47 @@ final class UpdateSiteThemeTest extends AbstractSchemaTestCase
         );
         self::assertStringContainsString('Could not copy file', (string) $msg);
     }
+
+    public function testNoUpdateAvailable409TreatedAsSuccessByOtherMeans(): void
+    {
+        $siteId = $this->makeActiveSite();
+        $this->seedTwentyfivRow($siteId);
+
+        $body = json_encode(['error' => ['code' => 'themes.no_update_available', 'message' => 'No update available for "twentytwentyfive".']]);
+        $factory = fn () => new MockResponse($body, ['http_code' => 409]);
+        $job = new UpdateSiteTheme(
+            new SitesRepository(),
+            new ThemesRepository(),
+            new SignedHttpClient(new MockHttpClient($factory)),
+            new ActivityLogger(),
+            new Vault(DEFYN_VAULT_KEY),
+        );
+
+        // Row's current version before the attempt is 1.2 (from setUp).
+        $job->handle($siteId, 'twentytwentyfive', 0);
+
+        $row = (new ThemesRepository())->findRowForSiteAndSlug($siteId, 'twentytwentyfive');
+
+        // Should be marked succeeded — pinned to the pre-attempt version, NOT the
+        // connector's update_version (because no update actually happened).
+        self::assertSame('idle', $row['update_state']);
+        self::assertSame('1.2', $row['version']);
+        self::assertSame('0', $row['update_available']);
+        self::assertNull($row['update_version']);
+
+        global $wpdb;
+        $event = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT event_type, details FROM {$wpdb->prefix}defyn_activity_log
+                 WHERE site_id = %d AND event_type = 'theme_update.succeeded_no_change'
+                 ORDER BY id DESC LIMIT 1",
+                $siteId
+            ),
+            ARRAY_A,
+        );
+        self::assertNotNull($event);
+        $details = json_decode((string) $event['details'], true);
+        self::assertSame('twentytwentyfive', $details['slug']);
+        self::assertSame('1.2', $details['current_version']);
+    }
 }

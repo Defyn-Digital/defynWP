@@ -122,6 +122,25 @@ final class UpdateSiteTheme
             return;
         }
 
+        // 409 + themes.no_update_available → success-by-other-means.
+        // The connector says the on-disk version is current (someone else upgraded
+        // it, the operator manually upgraded via wp-admin, an auto-update fired,
+        // etc). The row's `version` column read BEFORE this attempt is the right
+        // post-attempt value — NOT the connector's update_version which doesn't
+        // exist on this path.
+        if (
+            $response['status'] === 409
+            && ($response['body']['error']['code'] ?? '') === 'themes.no_update_available'
+        ) {
+            $rowVersionBeforeAttempt = (string) ($row['version'] ?? '');
+            $this->repo->markUpdateSucceeded($siteId, $slug, $rowVersionBeforeAttempt, $now);
+            $this->log->log(null, $siteId, 'theme_update.succeeded_no_change', [
+                'slug'            => $slug,
+                'current_version' => $rowVersionBeforeAttempt,
+            ]);
+            return;
+        }
+
         // Failure-message extraction order (spec § 4.4):
         //   1. Connector envelope `body.error.message` — preferred, this is the
         //      human-readable upgrade failure (e.g. "Could not copy file ...").
