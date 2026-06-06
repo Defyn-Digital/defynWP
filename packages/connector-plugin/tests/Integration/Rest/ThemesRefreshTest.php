@@ -58,6 +58,24 @@ final class ThemesRefreshTest extends WP_UnitTestCase
         $this->assertArrayHasKey('server_time', $res->get_data());
     }
 
+    public function testRefreshFailureReturns502(): void
+    {
+        // Intercept the transient set and block it to simulate wp_update_themes() failure.
+        add_filter('pre_set_site_transient_update_themes', static function ($value, $transient) {
+            return false; // Block the transient from being set
+        }, 10, 2);
+
+        // Also ensure it stays deleted
+        add_action('set_site_transient_update_themes', static function () {
+            delete_site_transient('update_themes');
+        });
+
+        $res = $this->sendSigned();
+
+        $this->assertSame(502, $res->get_status());
+        $this->assertSame('themes.refresh_failed', $res->get_data()['error']['code']);
+    }
+
     public function testUnsignedRequestReturns401(): void
     {
         $request = new WP_REST_Request('POST', '/defyn-connector/v1/themes/refresh');
