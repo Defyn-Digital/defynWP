@@ -25,6 +25,74 @@ final class SyncPluginsServiceTest extends AbstractSchemaTestCase
         $wpdb->query('TRUNCATE ' . ActivityLogTable::tableName());
     }
 
+    public function testSyncHealsDanglingFailedRowWhenUpdateNoLongerAvailable(): void
+    {
+        // Seed a stuck-failed row mirroring the gbposter cosmetic on production:
+        // a previous P2.2 buggy run marked the row failed even though the
+        // upgrade actually succeeded. Now the next inventory sync arrives with
+        // the new version + update_available=false but update_state stayed failed.
+        global $wpdb;
+        $wpdb->insert(SitePluginsTable::tableName(), [
+            'site_id'           => 1,
+            'slug'              => 'gbposter',
+            'name'              => 'GBPoster',
+            'version'           => '1.1.0',
+            'update_available'  => 1,
+            'update_version'    => '2.0.0',
+            'update_state'      => 'failed',
+            'last_update_error' => 'Connector returned HTTP 200.',
+            'last_seen_at'      => '2026-06-06 00:00:00',
+            'created_at'        => '2026-06-06 00:00:00',
+            'updated_at'        => '2026-06-06 00:00:00',
+        ]);
+
+        // Incoming sync: gbposter now at 2.0.0, no update available — the
+        // upgrade clearly succeeded out-of-band.
+        (new SyncPluginsService())->sync(1, [
+            'plugins' => [[
+                'slug' => 'gbposter', 'name' => 'GBPoster', 'version' => '2.0.0',
+                'update_available' => false, 'update_version' => null,
+            ]],
+        ], 'background');
+
+        $row = (new SitePluginsRepository())->findRowForSiteAndSlug(1, 'gbposter');
+        self::assertSame('idle', $row['update_state'], 'Dangling failed state should be reset to idle.');
+        self::assertNull($row['last_update_error'], 'Stale error message should be cleared.');
+        self::assertSame('2.0.0', $row['version'], 'Version should reflect the post-upgrade reality.');
+    }
+
+    public function testSyncDoesNotHealRowsWithActiveUpdate(): void
+    {
+        // A row that failed but a NEW update is available — operator needs to
+        // see the prior error before clicking Retry on the new target.
+        global $wpdb;
+        $wpdb->insert(SitePluginsTable::tableName(), [
+            'site_id'           => 1,
+            'slug'              => 'flaky',
+            'name'              => 'Flaky',
+            'version'           => '1.0.0',
+            'update_available'  => 1,
+            'update_version'    => '1.1.0',
+            'update_state'      => 'failed',
+            'last_update_error' => 'Could not copy file.',
+            'last_seen_at'      => '2026-06-06 00:00:00',
+            'created_at'        => '2026-06-06 00:00:00',
+            'updated_at'        => '2026-06-06 00:00:00',
+        ]);
+
+        // Incoming sync still reports an available update for flaky.
+        (new SyncPluginsService())->sync(1, [
+            'plugins' => [[
+                'slug' => 'flaky', 'name' => 'Flaky', 'version' => '1.0.0',
+                'update_available' => true, 'update_version' => '1.2.0',
+            ]],
+        ], 'background');
+
+        $row = (new SitePluginsRepository())->findRowForSiteAndSlug(1, 'flaky');
+        self::assertSame('failed', $row['update_state'], 'Failed state should persist when update_available is still true.');
+        self::assertSame('Could not copy file.', $row['last_update_error']);
+    }
+
     public function testSyncPersistsPluginsAndLogsEvent(): void
     {
         (new SyncPluginsService())->sync(1, [

@@ -40,6 +40,10 @@ final class SyncPluginsService
 
         $this->repo->replaceForSite($siteId, $incoming, $now);
 
+        // P2.2.1 — sweep dangling-failed rows that have actually settled.
+        // See SitePluginsRepository::healDanglingFailedStates docblock.
+        $this->repo->healDanglingFailedStates($siteId, $now);
+
         $updatesAvailable = 0;
         foreach ($incoming as $p) {
             if (!empty($p['update_available'])) {

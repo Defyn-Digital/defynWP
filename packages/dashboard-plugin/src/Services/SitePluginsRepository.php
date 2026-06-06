@@ -237,4 +237,41 @@ final class SitePluginsRepository
             ['%d', '%s'],
         );
     }
+
+    /**
+     * P2.2.1 — clears stuck-failed rows whose upgrade actually succeeded.
+     *
+     * The headline case: P2.2 connector pre-`7a05d48` returned HTTP 200 but
+     * with a body shape the dashboard's UpdateSitePlugin couldn't parse —
+     * we marked the row failed even though Plugin_Upgrader had successfully
+     * advanced the version on disk. On the next inventory sync, the row
+     * comes back with the new version + update_available=false, but
+     * update_state stays 'failed' from the prior write. The SPA then
+     * renders a confusing Retry-on-no-update state.
+     *
+     * Auto-heal rule: if a row is currently `failed` AND no update is
+     * available, the previous target must have landed (otherwise the
+     * connector would still report it as upgradeable). Reset state to
+     * idle, clear the stale error.
+     *
+     * Conservative — does NOT touch rows where update_available=1, because
+     * there a `failed` state still has semantic value (the operator needs
+     * to see the prior error before clicking Retry on a fresh target).
+     * Returns the rows-affected count.
+     */
+    public function healDanglingFailedStates(int $siteId, string $now): int
+    {
+        global $wpdb;
+        $table = SitePluginsTable::tableName();
+        $result = $wpdb->query(
+            $wpdb->prepare(
+                "UPDATE {$table}
+                 SET update_state = 'idle', last_update_error = NULL, updated_at = %s
+                 WHERE site_id = %d AND update_state = 'failed' AND update_available = 0",
+                $now,
+                $siteId
+            )
+        );
+        return $result === false ? 0 : (int) $result;
+    }
 }
