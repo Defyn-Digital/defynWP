@@ -38,6 +38,12 @@ final class Plugin
         register_activation_hook(DEFYN_DASHBOARD_FILE, [Activation::class, 'activate']);
         register_deactivation_hook(DEFYN_DASHBOARD_FILE, [Scheduler::class, 'uninstallRecurringSchedules']);
 
+        // P2.2.1 — schema self-heal on every request, throttled to once per hour.
+        // Recovers transparently when "Replace current with uploaded version" upgrades
+        // accidentally fire the Uninstaller or fail to re-fire register_activation_hook.
+        // Eliminates the manual deact+react step from the upgrade runbook.
+        add_action('plugins_loaded', [Activation::class, 'maybeRunSelfHeal']);
+
         add_action('rest_api_init', static function (): void {
             (new RestRouter())->register();
         });
