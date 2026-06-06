@@ -42,6 +42,7 @@ export const handlers = [
 
 import type { ActivityEvent, Site } from '@/types/api';
 import type { Plugin } from '@/types/api/plugins';
+import type { Theme } from '@/types/api/themes';
 
 // In-memory site store for MSW — tests can manipulate this directly between requests.
 export const mockSites: Site[] = [];
@@ -298,6 +299,15 @@ export function resetMockSitePlugins(): void {
   }
 }
 
+// P2.3 — themes mock store
+export const mockSiteThemes: Record<number, Theme[]> = {};
+
+export function resetMockSiteThemes(): void {
+  for (const k of Object.keys(mockSiteThemes)) {
+    delete mockSiteThemes[Number(k)];
+  }
+}
+
 handlers.push(
   http.get('*/wp-json/defyn/v1/sites/:id/plugins', ({ params }) => {
     const siteId = Number(params.id);
@@ -390,5 +400,76 @@ handlers.push(
     }, 200);
 
     return HttpResponse.json({ scheduled: true, site_id: siteId, slug }, { status: 202 });
+  }),
+
+  // P2.3 — GET /sites/:id/themes
+  http.get('*/wp-json/defyn/v1/sites/:id/themes', ({ params }) => {
+    const siteId = Number(params.id);
+    const themes = mockSiteThemes[siteId] ?? [];
+    const lastSyncedAt = themes.length > 0 ? '2026-06-06 05:00:00' : null;
+    return HttpResponse.json({ themes, last_synced_at: lastSyncedAt });
+  }),
+
+  // P2.3 — POST /sites/:id/themes/refresh
+  http.post('*/wp-json/defyn/v1/sites/:id/themes/refresh', ({ params }) => {
+    const siteId = Number(params.id);
+    return HttpResponse.json({ scheduled: true, site_id: siteId }, { status: 202 });
+  }),
+
+  // P2.3 — POST /sites/:id/themes/:slug/update
+  // Returns 202 immediately and schedules deferred state transitions
+  // (queued -> updating @ 50ms -> idle @ 200ms) so the polling tests have real state changes to observe.
+  http.post('*/wp-json/defyn/v1/sites/:id/themes/:slug/update', ({ params }) => {
+    const siteId = Number(params.id);
+    const slug = String(params.slug);
+    const idx = mockSiteThemes[siteId]?.findIndex((t) => t.slug === slug);
+    if (idx === undefined || idx === -1) {
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'themes.not_found_in_inventory',
+            message: 'Theme not in inventory.',
+          },
+        },
+        { status: 404 },
+      );
+    }
+
+    // Optimistic transition: idle -> queued.
+    mockSiteThemes[siteId] = mockSiteThemes[siteId].map((t, i) =>
+      i === idx ? { ...t, update_state: 'queued' as const } : t,
+    );
+
+    // queued -> updating @ 50ms
+    setTimeout(() => {
+      const current = mockSiteThemes[siteId];
+      const target = current?.find((t) => t.slug === slug);
+      if (!current || !target || target.update_state !== 'queued') return;
+      mockSiteThemes[siteId] = current.map((t) =>
+        t.slug === slug ? { ...t, update_state: 'updating' as const } : t,
+      );
+    }, 50);
+
+    // updating -> idle (with version bumped + update cleared) @ 200ms
+    setTimeout(() => {
+      const current = mockSiteThemes[siteId];
+      const target = current?.find((t) => t.slug === slug);
+      if (!current || !target || target.update_state !== 'updating') return;
+      mockSiteThemes[siteId] = current.map((t) =>
+        t.slug === slug
+          ? {
+              ...t,
+              update_state: 'idle' as const,
+              version: t.update_version ?? t.version,
+              update_available: false,
+              update_version: null,
+              last_update_attempt_at: new Date().toISOString(),
+              last_update_error: null,
+            }
+          : t,
+      );
+    }, 200);
+
+    return HttpResponse.json({ scheduled: true, site_id: siteId, slug, update_state: 'queued' }, { status: 202 });
   }),
 );
