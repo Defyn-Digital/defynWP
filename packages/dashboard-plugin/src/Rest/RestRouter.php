@@ -8,6 +8,7 @@ use Defyn\Dashboard\Rest\Middleware\Cors;
 use Defyn\Dashboard\Rest\Middleware\RateLimit;
 use Defyn\Dashboard\Rest\Middleware\RequireAuth;
 use Defyn\Dashboard\Rest\SitesThemesController;
+use Defyn\Dashboard\Rest\SitesThemesRefreshController;
 
 /**
  * Single registration point for every REST route in the plugin.
@@ -153,6 +154,15 @@ final class RestRouter
             'methods'             => 'GET',
             'callback'            => [new SitesThemesController(), 'handle'],
             'permission_callback' => [RequireAuth::class, 'check'],
+        ]);
+
+        // P2.3 — operator-triggered theme refresh. RateLimit::sitesThemesRefresh chains
+        // RequireAuth::check internally (so no separate auth permission_callback)
+        // and adds a per-(user, site) 6/hour throttle on top.
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/themes/refresh', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesThemesRefreshController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'sitesThemesRefresh'],
         ]);
 
         register_rest_route(self::NAMESPACE, '/activity', [

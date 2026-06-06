@@ -40,6 +40,11 @@ final class RateLimit
     public const PLUGINS_UPDATE_LIMIT  = 6;
     public const PLUGINS_UPDATE_WINDOW = HOUR_IN_SECONDS;
 
+    // P2.3 — refresh button on SiteThemesPanel. Separate bucket from pluginsRefresh
+    // per spec § 5.2 — 6 plugin refreshes per hour don't block a 7th theme refresh.
+    public const THEMES_REFRESH_LIMIT  = 6;
+    public const THEMES_REFRESH_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -95,6 +100,40 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::PLUGINS_REFRESH_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /sites/{id}/themes/refresh.
+     *
+     * Separate transient-bucket from pluginsRefresh — operator clicking
+     * "Refresh themes" must not be locked out by prior plugin refreshes.
+     * Same auth-chain pattern as pluginsRefresh.
+     *
+     * @return true|WP_Error
+     */
+    public static function sitesThemesRefresh(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_themes_refresh_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::THEMES_REFRESH_LIMIT) {
+            return new WP_Error(
+                'themes.rate_limited',
+                'Refresh requested too often. Wait an hour and try again.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::THEMES_REFRESH_WINDOW);
         return true;
     }
 
