@@ -7,6 +7,7 @@ namespace Defyn\Dashboard\Rest;
 use Defyn\Dashboard\Rest\Middleware\Cors;
 use Defyn\Dashboard\Rest\Middleware\RateLimit;
 use Defyn\Dashboard\Rest\Middleware\RequireAuth;
+use Defyn\Dashboard\Rest\SitesThemesController;
 
 /**
  * Single registration point for every REST route in the plugin.
@@ -145,6 +146,13 @@ final class RestRouter
             'methods'             => 'POST',
             'callback'            => [new SitesPluginsUpdateController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'pluginsUpdate'],
+        ]);
+
+        // P2.3 — per-site theme inventory, mirrors SitesPluginsListController
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/themes', [
+            'methods'             => 'GET',
+            'callback'            => [new SitesThemesController(), 'handle'],
+            'permission_callback' => [RequireAuth::class, 'check'],
         ]);
 
         register_rest_route(self::NAMESPACE, '/activity', [
