@@ -170,10 +170,13 @@ final class SitesRepository
      * Persist runtime info from a successful /status pull (spec § 5.1).
      * JSON-encodes the structured fields and bumps last_sync_at + last_contact_at.
      *
+     * P2.3 v4 migration: active_theme moved to wp_defyn_site_themes table;
+     * still accepted in $info for backward compatibility but no longer persisted here.
+     *
      * @param array{
      *   wp_version: string,
      *   php_version: string,
-     *   active_theme: array<string, mixed>,
+     *   active_theme?: array<string, mixed>,
      *   plugin_counts: array<string, int>,
      *   theme_counts: array<string, int>,
      *   ssl_status: string,
@@ -197,7 +200,6 @@ final class SitesRepository
                 'last_error'      => '',
                 'wp_version'      => $info['wp_version'],
                 'php_version'     => $info['php_version'],
-                'active_theme'    => (string) wp_json_encode($info['active_theme']),
                 'plugin_counts'   => (string) wp_json_encode($info['plugin_counts']),
                 'theme_counts'    => (string) wp_json_encode($info['theme_counts']),
                 'ssl_status'      => $info['ssl_status'],

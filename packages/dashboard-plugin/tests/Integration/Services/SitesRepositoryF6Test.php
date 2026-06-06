@@ -71,9 +71,7 @@ final class SitesRepositoryF6Test extends AbstractSchemaTestCase
         self::assertNotEmpty($row['last_sync_at']);
         self::assertNotEmpty($row['last_contact_at']);
 
-        $activeTheme = json_decode((string) $row['active_theme'], true);
-        self::assertSame('Twenty Twenty-Four', $activeTheme['name']);
-
+        // P2.3 v4: active_theme moved to wp_defyn_site_themes table
         $pluginCounts = json_decode((string) $row['plugin_counts'], true);
         self::assertSame(12, $pluginCounts['installed']);
         self::assertSame(8, $pluginCounts['active']);

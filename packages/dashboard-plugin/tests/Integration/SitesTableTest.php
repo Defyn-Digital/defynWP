@@ -28,11 +28,11 @@ final class SitesTableTest extends AbstractSchemaTestCase
 
         $columns = $wpdb->get_col("SHOW COLUMNS FROM {$wpdb->prefix}defyn_sites", 0);
 
-        // Spec § 4.1 — required columns
+        // Spec § 4.1 — required columns (active_theme dropped in v4 per P2.3 § 3.1)
         $required = [
             'id', 'user_id', 'url', 'label', 'status',
             'site_public_key', 'our_public_key', 'our_private_key',
-            'wp_version', 'php_version', 'active_theme',
+            'wp_version', 'php_version',
             'plugin_counts', 'theme_counts',
             'ssl_status', 'ssl_expires_at',
             'last_contact_at', 'last_sync_at', 'last_error',

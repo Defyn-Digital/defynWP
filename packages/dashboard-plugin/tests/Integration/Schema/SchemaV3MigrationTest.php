@@ -52,8 +52,9 @@ final class SchemaV3MigrationTest extends AbstractSchemaTestCase
         $this->assertGreaterThanOrEqual(3, SchemaVersion::current());
     }
 
-    public function testSchemaVersionConstantIsThree(): void
+    public function testSchemaVersionConstantIsAtLeastThree(): void
     {
-        $this->assertSame(3, Activation::SCHEMA_VERSION);
+        // v3 was the baseline for update tracking; v4+ added themes table
+        $this->assertGreaterThanOrEqual(3, Activation::SCHEMA_VERSION);
     }
 }

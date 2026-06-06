@@ -30,13 +30,13 @@ final class SchemaMigrationOnActivationTest extends AbstractSchemaTestCase
         // so SHOW TABLES won't list it. Use the documented assertTableExists()
         // helper (uses DESCRIBE), same approach as SitePluginsTableTest.
         $this->assertTableExists(SitePluginsTable::tableName());
-        self::assertSame(3, SchemaVersion::current());
+        self::assertSame(Activation::SCHEMA_VERSION, SchemaVersion::current());
     }
 
     public function testActivationIsIdempotent(): void
     {
         Activation::activate();
         Activation::activate();
-        self::assertSame(3, SchemaVersion::current());
+        self::assertSame(Activation::SCHEMA_VERSION, SchemaVersion::current());
     }
 }

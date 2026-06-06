@@ -10,6 +10,7 @@ use Defyn\Dashboard\Schema\ConnectionCodesTable;
 use Defyn\Dashboard\Schema\SchemaTable;
 use Defyn\Dashboard\Schema\SchemaVersion;
 use Defyn\Dashboard\Schema\SitePluginsTable;
+use Defyn\Dashboard\Schema\SiteThemesTable;
 use Defyn\Dashboard\Schema\SitesTable;
 
 /**
@@ -20,7 +21,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 3;
+    public const SCHEMA_VERSION = 4;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -33,6 +34,7 @@ final class Activation
         ConnectionCodesTable::class,
         ActivityLogTable::class,
         SitePluginsTable::class,
+        SiteThemesTable::class,
     ];
 
     /** Throttle key for {@see maybeRunSelfHeal} — checked at most once per hour. */
@@ -60,6 +62,12 @@ final class Activation
         foreach (self::TABLES as $table) {
             dbDelta($table::createSql());
         }
+
+        // P2.3 — drop the legacy wp_defyn_sites.active_theme LONGTEXT column.
+        // dbDelta cannot remove columns; we run a guarded ALTER directly. The
+        // SHOW COLUMNS check makes re-running ensureSchema idempotent — once
+        // the column is gone, the second call is a no-op.
+        self::dropLegacyActiveThemeColumn();
 
         // P2.1: SchemaVersion is the canonical migration cursor; we coalesce
         // with any in-DB value via max() so a future install starting at v3
@@ -102,5 +110,19 @@ final class Activation
         // phpcs:ignore WordPress.DB.PreparedSQL — table name from a class constant
         $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table));
         return $exists !== null;
+    }
+
+    private static function dropLegacyActiveThemeColumn(): void
+    {
+        global $wpdb;
+        $sitesTable = SitesTable::tableName();
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SHOW COLUMNS FROM `{$sitesTable}` LIKE %s",
+            'active_theme'
+        ));
+        if ($exists !== null) {
+            // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+            $wpdb->query("ALTER TABLE `{$sitesTable}` DROP COLUMN active_theme");
+        }
     }
 }
