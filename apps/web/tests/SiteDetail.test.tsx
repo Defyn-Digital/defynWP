@@ -5,7 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SiteDetail from '@/routes/SiteDetail';
 import SitesList from '@/routes/SitesList';
-import { resetMockSites, mockSites, resetMockActivity, seedMockActivity } from '@/test/handlers';
+import { resetMockSites, mockSites, resetMockActivity, seedMockActivity, resetMockSiteThemes, mockSiteThemes } from '@/test/handlers';
 import { setAccessToken } from '@/lib/apiClient';
 
 function renderAt(id: number) {
@@ -80,6 +80,7 @@ describe('SiteDetail', () => {
 describe('SiteDetail runtime info', () => {
   beforeEach(() => {
     resetMockSites();
+    resetMockSiteThemes();
     setAccessToken('fake');
   });
 
@@ -101,11 +102,25 @@ describe('SiteDetail runtime info', () => {
       ssl_status: 'enabled',
       ssl_expires_at: '2027-01-01T00:00:00Z',
     });
+    mockSiteThemes[1] = [
+      {
+        slug: 'twentytwentyfour',
+        name: 'Twenty Twenty-Four',
+        version: '1.0',
+        parent_slug: null,
+        is_active: true,
+        update_available: false,
+        update_version: null,
+        update_state: 'idle',
+        last_update_error: null,
+        last_update_attempt_at: null,
+      },
+    ];
     renderAt(1);
 
     expect(await screen.findByText(/6\.9\.4/)).toBeInTheDocument();
     expect(screen.getByText(/8\.2\.27/)).toBeInTheDocument();
-    expect(screen.getByText(/Twenty Twenty-Four/i)).toBeInTheDocument();
+    expect(screen.queryAllByText(/Twenty Twenty-Four/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/10 installed, 5 active/i)).toBeInTheDocument();
     expect(screen.getByText(/2 installed, 1 active/i)).toBeInTheDocument();
     expect(screen.getByText(/enabled/i)).toBeInTheDocument();
@@ -168,6 +183,7 @@ describe('SiteDetail runtime info', () => {
 describe('SiteDetail actions', () => {
   beforeEach(() => {
     resetMockSites();
+    resetMockSiteThemes();
     setAccessToken('fake');
     mockSites.push({
       id: 1,
@@ -217,6 +233,7 @@ describe('SiteDetail activity panel', () => {
   beforeEach(() => {
     resetMockSites();
     resetMockActivity();
+    resetMockSiteThemes();
     seedMockActivity();
     setAccessToken('fake');
     mockSites.push({

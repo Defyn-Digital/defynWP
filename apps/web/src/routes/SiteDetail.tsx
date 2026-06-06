@@ -8,11 +8,31 @@ import { SiteRuntimeInfo } from '@/components/sites/SiteRuntimeInfo';
 import { SiteActions } from '@/components/sites/SiteActions';
 import { SiteActivityPanel } from '@/components/sites/SiteActivityPanel';
 import { SitePluginsPanel } from '@/components/sites/SitePluginsPanel';
+import { useSiteThemes } from '@/lib/queries/useSiteThemes';
+import { SiteThemesPanel } from '@/components/sites/SiteThemesPanel';
 
 export default function SiteDetail() {
   const { id } = useParams<{ id: string }>();
   const siteId = Number(id);
   const { data, isLoading, isError, error } = useSite(siteId, { pollWhilePending: 2000 });
+  const { data: themesData, isLoading: themesLoading } = useSiteThemes(siteId);
+  const activeTheme = themesData?.themes.find((t) => t.is_active);
+
+  const headerChip = (
+    <span
+      aria-label="Active theme"
+      className="ml-2 inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700"
+    >
+      Active theme:{' '}
+      {themesLoading ? (
+        <span className="ml-1 inline-block h-3 w-16 animate-pulse rounded bg-zinc-300" aria-hidden="true" />
+      ) : activeTheme ? (
+        <span className="ml-1 font-medium">{activeTheme.name}</span>
+      ) : (
+        <span className="ml-1">—</span>
+      )}
+    </span>
+  );
 
   if (isError) {
     const apiErr = error as ApiError;
@@ -51,7 +71,10 @@ export default function SiteDetail() {
     <div className="min-h-screen p-8 max-w-3xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>{data.label || data.url}</CardTitle>
+          <div className="flex items-center">
+            <CardTitle>{data.label || data.url}</CardTitle>
+            {headerChip}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-zinc-600">{data.url}</p>
@@ -75,6 +98,8 @@ export default function SiteDetail() {
           {data.status !== 'pending' && <SiteActivityPanel site={data} />}
 
           {data.status !== 'pending' && <SitePluginsPanel siteId={siteId} />}
+
+          {data.status !== 'pending' && <SiteThemesPanel siteId={siteId} />}
 
           <Button asChild variant="outline">
             <Link to="/sites">Back to sites</Link>

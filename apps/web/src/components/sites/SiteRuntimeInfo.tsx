@@ -25,16 +25,6 @@ export function SiteRuntimeInfo({ site }: SiteRuntimeInfoProps) {
         </>
       )}
 
-      {site.active_theme && (
-        <>
-          <dt className="text-muted-foreground">Active theme</dt>
-          <dd>
-            {site.active_theme.name} {site.active_theme.version}
-            {site.active_theme.parent ? ` (child of ${site.active_theme.parent})` : null}
-          </dd>
-        </>
-      )}
-
       {site.plugin_counts && (
         <>
           <dt className="text-muted-foreground">Plugins</dt>
