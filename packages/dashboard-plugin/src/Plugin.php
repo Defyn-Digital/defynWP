@@ -9,10 +9,12 @@ use Defyn\Dashboard\Jobs\CompleteConnection;
 use Defyn\Dashboard\Jobs\HealthPing;
 use Defyn\Dashboard\Jobs\HealthPingAll;
 use Defyn\Dashboard\Jobs\RefreshSitePlugins;
+use Defyn\Dashboard\Jobs\RefreshSiteThemes;
 use Defyn\Dashboard\Jobs\Scheduler;
 use Defyn\Dashboard\Jobs\SyncAllSites;
 use Defyn\Dashboard\Jobs\SyncSite;
 use Defyn\Dashboard\Jobs\UpdateSitePlugin;
+use Defyn\Dashboard\Jobs\UpdateSiteTheme;
 use Defyn\Dashboard\Rest\RestRouter;
 
 /**
@@ -70,6 +72,18 @@ final class Plugin
         // with a 120s HTTP timeout, branches on success / 409 retry / failure.
         add_action(UpdateSitePlugin::HOOK, static function (int $siteId, string $slug, int $attempt = 0): void {
             (new UpdateSitePlugin())->handle($siteId, $slug, $attempt);
+        }, 10, 3);
+
+        // P2.3 — operator-triggered theme inventory refresh. Scheduled by
+        // SitesThemesRefreshController; handler hits connector /themes/refresh
+        // then delta-syncs via SyncThemesService.
+        add_action(RefreshSiteThemes::HOOK, static function (int $siteId): void {
+            (new RefreshSiteThemes())->handle($siteId);
+        }, 10, 1);
+
+        // P2.3 — operator-triggered theme update.
+        add_action(UpdateSiteTheme::HOOK, static function (int $siteId, string $slug, int $attempt = 0): void {
+            (new UpdateSiteTheme())->handle($siteId, $slug, $attempt);
         }, 10, 3);
 
         // F7 — fan-out + cleanup master jobs. Master jobs take no args

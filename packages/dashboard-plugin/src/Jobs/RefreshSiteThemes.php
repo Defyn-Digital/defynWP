@@ -23,6 +23,7 @@ use Throwable;
  */
 final class RefreshSiteThemes
 {
+    public const HOOK = 'defyn_refresh_site_themes';
     public function __construct(
         private readonly SitesRepository $repo = new SitesRepository(),
         private readonly SignedHttpClient $httpClient = new SignedHttpClient(),

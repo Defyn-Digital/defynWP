@@ -79,6 +79,14 @@ final class SyncSite
         }
 
         $this->pluginsService->sync($siteId, $response['body'], 'background');
+
+        // P2.3 — fan-out to themes refresh too. Themes inventory hydrates on
+        // the same recurring tick as plugins. Best-effort scheduling — if AS isn't
+        // loaded yet (unlikely at this point) we skip silently and rely on the
+        // next tick to catch up.
+        if (function_exists('as_schedule_single_action')) {
+            as_schedule_single_action(time(), RefreshSiteThemes::HOOK, [$siteId], 'defyn');
+        }
     }
 
     private function logPluginsFailed(int $siteId, string $error): void
