@@ -94,5 +94,12 @@ final class SitesPluginsListTest extends AbstractSchemaTestCase
         self::assertSame('a.php', $body['plugins'][0]['slug']);
         self::assertTrue($body['plugins'][0]['update_available']);
         self::assertNotNull($body['last_synced_at']);
+
+        // P2.2 — schema v3 fields must reach the SPA, otherwise the SPA's
+        // polling state machine can never observe queued/updating/failed.
+        self::assertArrayHasKey('update_state', $body['plugins'][0]);
+        self::assertSame('idle', $body['plugins'][0]['update_state']);
+        self::assertArrayHasKey('last_update_error', $body['plugins'][0]);
+        self::assertArrayHasKey('last_update_attempt_at', $body['plugins'][0]);
     }
 }
