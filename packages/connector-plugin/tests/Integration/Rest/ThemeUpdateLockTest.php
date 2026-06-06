@@ -44,7 +44,8 @@ final class ThemeUpdateLockTest extends WP_UnitTestCase
         delete_site_transient('update_plugins');
         delete_transient('defyn_connector_upgrade_in_flight');
         // Make absolutely sure
-        wp_cache_delete('defyn_connector_upgrade_in_flight', 'transients');
+        wp_cache_delete('defyn_connector_upgrade_in_flight', 'transient');
+        wp_cache_flush();
 
         $keypair = sodium_crypto_sign_keypair();
         $this->privateKeyBase64 = base64_encode(sodium_crypto_sign_secretkey($keypair));
@@ -82,6 +83,9 @@ final class ThemeUpdateLockTest extends WP_UnitTestCase
 
         // Lock must be cleared after the happy path.
         $this->assertFalse(get_transient('defyn_connector_upgrade_in_flight'));
+
+        // Reseed the update transient; wp_clean_themes_cache() cleared it above.
+        $this->seedThemeUpdate($slug, '99.9');
 
         // Second call lands clean (no 409 collision).
         $res2 = $this->sendThemeSigned($slug);
