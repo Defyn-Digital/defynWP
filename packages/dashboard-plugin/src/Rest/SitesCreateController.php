@@ -55,13 +55,19 @@ final class SitesCreateController
         $vault = new Vault(DEFYN_VAULT_KEY);
         $encryptedPrivate = $vault->encrypt($pair->privateKey);
 
-        $siteId = $repo->insertPending(
-            userId: $userId,
-            url:    $url,
-            label:  $label,
-            ourPublicKey: $pair->publicKey,
-            ourPrivateKeyEncrypted: $encryptedPrivate,
-        );
+        try {
+            $siteId = $repo->insertPending(
+                userId: $userId,
+                url:    $url,
+                label:  $label,
+                ourPublicKey: $pair->publicKey,
+                ourPrivateKeyEncrypted: $encryptedPrivate,
+            );
+        } catch (\RuntimeException $e) {
+            // SitesRepository throws on insert failure so the actual MySQL
+            // error reaches the operator instead of silently 202ing {site_id: 0}.
+            return ErrorResponse::create(500, 'sites.persistence_failed', $e->getMessage());
+        }
 
         if (function_exists('as_schedule_single_action')) {
             as_schedule_single_action(time(), 'defyn_complete_connection', [$siteId, $code, $url], 'defyn');

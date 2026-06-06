@@ -23,7 +23,7 @@ final class SitesRepository
     ): int {
         global $wpdb;
         $now = gmdate('Y-m-d H:i:s');
-        $wpdb->insert(
+        $result = $wpdb->insert(
             SitesTable::tableName(),
             [
                 'user_id'         => $userId,
@@ -37,6 +37,16 @@ final class SitesRepository
             ],
             ['%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s'],
         );
+        if ($result === false || (int) $wpdb->insert_id === 0) {
+            // Don't swallow MySQL errors silently — the caller turns this into a
+            // 500 with the actual driver message so production misconfigurations
+            // surface instead of returning {site_id: 0} forever.
+            throw new \RuntimeException(
+                $wpdb->last_error !== ''
+                    ? 'wp_defyn_sites insert failed: ' . $wpdb->last_error
+                    : 'wp_defyn_sites insert failed without a MySQL error message.'
+            );
+        }
         return (int) $wpdb->insert_id;
     }
 
