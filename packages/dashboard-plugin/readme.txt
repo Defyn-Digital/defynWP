@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 5.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.3.0
+Stable tag: 0.3.1
 License: Proprietary
 License URI: https://defyn.dev/license
 
@@ -39,6 +39,14 @@ No. It only signs and sends requests to the specific managed sites you connect t
 The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_refresh_tokens`, `wp_defyn_activity_log`, `wp_defyn_site_plugins`) and stored options are removed via `uninstall.php`.
 
 == Changelog ==
+
+= 0.3.1 =
+* Fix: schema self-heal on `plugins_loaded` automatically re-installs missing tables (no more manual deact + react after every release).
+* Fix: SyncPluginsService auto-clears stuck `update_state=failed` rows whose upgrade actually succeeded out-of-band.
+* Fix: SitesRepository surfaces MySQL errors on POST /sites instead of silently 202'ing `{site_id: 0}`.
+* Fix: Plugin model serializes the schema v3 fields (`update_state`, `last_update_error`, `last_update_attempt_at`) to GET /sites/{id}/plugins — SPA polling state machine finally observes transitions.
+* Fix: SyncPluginsService normalizes incoming plugin slug to folder-only (`akismet` instead of `akismet/akismet.php`) so the P2.2 update route regex matches stored rows.
+* Together: eliminates the entire dance of plan-bugs caught during the P2.2 production smoke (P2.2.1).
 
 = 0.3.0 =
 * Feature: operator can update individual plugins on managed sites from the DefynWP dashboard. New POST /defyn/v1/sites/{id}/plugins/{slug}/update schedules an AS job that calls the connector's new /plugins/{slug}/update endpoint with a 120 s HTTP timeout, branches on success/409/failure, and writes the result back to wp_defyn_site_plugins. Schema bump v2 → v3 adds update_state, last_update_error, last_update_attempt_at columns (P2.2).
