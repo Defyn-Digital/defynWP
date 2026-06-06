@@ -17,7 +17,7 @@ use Throwable;
  * Scheduled by SitesThemesRefreshController on operator click or by
  * SyncSite extension on background tick. Forces a fresh /themes/refresh
  * against the connector then runs delta sync. Failures log
- * `theme_inventory.sync_failed`.
+ * `site.themes_refresh_failed`.
  *
  * Direct mirror of RefreshSitePlugins (P2.1 Task 8).
  */
@@ -72,7 +72,7 @@ final class RefreshSiteThemes
     {
         // ActivityLogger::log(?int $userId, ?int $siteId, string $eventType, ?array $details).
         // Refresh job runs in Action Scheduler context with no user; pass null for userId.
-        $this->log->log(null, $siteId, 'theme_inventory.sync_failed', [
+        $this->log->log(null, $siteId, 'site.themes_refresh_failed', [
             'error'  => $error,
             'source' => 'refresh',
         ]);

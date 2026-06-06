@@ -94,7 +94,7 @@ final class RefreshSiteThemesTest extends AbstractSchemaTestCase
         // Simulate a transport failure (timeout, DNS, TLS, etc.) by throwing
         // TransportException from the callable. SignedHttpClient's sendSigned()
         // catches Throwable and returns ['status' => 0, 'body' => [], 'error' => msg],
-        // which RefreshSiteThemes routes into the theme_inventory.sync_failed log.
+        // which RefreshSiteThemes routes into the site.themes_refresh_failed log.
         $mock = new MockHttpClient(function ($method, $url, $options) {
             throw new TransportException('connection refused');
         });
@@ -104,7 +104,7 @@ final class RefreshSiteThemesTest extends AbstractSchemaTestCase
         global $wpdb;
         $failed = $wpdb->get_row(
             "SELECT details FROM " . ActivityLogTable::tableName() .
-            " WHERE event_type = 'theme_inventory.sync_failed' ORDER BY id DESC LIMIT 1",
+            " WHERE event_type = 'site.themes_refresh_failed' ORDER BY id DESC LIMIT 1",
             ARRAY_A,
         );
         self::assertNotNull($failed);
@@ -128,7 +128,7 @@ final class RefreshSiteThemesTest extends AbstractSchemaTestCase
         global $wpdb;
         $failed = $wpdb->get_row(
             "SELECT details FROM " . ActivityLogTable::tableName() .
-            " WHERE event_type = 'theme_inventory.sync_failed' ORDER BY id DESC LIMIT 1",
+            " WHERE event_type = 'site.themes_refresh_failed' ORDER BY id DESC LIMIT 1",
             ARRAY_A,
         );
         self::assertNotNull($failed);
