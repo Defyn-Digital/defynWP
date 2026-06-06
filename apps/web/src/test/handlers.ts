@@ -301,11 +301,13 @@ export function resetMockSitePlugins(): void {
 
 // P2.3 — themes mock store
 export const mockSiteThemes: Record<number, Theme[]> = {};
+export let mockThemesLastSynced: Record<number, string> = {};
 
 export function resetMockSiteThemes(): void {
   for (const k of Object.keys(mockSiteThemes)) {
     delete mockSiteThemes[Number(k)];
   }
+  mockThemesLastSynced = {};
 }
 
 handlers.push(
@@ -406,13 +408,23 @@ handlers.push(
   http.get('*/wp-json/defyn/v1/sites/:id/themes', ({ params }) => {
     const siteId = Number(params.id);
     const themes = mockSiteThemes[siteId] ?? [];
-    const lastSyncedAt = themes.length > 0 ? '2026-06-06 05:00:00' : null;
+    const lastSyncedAt = mockThemesLastSynced?.[siteId] ?? (themes.length > 0 ? '2026-06-06 05:00:00' : null);
     return HttpResponse.json({ themes, last_synced_at: lastSyncedAt });
   }),
 
   // P2.3 — POST /sites/:id/themes/refresh
   http.post('*/wp-json/defyn/v1/sites/:id/themes/refresh', ({ params }) => {
     const siteId = Number(params.id);
+    // Test default: bump last_synced_at on the in-memory store after a short delay,
+    // so the useRefreshSiteThemes polling test can observe the advance.
+    setTimeout(() => {
+      const themes = mockSiteThemes[siteId] ?? [];
+      // Update all themes to have a new last_synced_at (by mutating a marker on first theme)
+      // Actually, we need to track last_synced_at separately. For themes, we return it from GET,
+      // so we'll store it in a map.
+      if (!mockThemesLastSynced) mockThemesLastSynced = {};
+      mockThemesLastSynced[siteId] = new Date().toISOString();
+    }, 20);
     return HttpResponse.json({ scheduled: true, site_id: siteId }, { status: 202 });
   }),
 
