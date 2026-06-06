@@ -52,6 +52,16 @@ final class PluginUpdateController
 
         set_transient(self::LOCK_KEY, $slug, self::LOCK_TTL);
 
+        // Buffer + discard anything Plugin_Upgrader (or any of WP's update
+        // machinery) echoes to STDOUT. Our CapturingUpgraderSkin silences the
+        // skin's own feedback() / error() output, but WP's L10n, deprecation
+        // notices, and filesystem helpers (WP_Filesystem) can still emit text
+        // directly. Any stray bytes would prepend/append to the JSON response
+        // body and break the dashboard's json_decode — we'd see a successful
+        // HTTP 200 with body.success == empty and incorrectly mark the row
+        // failed even though the upgrade succeeded on disk.
+        ob_start();
+
         try {
             $result = $this->service->upgrade($slug);
             return new WP_REST_Response($result, 200);
@@ -70,6 +80,9 @@ final class PluginUpdateController
         } catch (UpgradeFailedException $e) {
             return ErrorResponse::create(502, 'plugins.update_failed', $e->getMessage());
         } finally {
+            // Always discard the buffered output, regardless of success or
+            // exception — the buffer must NEVER reach the response writer.
+            ob_end_clean();
             delete_transient(self::LOCK_KEY);
         }
     }
