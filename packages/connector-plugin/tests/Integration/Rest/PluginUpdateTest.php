@@ -111,6 +111,59 @@ final class PluginUpdateTest extends WP_UnitTestCase
         $this->assertIsInt($data['server_time']);
     }
 
+    /**
+     * P2.2.1 regression — Plugin_Upgrader (and various WP filesystem helpers)
+     * occasionally echo text directly to STDOUT during an upgrade, bypassing
+     * the upgrader skin. Pre-`7a05d48` those bytes prepended the JSON response
+     * body, broke the dashboard's json_decode, and the dashboard incorrectly
+     * marked successful upgrades as failed.
+     *
+     * The controller now wraps the entire service call in ob_start/ob_end_clean.
+     * This test simulates the failure mode by using an upgrader stub that
+     * echoes deliberate stray bytes, then asserts NOTHING leaks past the
+     * outer ob_get_clean — proving the inner buffer absorbed everything.
+     */
+    public function testStdoutFromUpgraderDoesNotCorruptResponse(): void
+    {
+        $this->seedFakePlugin();
+        $this->seedUpdateAvailable('fake-plugin/fake-plugin.php', '2.0.0');
+
+        $controller = new PluginUpdateController(
+            new \Defyn\Connector\SiteInfo\PluginUpgraderService(
+                static fn () => new class {
+                    public function upgrade(string $pluginFile)
+                    {
+                        echo "PHP Notice: stray output from upgrader\n";
+                        echo "Plugin_Upgrader: doing the thing\n";
+                        return true;
+                    }
+                }
+            )
+        );
+        register_rest_route('defyn-connector/v1', '/plugins/(?P<slug>[a-z0-9-]{1,80})/update', [
+            'methods'             => 'POST',
+            'callback'            => [$controller, 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ], true);
+
+        // Outer ob_start at the TEST boundary detects any bytes that leaked
+        // past the controller's inner ob_end_clean. If the inner buffer is
+        // ever removed (regression), this assertion catches it.
+        ob_start();
+        $res = $this->sendSigned('fake-plugin');
+        $leaked = ob_get_clean();
+
+        $this->assertSame(
+            '',
+            $leaked,
+            'Controller must absorb ALL stray STDOUT from Plugin_Upgrader — any leaked bytes here would prepend/append the JSON response body in production and break the dashboard\'s json_decode.'
+        );
+        $this->assertSame(200, $res->get_status());
+        $data = $res->get_data();
+        $this->assertTrue($data['success']);
+        $this->assertSame('fake-plugin', $data['slug']);
+    }
+
     public function testUpgradeFailureReturns502(): void
     {
         $this->seedFakePlugin();
