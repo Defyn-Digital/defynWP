@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Defyn\Connector\Rest;
 
 use Defyn\Connector\Rest\PluginUpdateController;
+use Defyn\Connector\Rest\ThemesController;
+use Defyn\Connector\Rest\ThemesRefreshController;
+use Defyn\Connector\Rest\ThemeUpdateController;
 
 /**
  * Single registration point for every REST route on the connector.
@@ -71,6 +74,24 @@ final class RestRouter
         register_rest_route(self::NAMESPACE, '/plugins/(?P<slug>[a-z0-9-]{1,80})/update', [
             'methods'             => 'POST',
             'callback'            => [new PluginUpdateController(), 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/themes', [
+            'methods'             => 'GET',
+            'callback'            => [new ThemesController(), 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/themes/refresh', [
+            'methods'             => 'POST',
+            'callback'            => [new ThemesRefreshController(), 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/themes/(?P<slug>[a-z0-9-]{1,80})/update', [
+            'methods'             => 'POST',
+            'callback'            => [new ThemeUpdateController(), 'handle'],
             'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
         ]);
     }
