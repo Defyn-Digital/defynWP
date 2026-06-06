@@ -45,6 +45,13 @@ final class RateLimit
     public const THEMES_REFRESH_LIMIT  = 6;
     public const THEMES_REFRESH_WINDOW = HOUR_IN_SECONDS;
 
+    // P2.3 — per-theme update button on SiteThemesPanel. Separate bucket from pluginsUpdate
+    // per spec § 5.3 — 6 plugin updates per hour must not block a 7th theme update.
+    // Per-(user, site) bucket, NOT per-(user, site, slug) like pluginsUpdate, because
+    // theme upgrades have higher operator-attention demand (active-theme risk).
+    public const THEMES_UPDATE_LIMIT  = 6;
+    public const THEMES_UPDATE_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -174,6 +181,42 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::PLUGINS_UPDATE_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /sites/{id}/themes/{slug}/update.
+     *
+     * Separate transient-bucket from pluginsUpdate so a 6-plugin batch in one
+     * hour doesn't lock out theme updates. NOTE: per spec § 5.3 this bucket is
+     * scoped per-(user, site) — NOT per-(user, site, slug) like pluginsUpdate.
+     * Theme upgrades have higher operator-attention demand (active-theme risk)
+     * so a coarser bucket is the deliberate safety net.
+     *
+     * @return true|WP_Error
+     */
+    public static function themesUpdate(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_themesUpdate_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::THEMES_UPDATE_LIMIT) {
+            return new WP_Error(
+                'themes.rate_limited',
+                'Too many update requests for this site. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::THEMES_UPDATE_WINDOW);
         return true;
     }
 

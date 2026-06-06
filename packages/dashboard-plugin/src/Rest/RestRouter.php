@@ -9,6 +9,7 @@ use Defyn\Dashboard\Rest\Middleware\RateLimit;
 use Defyn\Dashboard\Rest\Middleware\RequireAuth;
 use Defyn\Dashboard\Rest\SitesThemesController;
 use Defyn\Dashboard\Rest\SitesThemesRefreshController;
+use Defyn\Dashboard\Rest\SitesThemesUpdateController;
 
 /**
  * Single registration point for every REST route in the plugin.
@@ -163,6 +164,18 @@ final class RestRouter
             'methods'             => 'POST',
             'callback'            => [new SitesThemesRefreshController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'sitesThemesRefresh'],
+        ]);
+
+        // P2.3 — per-theme update trigger. Same auth-chain pattern as the refresh
+        // route above; RateLimit::themesUpdate adds a per-(user, site) 6/hour
+        // throttle on top of RequireAuth::check. The slug regex is intentionally
+        // narrower than the connector's accepts-anything route — dashboard-side
+        // defense-in-depth so a malformed slug 404s at the route layer instead of
+        // reaching the controller's inventory lookup.
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/themes/(?P<slug>[a-z0-9-]{1,80})/update', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesThemesUpdateController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'themesUpdate'],
         ]);
 
         register_rest_route(self::NAMESPACE, '/activity', [
