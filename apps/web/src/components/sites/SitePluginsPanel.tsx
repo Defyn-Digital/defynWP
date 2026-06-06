@@ -80,7 +80,7 @@ export function SitePluginsPanel({ siteId }: Props) {
           </thead>
           <tbody>
             {filtered.map((p) => (
-              <SitePluginsRow key={p.slug} plugin={p} />
+              <SitePluginsRow key={p.slug} plugin={p} siteId={siteId} />
             ))}
           </tbody>
         </table>
