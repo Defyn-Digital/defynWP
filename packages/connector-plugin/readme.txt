@@ -40,6 +40,9 @@ The plugin's stored state (including the Ed25519 keypair) is removed from `wp_op
 
 == Changelog ==
 
+= 0.1.5 =
+* Feature: new themes endpoints — GET /themes returns the installed-theme inventory (slug, name, version, parent_slug, is_active, update_available, update_version); POST /themes/refresh forces a fresh wp_update_themes() poll; POST /themes/{slug}/update runs Theme_Upgrader on the requested stylesheet. Reuses the existing defyn_connector_upgrade_in_flight transient lock with PluginUpdateController, so concurrent plugin/theme upgrades on the same install serialise (P2.3).
+
 = 0.1.4 =
 * Feature: new POST /plugins/{slug}/update signed endpoint runs Plugin_Upgrader for the requested plugin and returns the new version. Per-site transient lock prevents concurrent upgrades on the same install (P2.2).
 
