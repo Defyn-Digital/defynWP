@@ -322,4 +322,73 @@ handlers.push(
     }, 20);
     return HttpResponse.json({ scheduled: true, site_id: siteId }, { status: 202 });
   }),
+
+  // P2.2 — simulate POST /sites/:id/plugins/:slug/update.
+  // Returns 202 immediately and schedules deferred state transitions
+  // (queued -> updating @ 50ms -> idle @ 200ms) so the polling tests in
+  // Task 18 have real state changes to observe.
+  http.post('*/wp-json/defyn/v1/sites/:id/plugins/:slug/update', ({ params }) => {
+    const siteId = Number(params.id);
+    const slug = String(params.slug);
+
+    const bucket = mockSitePlugins[siteId];
+    const idx = bucket?.plugins.findIndex((p) => p.slug === slug);
+    if (!bucket || idx === undefined || idx === -1) {
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'plugins.not_found_in_inventory',
+            message: 'Plugin not in inventory.',
+          },
+        },
+        { status: 404 },
+      );
+    }
+
+    // Optimistic transition: idle -> queued.
+    mockSitePlugins[siteId] = {
+      ...bucket,
+      plugins: bucket.plugins.map((p, i) =>
+        i === idx ? { ...p, update_state: 'queued' as const } : p,
+      ),
+    };
+
+    // queued -> updating @ 50ms
+    setTimeout(() => {
+      const current = mockSitePlugins[siteId];
+      const target = current?.plugins.find((p) => p.slug === slug);
+      if (!current || !target || target.update_state !== 'queued') return;
+      mockSitePlugins[siteId] = {
+        ...current,
+        plugins: current.plugins.map((p) =>
+          p.slug === slug ? { ...p, update_state: 'updating' as const } : p,
+        ),
+      };
+    }, 50);
+
+    // updating -> idle (with version bumped + update cleared) @ 200ms
+    setTimeout(() => {
+      const current = mockSitePlugins[siteId];
+      const target = current?.plugins.find((p) => p.slug === slug);
+      if (!current || !target || target.update_state !== 'updating') return;
+      mockSitePlugins[siteId] = {
+        ...current,
+        plugins: current.plugins.map((p) =>
+          p.slug === slug
+            ? {
+                ...p,
+                update_state: 'idle' as const,
+                version: p.update_version ?? p.version,
+                update_available: false,
+                update_version: null,
+                last_update_attempt_at: new Date().toISOString(),
+                last_update_error: null,
+              }
+            : p,
+        ),
+      };
+    }, 200);
+
+    return HttpResponse.json({ scheduled: true, site_id: siteId, slug }, { status: 202 });
+  }),
 );

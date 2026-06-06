@@ -22,7 +22,7 @@ describe('useSitePlugins', () => {
   it('returns plugins from the API', async () => {
     mockSitePlugins[42] = {
       plugins: [
-        { slug: 'a.php', name: 'A', version: '1', update_available: true, update_version: '2' },
+        { slug: 'a.php', name: 'A', version: '1', update_available: true, update_version: '2', update_state: 'idle', last_update_error: null, last_update_attempt_at: null },
       ],
       last_synced_at: '2026-06-04 11:00:00',
     };
