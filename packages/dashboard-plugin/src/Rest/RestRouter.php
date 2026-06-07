@@ -7,6 +7,7 @@ namespace Defyn\Dashboard\Rest;
 use Defyn\Dashboard\Rest\Middleware\Cors;
 use Defyn\Dashboard\Rest\Middleware\RateLimit;
 use Defyn\Dashboard\Rest\Middleware\RequireAuth;
+use Defyn\Dashboard\Rest\SitesCoreAllowMajorController;
 use Defyn\Dashboard\Rest\SitesCoreRefreshController;
 use Defyn\Dashboard\Rest\SitesCoreUpdateController;
 use Defyn\Dashboard\Rest\SitesThemesController;
@@ -196,6 +197,16 @@ final class RestRouter
             'methods'             => 'POST',
             'callback'            => [new SitesCoreUpdateController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'coreUpdate'],
+        ]);
+
+        // P2.4.1 — toggle per-site allow_major flag. RateLimit::coreAllowMajor chains
+        // RequireAuth::check internally and adds a per-(user, site) 10/hour throttle —
+        // looser than coreUpdate (3/hr) because toggling is a cheap metadata write, not
+        // a heavyweight upgrade. Separate bucket from coreUpdate per spec § 4.8.
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/core/allow-major', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesCoreAllowMajorController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'coreAllowMajor'],
         ]);
 
         register_rest_route(self::NAMESPACE, '/activity', [
