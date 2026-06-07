@@ -32,6 +32,15 @@ export const siteSchema = z.object({
   theme_counts: siteCountsSchema,
   ssl_status: z.string().nullable(),
   ssl_expires_at: z.string().nullable(),
+  // P2.4 — persisted core update state machine fields.
+  core_update_available: z.boolean(),
+  core_update_version: z.string().nullable(),
+  core_update_state: z.enum(['idle', 'queued', 'updating', 'failed']),
+  last_core_update_error: z.string().nullable(),
+  last_core_update_attempt_at: z.string().nullable(),
+  // P2.4 — transient meta from connector /status, NOT persisted.
+  is_minor_update: z.boolean().optional(),
+  is_auto_update_enabled: z.boolean().optional(),
 });
 export type Site = z.infer<typeof siteSchema>;
 

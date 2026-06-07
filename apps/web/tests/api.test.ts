@@ -19,6 +19,11 @@ describe('siteSchema', () => {
       theme_counts: { installed: 2, active: 1 },
       ssl_status: 'enabled',
       ssl_expires_at: '2027-01-01T00:00:00Z',
+      core_update_available: false,
+      core_update_version: null,
+      core_update_state: 'idle',
+      last_core_update_error: null,
+      last_core_update_attempt_at: null,
     });
     expect(parsed.status).toBe('active');
   });
@@ -40,6 +45,11 @@ describe('siteSchema', () => {
       theme_counts: null,
       ssl_status: null,
       ssl_expires_at: null,
+      core_update_available: false,
+      core_update_version: null,
+      core_update_state: 'idle',
+      last_core_update_error: null,
+      last_core_update_attempt_at: null,
     });
     expect(parsed.last_contact_at).toBeNull();
   });
@@ -61,6 +71,11 @@ describe('siteSchema', () => {
       theme_counts: null,
       ssl_status: null,
       ssl_expires_at: null,
+      core_update_available: false,
+      core_update_version: null,
+      core_update_state: 'idle',
+      last_core_update_error: null,
+      last_core_update_attempt_at: null,
     });
     expect(parsed.status).toBe('offline');
   });
@@ -73,6 +88,93 @@ describe('siteSchema', () => {
       wp_version: null, php_version: null, active_theme: null,
       plugin_counts: null, theme_counts: null,
       ssl_status: null, ssl_expires_at: null,
+      core_update_available: false,
+      core_update_version: null,
+      core_update_state: 'idle',
+      last_core_update_error: null,
+      last_core_update_attempt_at: null,
+    })).toThrow();
+  });
+
+  it('accepts a site with all 5 new core fields populated (P2.4)', () => {
+    const parsed = siteSchema.parse({
+      id: 1,
+      url: 'https://smartcoding.test',
+      label: 'Smart',
+      status: 'active',
+      last_contact_at: '2026-06-07 04:00:00',
+      last_sync_at: '2026-06-07 04:00:00',
+      last_error: null,
+      created_at: '2026-06-07 00:00:00',
+      wp_version: '7.0',
+      php_version: '8.3.31',
+      active_theme: null,
+      plugin_counts: { installed: 21, active: 20 },
+      theme_counts: { installed: 8, active: 1 },
+      ssl_status: 'enabled',
+      ssl_expires_at: null,
+      core_update_available: true,
+      core_update_version: '7.0.1',
+      core_update_state: 'queued',
+      last_core_update_error: null,
+      last_core_update_attempt_at: '2026-06-07 09:00:00',
+      is_minor_update: true,
+      is_auto_update_enabled: false,
+    });
+    expect(parsed.core_update_available).toBe(true);
+    expect(parsed.core_update_state).toBe('queued');
+    expect(parsed.is_minor_update).toBe(true);
+  });
+
+  it('accepts a site with no core update + no transient meta (P2.4)', () => {
+    const parsed = siteSchema.parse({
+      id: 1,
+      url: 'https://smartcoding.test',
+      label: 'Smart',
+      status: 'active',
+      last_contact_at: '2026-06-07 04:00:00',
+      last_sync_at: '2026-06-07 04:00:00',
+      last_error: null,
+      created_at: '2026-06-07 00:00:00',
+      wp_version: '7.0',
+      php_version: '8.3.31',
+      active_theme: null,
+      plugin_counts: { installed: 21, active: 20 },
+      theme_counts: { installed: 8, active: 1 },
+      ssl_status: 'enabled',
+      ssl_expires_at: null,
+      core_update_available: false,
+      core_update_version: null,
+      core_update_state: 'idle',
+      last_core_update_error: null,
+      last_core_update_attempt_at: null,
+    });
+    expect(parsed.core_update_available).toBe(false);
+    expect(parsed.is_minor_update).toBeUndefined();
+  });
+
+  it('rejects an unknown core_update_state value (P2.4)', () => {
+    expect(() => siteSchema.parse({
+      id: 1,
+      url: 'https://example.test',
+      label: '',
+      status: 'active',
+      last_contact_at: null,
+      last_sync_at: null,
+      last_error: null,
+      created_at: '2026-06-07 00:00:00',
+      wp_version: null,
+      php_version: null,
+      active_theme: null,
+      plugin_counts: null,
+      theme_counts: null,
+      ssl_status: null,
+      ssl_expires_at: null,
+      core_update_available: false,
+      core_update_version: null,
+      core_update_state: 'mystery',
+      last_core_update_error: null,
+      last_core_update_attempt_at: null,
     })).toThrow();
   });
 });

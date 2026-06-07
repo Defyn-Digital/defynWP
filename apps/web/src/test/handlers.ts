@@ -106,6 +106,11 @@ handlers.push(
       theme_counts: null,
       ssl_status: null,
       ssl_expires_at: null,
+      core_update_available: false,
+      core_update_version: null,
+      core_update_state: 'idle',
+      last_core_update_error: null,
+      last_core_update_attempt_at: null,
     };
     mockSites.push(site);
     return HttpResponse.json({ site_id: site.id }, { status: 202 });
@@ -169,7 +174,17 @@ handlers.push(
         { status: 404 },
       );
     }
-    return HttpResponse.json(site, { status: 200 });
+    // P2.4 — merge in core state if present, otherwise use defaults.
+    const defaultCore = {
+      core_update_available: false,
+      core_update_version: null,
+      core_update_state: 'idle' as const,
+      last_core_update_error: null,
+      last_core_update_attempt_at: null,
+    };
+    const coreState = mockSiteCoreState[id] ?? defaultCore;
+    const response = { ...site, ...coreState };
+    return HttpResponse.json(response, { status: 200 });
   }),
 
   // POST /sites/{id}/sync — schedule an immediate sync, returns 202.
@@ -234,6 +249,11 @@ export function seedMockSitesAllStatuses(): void {
       theme_counts: { installed: 2, active: 1 },
       ssl_status: 'enabled',
       ssl_expires_at: '2027-01-01T00:00:00Z',
+      core_update_available: false,
+      core_update_version: null,
+      core_update_state: 'idle',
+      last_core_update_error: null,
+      last_core_update_attempt_at: null,
     },
     {
       id: nextSiteId++,
@@ -251,6 +271,11 @@ export function seedMockSitesAllStatuses(): void {
       theme_counts: null,
       ssl_status: 'unknown',
       ssl_expires_at: null,
+      core_update_available: false,
+      core_update_version: null,
+      core_update_state: 'idle',
+      last_core_update_error: null,
+      last_core_update_attempt_at: null,
     },
     {
       id: nextSiteId++,
@@ -268,6 +293,11 @@ export function seedMockSitesAllStatuses(): void {
       theme_counts: null,
       ssl_status: null,
       ssl_expires_at: null,
+      core_update_available: false,
+      core_update_version: null,
+      core_update_state: 'idle',
+      last_core_update_error: null,
+      last_core_update_attempt_at: null,
     },
     {
       id: nextSiteId++,
@@ -285,6 +315,11 @@ export function seedMockSitesAllStatuses(): void {
       theme_counts: null,
       ssl_status: null,
       ssl_expires_at: null,
+      core_update_available: false,
+      core_update_version: null,
+      core_update_state: 'idle',
+      last_core_update_error: null,
+      last_core_update_attempt_at: null,
     },
   );
 }
@@ -308,6 +343,26 @@ export function resetMockSiteThemes(): void {
     delete mockSiteThemes[Number(k)];
   }
   mockThemesLastSynced = {};
+}
+
+// P2.4 — core update state mock store
+export const mockSiteCoreState: Record<
+  number,
+  {
+    core_update_available: boolean;
+    core_update_version: string | null;
+    core_update_state: 'idle' | 'queued' | 'updating' | 'failed';
+    last_core_update_error: string | null;
+    last_core_update_attempt_at: string | null;
+    is_minor_update?: boolean;
+    is_auto_update_enabled?: boolean;
+  }
+> = {};
+
+export function resetMockSiteCoreState(): void {
+  for (const k of Object.keys(mockSiteCoreState)) {
+    delete mockSiteCoreState[Number(k)];
+  }
 }
 
 handlers.push(
@@ -483,5 +538,50 @@ handlers.push(
     }, 200);
 
     return HttpResponse.json({ scheduled: true, site_id: siteId, slug, update_state: 'queued' }, { status: 202 });
+  }),
+
+  // P2.4 — POST /sites/:id/core/refresh
+  http.post('*/wp-json/defyn/v1/sites/:id/core/refresh', ({ params }) => {
+    const siteId = Number(params.id);
+    return HttpResponse.json({ scheduled: true, site_id: siteId }, { status: 202 });
+  }),
+
+  // P2.4 — POST /sites/:id/core/update
+  // Returns 202 immediately and schedules deferred state transitions
+  // (queued -> updating @ 50ms -> idle @ 200ms) so the polling tests have real state changes to observe.
+  http.post('*/wp-json/defyn/v1/sites/:id/core/update', ({ params }) => {
+    const siteId = Number(params.id);
+    const state = mockSiteCoreState[siteId];
+    if (!state || !state.core_update_available) {
+      return HttpResponse.json(
+        { error: { code: 'core.no_update_available_for_site', message: 'No update available.' } },
+        { status: 409 },
+      );
+    }
+    mockSiteCoreState[siteId] = { ...state, core_update_state: 'queued' };
+    setTimeout(() => {
+      const cur = mockSiteCoreState[siteId];
+      if (cur && cur.core_update_state === 'queued') {
+        mockSiteCoreState[siteId] = { ...cur, core_update_state: 'updating' };
+      }
+    }, 50);
+    setTimeout(() => {
+      const cur = mockSiteCoreState[siteId];
+      if (!cur || cur.core_update_state !== 'updating') return;
+      mockSiteCoreState[siteId] = {
+        ...cur,
+        core_update_state: 'idle',
+        core_update_available: false,
+        core_update_version: null,
+      };
+    }, 200);
+    return HttpResponse.json(
+      {
+        scheduled: true,
+        site_id: siteId,
+        core_update_state: 'queued',
+      },
+      { status: 202 },
+    );
   }),
 );

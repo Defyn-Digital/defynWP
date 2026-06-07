@@ -40,6 +40,11 @@ describe('useSites', () => {
       theme_counts: { installed: 2, active: 1 },
       ssl_status: 'enabled',
       ssl_expires_at: '2027-01-01T00:00:00Z',
+      core_update_available: false,
+      core_update_version: null,
+      core_update_state: 'idle',
+      last_core_update_error: null,
+      last_core_update_attempt_at: null,
     });
     const { result } = renderHook(() => useSites(), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

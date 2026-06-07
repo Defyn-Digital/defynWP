@@ -1,0 +1,28 @@
+Installing...
+Running as single site... To run multisite, use -c tests/phpunit/multisite.xml
+Not running ajax tests. To execute these, use --group ajax.
+Not running ms-files tests. To execute these, use --group ms-files.
+Not running external-http tests. To execute these, use --group external-http.
+PHPUnit 9.6.34 by Sebastian Bergmann and contributors.
+
+...............................................................  63 / 331 ( 19%)
+............................................................... 126 / 331 ( 38%)
+............................................................... 189 / 331 ( 57%)
+............................................................... 252 / 331 ( 76%)
+............................................................... 315 / 331 ( 95%)
+..............F.                                                331 / 331 (100%)
+
+Time: 00:27.295, Memory: 134.50 MB
+
+There was 1 failure:
+
+1) Defyn\Dashboard\Tests\Integration\UninstallTest::testUninstallDropsAllTables
+Expected table wptests_defyn_sites to NOT exist; DESCRIBE returned columns.
+Failed asserting that an array is empty.
+
+/Users/pradeep/Local Sites/defynWP/packages/dashboard-plugin/tests/Integration/AbstractSchemaTestCase.php:65
+/Users/pradeep/Local Sites/defynWP/packages/dashboard-plugin/tests/Integration/UninstallTest.php:46
+
+FAILURES!
+Tests: 331, Assertions: 945, Failures: 1.
+Script phpunit handling the test event returned with error code 1
