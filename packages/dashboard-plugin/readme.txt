@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 5.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.6.0
+Stable tag: 0.7.0
 License: Proprietary
 License URI: https://defyn.dev/license
 
@@ -39,6 +39,10 @@ No. It only signs and sends requests to the specific managed sites you connect t
 The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_refresh_tokens`, `wp_defyn_activity_log`, `wp_defyn_site_plugins`) and stored options are removed via `uninstall.php`.
 
 == Changelog ==
+
+= 0.7.0 =
+* Operator overview dashboard via GET /defyn/v1/overview — pending updates summary, sites needing attention, recent activity feed.
+* SitesList gains ?filter=has-plugin-updates|has-theme-updates|has-core-update query-string filter for drill-in from overview count cards.
 
 = 0.6.0 =
 * Per-site opt-in for major WordPress version upgrades via /sites/{id}/core/allow-major.
