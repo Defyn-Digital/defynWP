@@ -21,7 +21,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 5;
+    public const SCHEMA_VERSION = 6;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -57,6 +57,8 @@ final class Activation
      */
     public static function ensureSchema(): void
     {
+        global $wpdb;
+
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
         foreach (self::TABLES as $table) {
@@ -73,6 +75,12 @@ final class Activation
         // Guarded ALTERs make this idempotent. Same pattern as
         // dropLegacyActiveThemeColumn.
         self::addCoreUpdateColumns();
+
+        // P2.4.1 — add core_allow_major to wp_defyn_sites, tested_up_to to
+        // wp_defyn_site_plugins and wp_defyn_site_themes. Guarded ALTERs.
+        self::addCoreAllowMajorColumn($wpdb);
+        self::addPluginsTestedUpToColumn($wpdb);
+        self::addThemesTestedUpToColumn($wpdb);
 
         // P2.1: SchemaVersion is the canonical migration cursor; we coalesce
         // with any in-DB value via max() so a future install starting at v3
@@ -162,5 +170,47 @@ final class Activation
             // phpcs:ignore WordPress.DB.PreparedSQL — index DDL cannot be parameterized.
             $wpdb->query("ALTER TABLE `{$sitesTable}` ADD INDEX idx_core_update_available (core_update_available)");
         }
+    }
+
+    private static function addCoreAllowMajorColumn(\wpdb $wpdb): void
+    {
+        $table  = SitesTable::tableName();
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SHOW COLUMNS FROM `{$table}` LIKE %s",
+            'core_allow_major'
+        ));
+        if ($exists !== null) {
+            return;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+        $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN core_allow_major TINYINT(1) NOT NULL DEFAULT 0 AFTER last_core_update_attempt_at");
+    }
+
+    private static function addPluginsTestedUpToColumn(\wpdb $wpdb): void
+    {
+        $table  = SitePluginsTable::tableName();
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SHOW COLUMNS FROM `{$table}` LIKE %s",
+            'tested_up_to'
+        ));
+        if ($exists !== null) {
+            return;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+        $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN tested_up_to VARCHAR(20) NULL AFTER update_version");
+    }
+
+    private static function addThemesTestedUpToColumn(\wpdb $wpdb): void
+    {
+        $table  = SiteThemesTable::tableName();
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SHOW COLUMNS FROM `{$table}` LIKE %s",
+            'tested_up_to'
+        ));
+        if ($exists !== null) {
+            return;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+        $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN tested_up_to VARCHAR(20) NULL AFTER update_version");
     }
 }
