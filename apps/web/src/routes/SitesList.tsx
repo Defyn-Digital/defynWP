@@ -1,12 +1,20 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSites } from '@/lib/queries/useSites';
 import { SitesListFilters, type StatusKey } from '@/components/sites/SitesListFilters';
 
 export default function SitesList() {
-  const { data, isLoading, isError, error } = useSites();
+  const [searchParams] = useSearchParams();
+  const filterParam = searchParams.get('filter');
+  const filter =
+    filterParam === 'has-plugin-updates' ||
+    filterParam === 'has-theme-updates' ||
+    filterParam === 'has-core-update'
+      ? filterParam
+      : undefined;
+  const { data, isLoading, isError, error } = useSites({ filter });
   const [statusFilter, setStatusFilter] = useState<StatusKey>('all');
   const [query, setQuery] = useState('');
 
