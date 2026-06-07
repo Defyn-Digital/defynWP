@@ -7,6 +7,7 @@ import { ApiError } from '@/lib/apiClient';
 import { SiteRuntimeInfo } from '@/components/sites/SiteRuntimeInfo';
 import { SiteActions } from '@/components/sites/SiteActions';
 import { SiteActivityPanel } from '@/components/sites/SiteActivityPanel';
+import { SiteCoreCard } from '@/components/sites/SiteCoreCard';
 import { SitePluginsPanel } from '@/components/sites/SitePluginsPanel';
 import { useSiteThemes } from '@/lib/queries/useSiteThemes';
 import { SiteThemesPanel } from '@/components/sites/SiteThemesPanel';
@@ -94,6 +95,8 @@ export default function SiteDetail() {
           {data.status !== 'pending' && <SiteRuntimeInfo site={data} />}
 
           {data.status !== 'pending' && <SiteActions site={data} />}
+
+          {data.status !== 'pending' && <SiteCoreCard siteId={siteId} />}
 
           {data.status !== 'pending' && <SiteActivityPanel site={data} />}
 
