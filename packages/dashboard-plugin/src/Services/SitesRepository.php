@@ -173,6 +173,10 @@ final class SitesRepository
      * P2.3 v4 migration: active_theme moved to wp_defyn_site_themes table;
      * still accepted in $info for backward compatibility but no longer persisted here.
      *
+     * P2.4: Propagates core sub-object from connector /status payload + performs
+     * day-1 single-row heal when incoming says "no update available" but row is
+     * stuck in `failed` state.
+     *
      * @param array{
      *   wp_version: string,
      *   php_version: string,
@@ -181,35 +185,136 @@ final class SitesRepository
      *   theme_counts: array<string, int>,
      *   ssl_status: string,
      *   ssl_expires_at: ?string,
-     *   server_time?: int
+     *   server_time?: int,
+     *   core?: array<string, mixed>
      * } $info
      */
     public function markSynced(int $id, array $info): void
     {
         global $wpdb;
         $now = gmdate('Y-m-d H:i:s');
+
+        $updates = [
+            // A successful /status pull proves the site is alive and the
+            // dashboard ↔ connector trust still works, so clear any prior
+            // error/offline state. Without this the SPA would show stale
+            // `status=error` + `last_error` forever after a single bad
+            // sync (e.g. transient 404/401 while WP.com Batcache warmed).
+            'status'          => 'active',
+            'last_error'      => '',
+            'wp_version'      => $info['wp_version'],
+            'php_version'     => $info['php_version'],
+            'plugin_counts'   => (string) wp_json_encode($info['plugin_counts']),
+            'theme_counts'    => (string) wp_json_encode($info['theme_counts']),
+            'ssl_status'      => $info['ssl_status'],
+            'ssl_expires_at'  => $info['ssl_expires_at'],
+            'last_sync_at'    => $now,
+            'last_contact_at' => $now,
+            'updated_at'      => $now,
+        ];
+
+        // P2.4 — propagate the core sub-object from the connector /status payload.
+        $coreInfo = $info['core'] ?? null;
+        if (is_array($coreInfo)) {
+            $updates['core_update_available'] = !empty($coreInfo['update_available']) ? 1 : 0;
+            $updates['core_update_version']   = $coreInfo['update_version'] ?? null;
+
+            // Day-1 single-row heal — if incoming says "no update available"
+            // but the existing row is stuck in `failed`, reset to idle + clear
+            // the stale error. Ships from day 1 (not retrofitted like P2.2.1).
+            $existing = $this->findById($id);
+            if (
+                $existing !== null
+                && $existing->coreUpdateState === 'failed'
+                && empty($coreInfo['update_available'])
+            ) {
+                $updates['core_update_state']      = 'idle';
+                $updates['last_core_update_error'] = null;
+            }
+        }
+
+        $wpdb->update(SitesTable::tableName(), $updates, ['id' => $id]);
+    }
+
+    /**
+     * P2.4 — operator pressed "Update WordPress core". Flip the row to queued
+     * + clear any prior error. Called from SitesCoreUpdateController.
+     */
+    public function markCoreUpdateRequested(int $siteId, string $now): void
+    {
+        global $wpdb;
         $wpdb->update(
             SitesTable::tableName(),
             [
-                // A successful /status pull proves the site is alive and the
-                // dashboard ↔ connector trust still works, so clear any prior
-                // error/offline state. Without this the SPA would show stale
-                // `status=error` + `last_error` forever after a single bad
-                // sync (e.g. transient 404/401 while WP.com Batcache warmed).
-                'status'          => 'active',
-                'last_error'      => '',
-                'wp_version'      => $info['wp_version'],
-                'php_version'     => $info['php_version'],
-                'plugin_counts'   => (string) wp_json_encode($info['plugin_counts']),
-                'theme_counts'    => (string) wp_json_encode($info['theme_counts']),
-                'ssl_status'      => $info['ssl_status'],
-                'ssl_expires_at'  => $info['ssl_expires_at'],
-                'last_sync_at'    => $now,
-                'last_contact_at' => $now,
-                'updated_at'      => $now,
+                'core_update_state'           => 'queued',
+                'last_core_update_error'      => null,
+                'last_core_update_attempt_at' => $now,
+                'updated_at'                  => $now,
             ],
-            ['id' => $id],
-            ['%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s'],
+            ['id' => $siteId],
+            ['%s', '%s', '%s', '%s'],
+            ['%d'],
+        );
+    }
+
+    /**
+     * P2.4 — AS job started executing the upgrade. Called from UpdateSiteCore.
+     */
+    public function markCoreUpdating(int $siteId, string $now): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            SitesTable::tableName(),
+            [
+                'core_update_state' => 'updating',
+                'updated_at'        => $now,
+            ],
+            ['id' => $siteId],
+            ['%s', '%s'],
+            ['%d'],
+        );
+    }
+
+    /**
+     * P2.4 — upgrade succeeded. Bump wp_version + clear the update-available
+     * badge.
+     */
+    public function markCoreUpdateSucceeded(int $siteId, string $newVersion, string $now): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            SitesTable::tableName(),
+            [
+                'wp_version'             => $newVersion,
+                'core_update_state'      => 'idle',
+                'core_update_available'  => 0,
+                'core_update_version'    => null,
+                'last_core_update_error' => null,
+                'updated_at'             => $now,
+            ],
+            ['id' => $siteId],
+            ['%s', '%s', '%d', '%s', '%s', '%s'],
+            ['%d'],
+        );
+    }
+
+    /**
+     * P2.4 — upgrade failed (terminal). Truncates the error to 1000 chars to
+     * match the VARCHAR(1000) column.
+     */
+    public function markCoreUpdateFailed(int $siteId, string $errorMessage, string $now): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            SitesTable::tableName(),
+            [
+                'core_update_state'           => 'failed',
+                'last_core_update_error'      => substr($errorMessage, 0, 1000),
+                'last_core_update_attempt_at' => $now,
+                'updated_at'                  => $now,
+            ],
+            ['id' => $siteId],
+            ['%s', '%s', '%s', '%s'],
             ['%d'],
         );
     }
