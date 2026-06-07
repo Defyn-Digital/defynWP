@@ -52,6 +52,12 @@ final class RateLimit
     public const THEMES_UPDATE_LIMIT  = 6;
     public const THEMES_UPDATE_WINDOW = HOUR_IN_SECONDS;
 
+    // P2.4 — refresh button on SiteCoreCard. Separate bucket from pluginsRefresh and
+    // sitesThemesRefresh per spec § 9 — 6 plugin/theme refreshes per hour don't block
+    // a 7th core refresh. Bucket is per-(user, site).
+    public const CORE_REFRESH_LIMIT  = 6;
+    public const CORE_REFRESH_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -217,6 +223,40 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::THEMES_UPDATE_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /sites/{id}/core/refresh.
+     *
+     * Separate transient-bucket from pluginsRefresh and sitesThemesRefresh per
+     * spec § 9 — a burst of plugin/theme refreshes must not block the core
+     * refresh button. Same auth-chain pattern as pluginsRefresh.
+     *
+     * @return true|WP_Error
+     */
+    public static function sitesCoreRefresh(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_core_refresh_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::CORE_REFRESH_LIMIT) {
+            return new WP_Error(
+                'core.rate_limited',
+                'Refresh requested too often. Wait an hour and try again.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::CORE_REFRESH_WINDOW);
         return true;
     }
 
