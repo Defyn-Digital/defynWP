@@ -53,7 +53,9 @@ final class CoreUpdateController
         ob_start();
 
         try {
-            $result = $this->service->upgrade();
+            $body       = $request->get_json_params() ?: [];
+            $allowMajor = isset($body['allow_major']) && $body['allow_major'] === true;
+            $result     = $this->service->upgrade($allowMajor);
             return new WP_REST_Response($result, 200);
         } catch (NoCoreUpdateAvailableException $e) {
             return ErrorResponse::create(
