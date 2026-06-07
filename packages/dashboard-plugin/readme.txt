@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 5.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.0
+Stable tag: 0.6.0
 License: Proprietary
 License URI: https://defyn.dev/license
 
@@ -39,6 +39,11 @@ No. It only signs and sends requests to the specific managed sites you connect t
 The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_refresh_tokens`, `wp_defyn_activity_log`, `wp_defyn_site_plugins`) and stored options are removed via `uninstall.php`.
 
 == Changelog ==
+
+= 0.6.0 =
+* Per-site opt-in for major WordPress version upgrades via /sites/{id}/core/allow-major.
+* Schema v6: core_allow_major on sites table + tested_up_to on plugins/themes tables.
+* UpdateSiteCore job threads allow_major flag to connector on upgrade requests.
 
 = 0.5.0 =
 * Feature: operator can update WordPress core (minor versions only) on managed sites from the DefynWP dashboard. New POST /defyn/v1/sites/{id}/core/refresh forces a fresh wp_version_check() poll on the connector. POST /defyn/v1/sites/{id}/core/update schedules an AS job that calls the connector's signed /core/update endpoint with a 300s HTTP timeout. The new SiteCoreCard renders above the SiteSummaryCard with four visual states (up to date / update available / updating / failed) and an amber confirmation dialog. Schema bumps v4 -> v5 — adds 5 new core_update_* columns to wp_defyn_sites + an idx_core_update_available index. Day-1 single-row heal in SitesRepository::markSynced resets stuck failed states when the connector reports no update available. Activity log emits core_update.requested -> core_update.started -> core_update.succeeded|failed triplet. Tighter 3/hour rate limit on the update endpoint (vs themes/plugins at 6/hour). Major bumps (7.0 -> 7.1+) are explicitly blocked at both connector + dashboard with a core.major_update_blocked envelope; deferred to P2.4.1. Auto-runs via plugins_loaded self-heal — no manual deact/react required.
