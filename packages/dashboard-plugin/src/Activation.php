@@ -21,7 +21,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 4;
+    public const SCHEMA_VERSION = 5;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -68,6 +68,11 @@ final class Activation
         // SHOW COLUMNS check makes re-running ensureSchema idempotent — once
         // the column is gone, the second call is a no-op.
         self::dropLegacyActiveThemeColumn();
+
+        // P2.4 — add the 5 new core-update columns + index to wp_defyn_sites.
+        // Guarded ALTERs make this idempotent. Same pattern as
+        // dropLegacyActiveThemeColumn.
+        self::addCoreUpdateColumns();
 
         // P2.1: SchemaVersion is the canonical migration cursor; we coalesce
         // with any in-DB value via max() so a future install starting at v3
@@ -123,6 +128,39 @@ final class Activation
         if ($exists !== null) {
             // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
             $wpdb->query("ALTER TABLE `{$sitesTable}` DROP COLUMN active_theme");
+        }
+    }
+
+    private static function addCoreUpdateColumns(): void
+    {
+        global $wpdb;
+        $sitesTable = SitesTable::tableName();
+
+        $columns = [
+            'core_update_available'       => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'core_update_version'         => 'VARCHAR(20) NULL',
+            'core_update_state'           => "VARCHAR(20) NOT NULL DEFAULT 'idle'",
+            'last_core_update_error'      => 'VARCHAR(1000) NULL',
+            'last_core_update_attempt_at' => 'DATETIME NULL',
+        ];
+        foreach ($columns as $name => $definition) {
+            $exists = $wpdb->get_var($wpdb->prepare(
+                "SHOW COLUMNS FROM `{$sitesTable}` LIKE %s",
+                $name
+            ));
+            if ($exists === null) {
+                // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+                $wpdb->query("ALTER TABLE `{$sitesTable}` ADD COLUMN {$name} {$definition}");
+            }
+        }
+
+        $hasIndex = $wpdb->get_row($wpdb->prepare(
+            "SHOW INDEX FROM `{$sitesTable}` WHERE Key_name = %s",
+            'idx_core_update_available'
+        ));
+        if ($hasIndex === null) {
+            // phpcs:ignore WordPress.DB.PreparedSQL — index DDL cannot be parameterized.
+            $wpdb->query("ALTER TABLE `{$sitesTable}` ADD INDEX idx_core_update_available (core_update_available)");
         }
     }
 }
