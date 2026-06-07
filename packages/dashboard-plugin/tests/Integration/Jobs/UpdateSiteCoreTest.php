@@ -126,4 +126,209 @@ final class UpdateSiteCoreTest extends AbstractSchemaTestCase
     {
         $this->assertSame(300, UpdateSiteCore::TIMEOUT_SECONDS);
     }
+
+    public function testNoUpdateAvailable409TreatedAsSuccessByOtherMeans(): void
+    {
+        $body = json_encode(['error' => ['code' => 'core.no_update_available', 'message' => 'WordPress reports no core update available.']]);
+        $factory = fn () => new MockResponse($body, ['http_code' => 409]);
+        $job = new UpdateSiteCore(
+            new SitesRepository(),
+            new SignedHttpClient(new MockHttpClient($factory)),
+            new ActivityLogger(),
+        );
+
+        $job->handle($this->siteId, 0);
+
+        $row = (new SitesRepository())->findById($this->siteId);
+
+        $this->assertSame('idle', $row->coreUpdateState);
+        $this->assertSame('7.0', $row->wpVersion);
+        $this->assertFalse($row->coreUpdateAvailable);
+        $this->assertNull($row->coreUpdateVersion);
+
+        global $wpdb;
+        $event = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT event_type, details FROM {$wpdb->prefix}defyn_activity_log
+                 WHERE site_id = %d AND event_type = 'core_update.succeeded_no_change'
+                 ORDER BY id DESC LIMIT 1",
+                $this->siteId
+            ),
+            ARRAY_A,
+        );
+        $this->assertNotNull($event);
+        $details = json_decode((string) $event['details'], true);
+        $this->assertSame('7.0', $details['current_version']);
+    }
+
+    public function testMajorBlocked409MarksFailedImmediatelyNoRetry(): void
+    {
+        $body = json_encode(['error' => ['code' => 'core.major_update_blocked', 'message' => 'Major-version updates (7.0 -> 8.0) require P2.4.1.']]);
+        $factory = fn () => new MockResponse($body, ['http_code' => 409]);
+
+        $scheduled = [];
+        \add_filter('pre_as_schedule_single_action', function ($pre, $when, $hook, $args) use (&$scheduled) {
+            $scheduled[] = ['hook' => $hook, 'args' => $args];
+            return 999;
+        }, 10, 4);
+
+        $job = new UpdateSiteCore(
+            new SitesRepository(),
+            new SignedHttpClient(new MockHttpClient($factory)),
+            new ActivityLogger(),
+        );
+
+        $job->handle($this->siteId, 0);
+
+        $row = (new SitesRepository())->findById($this->siteId);
+        $this->assertSame('failed', $row->coreUpdateState);
+        $this->assertStringContainsString('Major-version updates', $row->lastCoreUpdateError ?? '');
+
+        $this->assertEmpty($scheduled);
+
+        global $wpdb;
+        $event = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT event_type FROM {$wpdb->prefix}defyn_activity_log
+                 WHERE site_id = %d AND event_type = 'core_update.blocked_major'
+                 ORDER BY id DESC LIMIT 1",
+                $this->siteId
+            ),
+            ARRAY_A,
+        );
+        $this->assertNotNull($event);
+    }
+
+    public function testInProgress409ReschedulesWithExponentialBackoff(): void
+    {
+        $body = json_encode(['error' => ['code' => 'connector.upgrade_in_progress', 'message' => 'busy']]);
+        $factory = fn () => new MockResponse($body, ['http_code' => 409]);
+        $job = new UpdateSiteCore(
+            new SitesRepository(),
+            new SignedHttpClient(new MockHttpClient($factory)),
+            new ActivityLogger(),
+        );
+
+        $scheduled = [];
+        \add_filter('pre_as_schedule_single_action', function ($pre, $when, $hook, $args) use (&$scheduled) {
+            $scheduled[] = ['when' => $when, 'hook' => $hook, 'args' => $args];
+            return 999;
+        }, 10, 4);
+
+        $job->handle($this->siteId, 0);
+        $job->handle($this->siteId, 1);
+        $job->handle($this->siteId, 2);
+
+        $this->assertCount(3, $scheduled);
+
+        $now = time();
+        $this->assertEqualsWithDelta($now + 60, $scheduled[0]['when'], 5);
+        $this->assertEqualsWithDelta($now + 120, $scheduled[1]['when'], 5);
+        $this->assertEqualsWithDelta($now + 240, $scheduled[2]['when'], 5);
+        $this->assertSame([$this->siteId, 1], $scheduled[0]['args']);
+        $this->assertSame([$this->siteId, 2], $scheduled[1]['args']);
+        $this->assertSame([$this->siteId, 3], $scheduled[2]['args']);
+
+        $row = (new SitesRepository())->findById($this->siteId);
+        $this->assertSame('updating', $row->coreUpdateState);
+
+        global $wpdb;
+        $count = (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}defyn_activity_log
+                 WHERE site_id = %d AND event_type = 'core_update.retry'",
+                $this->siteId
+            )
+        );
+        $this->assertSame(3, $count);
+    }
+
+    public function testFifthRetryExhaustionMarksFailedWithRetryExhaustedCode(): void
+    {
+        $body = json_encode(['error' => ['code' => 'connector.upgrade_in_progress', 'message' => 'busy']]);
+        $factory = fn () => new MockResponse($body, ['http_code' => 409]);
+        $job = new UpdateSiteCore(
+            new SitesRepository(),
+            new SignedHttpClient(new MockHttpClient($factory)),
+            new ActivityLogger(),
+        );
+
+        $job->handle($this->siteId, 5);
+
+        $row = (new SitesRepository())->findById($this->siteId);
+        $this->assertSame('failed', $row->coreUpdateState);
+        $this->assertStringContainsString('busy after 5 retries', $row->lastCoreUpdateError ?? '');
+
+        global $wpdb;
+        $details = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT details FROM {$wpdb->prefix}defyn_activity_log
+                 WHERE site_id = %d AND event_type = 'core_update.failed' ORDER BY id DESC LIMIT 1",
+                $this->siteId
+            )
+        );
+        $decoded = json_decode((string) $details, true);
+        $this->assertSame('retry_exhausted', $decoded['error_code']);
+    }
+
+    public function testTransportErrorMarksFailedNoRetry(): void
+    {
+        $factory = fn () => throw new \Symfony\Component\HttpClient\Exception\TransportException('Connection refused');
+
+        $scheduled = [];
+        \add_filter('pre_as_schedule_single_action', function ($pre, $when, $hook, $args) use (&$scheduled) {
+            $scheduled[] = ['hook' => $hook, 'args' => $args];
+            return 999;
+        }, 10, 4);
+
+        $job = new UpdateSiteCore(
+            new SitesRepository(),
+            new SignedHttpClient(new MockHttpClient($factory)),
+            new ActivityLogger(),
+        );
+
+        $job->handle($this->siteId, 0);
+
+        $row = (new SitesRepository())->findById($this->siteId);
+        $this->assertSame('failed', $row->coreUpdateState);
+        $this->assertStringContainsString('Connection refused', $row->lastCoreUpdateError ?? '');
+
+        $this->assertEmpty($scheduled);
+    }
+
+    public function testConnectorUpdateFailed502MarksFailedNoRetry(): void
+    {
+        $body = json_encode(['error' => ['code' => 'core.update_failed', 'message' => 'Could not copy file. /wp-admin/index.php']]);
+        $factory = fn () => new MockResponse($body, ['http_code' => 502]);
+
+        $scheduled = [];
+        \add_filter('pre_as_schedule_single_action', function ($pre, $when, $hook, $args) use (&$scheduled) {
+            $scheduled[] = ['hook' => $hook, 'args' => $args];
+            return 999;
+        }, 10, 4);
+
+        $job = new UpdateSiteCore(
+            new SitesRepository(),
+            new SignedHttpClient(new MockHttpClient($factory)),
+            new ActivityLogger(),
+        );
+
+        $job->handle($this->siteId, 0);
+
+        $row = (new SitesRepository())->findById($this->siteId);
+        $this->assertSame('failed', $row->coreUpdateState);
+        $this->assertStringContainsString('Could not copy file', $row->lastCoreUpdateError ?? '');
+
+        $this->assertEmpty($scheduled);
+
+        global $wpdb;
+        $msg = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT JSON_EXTRACT(details, '$.error_message') FROM {$wpdb->prefix}defyn_activity_log
+                 WHERE site_id = %d AND event_type = 'core_update.failed' ORDER BY id DESC LIMIT 1",
+                $this->siteId
+            )
+        );
+        $this->assertStringContainsString('Could not copy file', (string) $msg);
+    }
 }

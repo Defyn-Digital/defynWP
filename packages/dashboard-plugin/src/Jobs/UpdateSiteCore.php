@@ -78,6 +78,69 @@ final class UpdateSiteCore
             return;
         }
 
-        // Task 14 layers on the four remaining branches.
+        // 409 + core.no_update_available -> success-by-other-means.
+        if (
+            $response['status'] === 409
+            && ($response['body']['error']['code'] ?? '') === 'core.no_update_available'
+        ) {
+            $this->sites->markCoreUpdateSucceeded($siteId, $wpVersionBeforeAttempt, $now);
+            $this->log->log(null, $siteId, 'core_update.succeeded_no_change', [
+                'current_version' => $wpVersionBeforeAttempt,
+            ]);
+            return;
+        }
+
+        // 409 + core.major_update_blocked -> immediate fail, NO retry.
+        if (
+            $response['status'] === 409
+            && ($response['body']['error']['code'] ?? '') === 'core.major_update_blocked'
+        ) {
+            $errorMessage = (string) ($response['body']['error']['message'] ?? 'Major-version update blocked.');
+            $this->sites->markCoreUpdateFailed($siteId, $errorMessage, $now);
+            $this->log->log(null, $siteId, 'core_update.blocked_major', [
+                'error_message' => $errorMessage,
+            ]);
+            return;
+        }
+
+        // 409 + connector.upgrade_in_progress -> exponential backoff retry (max 5).
+        if (
+            $response['status'] === 409
+            && ($response['body']['error']['code'] ?? '') === 'connector.upgrade_in_progress'
+        ) {
+            if ($attempt >= 5) {
+                $this->sites->markCoreUpdateFailed(
+                    $siteId,
+                    'Site is busy after 5 retries.',
+                    $now,
+                );
+                $this->log->log(null, $siteId, 'core_update.failed', [
+                    'error_code'        => 'retry_exhausted',
+                    'error_message'     => 'Site is busy after 5 retries.',
+                    'attempted_version' => $targetVersion,
+                ]);
+                return;
+            }
+
+            $delay   = 60 * (2 ** $attempt);
+            $nextRun = time() + $delay;
+            \as_schedule_single_action($nextRun, self::HOOK, [$siteId, $attempt + 1]);
+            $this->log->log(null, $siteId, 'core_update.retry', [
+                'attempt'     => $attempt,
+                'next_run_at' => gmdate('Y-m-d H:i:s', $nextRun),
+            ]);
+            return;
+        }
+
+        // All other failures (non-2xx, parse failure, transport error). NO retry.
+        $errorMessage = $response['body']['error']['message']
+            ?? ($response['error'] !== '' ? $response['error'] : sprintf('Connector returned HTTP %d.', $response['status']));
+
+        $this->sites->markCoreUpdateFailed($siteId, $errorMessage, $now);
+        $this->log->log(null, $siteId, 'core_update.failed', [
+            'error_code'        => 'connector_failure',
+            'error_message'     => $errorMessage,
+            'attempted_version' => $targetVersion,
+        ]);
     }
 }
