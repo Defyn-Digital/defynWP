@@ -563,6 +563,22 @@ handlers.push(
     return HttpResponse.json({ scheduled: true, site_id: siteId }, { status: 202 });
   }),
 
+  // P2.5 — GET /overview — empty payload by default; tests override via server.use().
+  http.get('*/wp-json/defyn/v1/overview', () => {
+    return HttpResponse.json({
+      pending_updates: {
+        plugins: 0,
+        themes: 0,
+        cores_minor: 0,
+        cores_major: 0,
+        sites_with_any_update: 0,
+      },
+      sites_needing_attention: [],
+      recent_activity: [],
+      generated_at: '2026-06-07 11:30:00',
+    });
+  }),
+
   // P2.4 — POST /sites/:id/core/update
   // Returns 202 immediately and schedules deferred state transitions
   // (queued -> updating @ 50ms -> idle @ 200ms) so the polling tests have real state changes to observe.

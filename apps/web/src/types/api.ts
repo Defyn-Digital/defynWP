@@ -86,3 +86,40 @@ export const activityListResponseSchema = z.object({
   per_page: z.number().int().positive(),
 });
 export type ActivityListResponse = z.infer<typeof activityListResponseSchema>;
+
+// P2.5 — Overview dashboard schema.
+export const overviewAttentionReasonSchema = z.enum([
+  'offline',
+  'failed_update',
+  'ssl_expiring',
+  'sync_stale',
+]);
+export type OverviewAttentionReason = z.infer<typeof overviewAttentionReasonSchema>;
+
+export const overviewSchema = z.object({
+  pending_updates: z.object({
+    plugins: z.number().int().nonnegative(),
+    themes: z.number().int().nonnegative(),
+    cores_minor: z.number().int().nonnegative(),
+    cores_major: z.number().int().nonnegative(),
+    sites_with_any_update: z.number().int().nonnegative(),
+  }),
+  sites_needing_attention: z.array(z.object({
+    site_id: z.number().int(),
+    url: z.string(),
+    label: z.string(),
+    reasons: z.array(overviewAttentionReasonSchema),
+    last_contact_at: z.string().nullable(),
+    ssl_expires_at: z.string().nullable(),
+  })),
+  recent_activity: z.array(z.object({
+    id: z.number().int(),
+    site_id: z.number().int().nullable(),
+    site_label: z.string().nullable(),
+    event_type: z.string(),
+    details: z.record(z.string(), z.unknown()).nullable(),
+    created_at: z.string(),
+  })),
+  generated_at: z.string(),
+});
+export type Overview = z.infer<typeof overviewSchema>;
