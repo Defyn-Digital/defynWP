@@ -99,6 +99,39 @@ final class ActivityLogRepository
     }
 
     /**
+     * P2.5 — last $limit events for sites owned by $userId, joined with sites
+     * to surface site_label. Uses EXISTS subquery (NOT plain LEFT JOIN) so
+     * MySQL leverages the idx_activity_site_created_at composite index from F9.
+     * Plan-bug trap #2.
+     *
+     * @return list<array{
+     *   id:int, site_id:?int, site_label:?string, event_type:string,
+     *   details:?string, created_at:string
+     * }>
+     */
+    public function tailForUser(int $userId, int $limit = 25): array
+    {
+        global $wpdb;
+        $activityTable = ActivityLogTable::tableName();
+        $sitesTable    = SitesTable::tableName();
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT a.id, a.site_id, s.label AS site_label, a.event_type, a.details, a.created_at
+             FROM {$activityTable} a
+             LEFT JOIN {$sitesTable} s ON s.id = a.site_id AND s.user_id = %d
+             WHERE EXISTS (
+                SELECT 1 FROM {$sitesTable} s2
+                WHERE s2.id = a.site_id AND s2.user_id = %d
+             )
+             ORDER BY a.created_at DESC, a.id DESC
+             LIMIT %d",
+            $userId, $userId, $limit
+        ), ARRAY_A);
+
+        return $rows ?: [];
+    }
+
+    /**
      * Build the user-scoped WHERE clause + bound args list. Centralised so
      * paginate + count share exactly the same scoping (anti-drift).
      *
