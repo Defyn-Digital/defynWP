@@ -50,6 +50,12 @@ final class Site
         public readonly ?string $sslStatus = null,
         public readonly ?string $sslExpiresAt = null,
         public readonly ?string $lastSyncAt = null,
+        // P2.4 additions — core update fields.
+        public readonly bool    $coreUpdateAvailable = false,
+        public readonly ?string $coreUpdateVersion = null,
+        public readonly string  $coreUpdateState = 'idle',
+        public readonly ?string $lastCoreUpdateError = null,
+        public readonly ?string $lastCoreUpdateAttemptAt = null,
     ) {}
 
     /** @param array<string, mixed> $row wpdb result row (all values come back as strings) */
@@ -75,6 +81,11 @@ final class Site
             sslStatus:      isset($row['ssl_status'])      ? (string) $row['ssl_status']      : null,
             sslExpiresAt:   isset($row['ssl_expires_at'])  ? (string) $row['ssl_expires_at']  : null,
             lastSyncAt:     isset($row['last_sync_at'])    ? (string) $row['last_sync_at']    : null,
+            coreUpdateAvailable:     (bool) (int) ($row['core_update_available'] ?? 0),
+            coreUpdateVersion:       isset($row['core_update_version']) ? (string) $row['core_update_version'] : null,
+            coreUpdateState:         (string) ($row['core_update_state'] ?? 'idle'),
+            lastCoreUpdateError:     isset($row['last_core_update_error']) ? (string) $row['last_core_update_error'] : null,
+            lastCoreUpdateAttemptAt: isset($row['last_core_update_attempt_at']) ? (string) $row['last_core_update_attempt_at'] : null,
         );
     }
 
@@ -115,6 +126,12 @@ final class Site
             'theme_counts'    => $this->themeCounts,
             'ssl_status'      => $this->sslStatus,
             'ssl_expires_at'  => $this->sslExpiresAt,
+            // P2.4: expose core update fields to the SPA.
+            'core_update_available'       => $this->coreUpdateAvailable,
+            'core_update_version'         => $this->coreUpdateVersion,
+            'core_update_state'           => $this->coreUpdateState,
+            'last_core_update_error'      => $this->lastCoreUpdateError,
+            'last_core_update_attempt_at' => $this->lastCoreUpdateAttemptAt,
         ];
     }
 }
