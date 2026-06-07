@@ -33,7 +33,16 @@ final class PluginListCollector
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
 
-        $all     = get_plugins() ?: [];
+        // Register 'Tested up to' as an extra plugin header so get_plugins()
+        // surfaces it. Without this filter, get_plugins() only returns the
+        // standard WP plugin headers and 'Tested up to' is always stripped.
+        add_filter('extra_plugin_headers', [$this, 'registerTestedUpToHeader']);
+        try {
+            $all = get_plugins() ?: [];
+        } finally {
+            remove_filter('extra_plugin_headers', [$this, 'registerTestedUpToHeader']);
+        }
+
         $updates = get_site_transient('update_plugins');
         $byPath  = is_object($updates) && isset($updates->response)
             ? (array) $updates->response
@@ -72,5 +81,19 @@ final class PluginListCollector
             'plugins'   => $plugins,
             'truncated' => $truncated,
         ];
+    }
+
+    /**
+     * Callback for the 'extra_plugin_headers' filter.
+     * Appends 'Tested up to' so get_plugins() surfaces it in each plugin's
+     * header array. Must be public so WordPress can call it via the filter.
+     *
+     * @param string[] $headers
+     * @return string[]
+     */
+    public function registerTestedUpToHeader(array $headers): array
+    {
+        $headers[] = 'Tested up to';
+        return $headers;
     }
 }

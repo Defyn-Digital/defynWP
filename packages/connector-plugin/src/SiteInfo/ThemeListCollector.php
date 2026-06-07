@@ -38,8 +38,18 @@ final class ThemeListCollector
             ? (array) $updates->response
             : [];
 
+        // Register 'Tested up to' as an extra theme header so WP_Theme::get()
+        // surfaces it. Without this filter, WP_Theme only parses the standard
+        // registered headers and 'TestedUpTo' always returns false.
+        add_filter('extra_theme_headers', [$this, 'registerTestedUpToHeader']);
+        try {
+            $allThemes = wp_get_themes() ?: [];
+        } finally {
+            remove_filter('extra_theme_headers', [$this, 'registerTestedUpToHeader']);
+        }
+
         $themes = [];
-        foreach (wp_get_themes() as $stylesheet => $theme) {
+        foreach ($allThemes as $stylesheet => $theme) {
             $parent     = $theme->parent();
             $slug       = (string) $stylesheet;
             $hasUpdate  = isset($updateResponses[$slug]);
@@ -63,5 +73,19 @@ final class ThemeListCollector
         usort($themes, static fn (array $a, array $b): int => strcmp($a['slug'], $b['slug']));
 
         return ['themes' => $themes];
+    }
+
+    /**
+     * Callback for the 'extra_theme_headers' filter.
+     * Appends 'Tested up to' so WP_Theme::get('TestedUpTo') surfaces it.
+     * Must be public so WordPress can call it via the filter.
+     *
+     * @param string[] $headers
+     * @return string[]
+     */
+    public function registerTestedUpToHeader(array $headers): array
+    {
+        $headers[] = 'Tested up to';
+        return $headers;
     }
 }
