@@ -9,6 +9,7 @@ import { SiteActions } from '@/components/sites/SiteActions';
 import { SiteActivityPanel } from '@/components/sites/SiteActivityPanel';
 import { SiteCoreCard } from '@/components/sites/SiteCoreCard';
 import { SitePluginsPanel } from '@/components/sites/SitePluginsPanel';
+import { SiteMajorUpdatesSettingsRow } from '@/components/sites/SiteMajorUpdatesSettingsRow';
 import { useSiteThemes } from '@/lib/queries/useSiteThemes';
 import { SiteThemesPanel } from '@/components/sites/SiteThemesPanel';
 
@@ -97,6 +98,8 @@ export default function SiteDetail() {
           {data.status !== 'pending' && <SiteActions site={data} />}
 
           {data.status !== 'pending' && <SiteCoreCard siteId={siteId} />}
+
+          {data && <SiteMajorUpdatesSettingsRow site={data} />}
 
           {data.status !== 'pending' && <SiteActivityPanel site={data} />}
 
