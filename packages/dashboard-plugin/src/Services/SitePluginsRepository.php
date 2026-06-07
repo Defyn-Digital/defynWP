@@ -41,7 +41,7 @@ final class SitePluginsRepository
     }
 
     /**
-     * @param list<array{slug:string,name:string,version:?string,update_available:bool,update_version:?string}> $incoming
+     * @param list<array{slug:string,name:string,version:?string,update_available:bool,update_version:?string,tested_up_to:?string}> $incoming
      */
     public function replaceForSite(int $siteId, array $incoming, string $now): void
     {
@@ -50,7 +50,7 @@ final class SitePluginsRepository
 
         $existingRows = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT slug, name, version, update_available, update_version
+                "SELECT slug, name, version, update_available, update_version, tested_up_to
                  FROM {$table} WHERE site_id = %d",
                 $siteId
             ),
@@ -79,11 +79,12 @@ final class SitePluginsRepository
                             'version'          => $p['version'],
                             'update_available' => $p['update_available'] ? 1 : 0,
                             'update_version'   => $p['update_version'],
+                            'tested_up_to'     => isset($p['tested_up_to']) && $p['tested_up_to'] !== '' ? (string) $p['tested_up_to'] : null,
                             'last_seen_at'     => $now,
                             'created_at'       => $now,
                             'updated_at'       => $now,
                         ],
-                        ['%d', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s'],
+                        ['%d', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s'],
                     );
                     continue;
                 }
@@ -92,7 +93,8 @@ final class SitePluginsRepository
                     $present['name']                 !== $p['name']           ||
                     $present['version']              !== $p['version']        ||
                     ((int) $present['update_available']) !== ($p['update_available'] ? 1 : 0) ||
-                    $present['update_version']       !== $p['update_version']
+                    $present['update_version']       !== $p['update_version'] ||
+                    $present['tested_up_to']         !== (isset($p['tested_up_to']) && $p['tested_up_to'] !== '' ? (string) $p['tested_up_to'] : null)
                 );
 
                 if ($hasChanged) {
@@ -103,11 +105,12 @@ final class SitePluginsRepository
                             'version'          => $p['version'],
                             'update_available' => $p['update_available'] ? 1 : 0,
                             'update_version'   => $p['update_version'],
+                            'tested_up_to'     => isset($p['tested_up_to']) && $p['tested_up_to'] !== '' ? (string) $p['tested_up_to'] : null,
                             'last_seen_at'     => $now,
                             'updated_at'       => $now,
                         ],
                         ['site_id' => $siteId, 'slug' => $slug],
-                        ['%s', '%s', '%d', '%s', '%s', '%s'],
+                        ['%s', '%s', '%d', '%s', '%s', '%s', '%s'],
                         ['%d', '%s'],
                     );
                 } else {

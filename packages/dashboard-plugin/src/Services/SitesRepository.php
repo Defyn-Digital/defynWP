@@ -383,4 +383,19 @@ final class SitesRepository
             ['%d'],
         );
     }
+
+    /**
+     * P2.4.1 — set the core_allow_major flag for a site (allow/block major version updates).
+     */
+    public function setCoreAllowMajor(int $siteId, bool $allow): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            SitesTable::tableName(),
+            ['core_allow_major' => $allow ? 1 : 0],
+            ['id' => $siteId],
+            ['%d'],
+            ['%d'],
+        );
+    }
 }

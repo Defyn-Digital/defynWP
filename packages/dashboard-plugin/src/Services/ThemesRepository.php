@@ -66,7 +66,7 @@ final class ThemesRepository
     }
 
     /**
-     * @param list<array{slug:string,name:string,version:?string,parent_slug:?string,is_active:bool,update_available:bool,update_version:?string}> $incoming
+     * @param list<array{slug:string,name:string,version:?string,parent_slug:?string,is_active:bool,update_available:bool,update_version:?string,tested_up_to:?string}> $incoming
      */
     public function replaceForSite(int $siteId, array $incoming, string $now): void
     {
@@ -75,7 +75,7 @@ final class ThemesRepository
 
         $existingRows = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT slug, name, version, parent_slug, is_active, update_available, update_version
+                "SELECT slug, name, version, parent_slug, is_active, update_available, update_version, tested_up_to
                  FROM {$table} WHERE site_id = %d",
                 $siteId
             ),
@@ -106,11 +106,12 @@ final class ThemesRepository
                             'is_active'        => $t['is_active'] ? 1 : 0,
                             'update_available' => $t['update_available'] ? 1 : 0,
                             'update_version'   => $t['update_version'],
+                            'tested_up_to'     => isset($t['tested_up_to']) && $t['tested_up_to'] !== '' ? (string) $t['tested_up_to'] : null,
                             'last_seen_at'     => $now,
                             'created_at'       => $now,
                             'updated_at'       => $now,
                         ],
-                        ['%d', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s'],
+                        ['%d', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s'],
                     );
                     continue;
                 }
@@ -121,7 +122,8 @@ final class ThemesRepository
                     $present['parent_slug']              !== $t['parent_slug']    ||
                     ((int) $present['is_active'])        !== ($t['is_active'] ? 1 : 0)        ||
                     ((int) $present['update_available']) !== ($t['update_available'] ? 1 : 0) ||
-                    $present['update_version']           !== $t['update_version']
+                    $present['update_version']           !== $t['update_version'] ||
+                    $present['tested_up_to']             !== (isset($t['tested_up_to']) && $t['tested_up_to'] !== '' ? (string) $t['tested_up_to'] : null)
                 );
 
                 if ($hasChanged) {
@@ -134,11 +136,12 @@ final class ThemesRepository
                             'is_active'        => $t['is_active'] ? 1 : 0,
                             'update_available' => $t['update_available'] ? 1 : 0,
                             'update_version'   => $t['update_version'],
+                            'tested_up_to'     => isset($t['tested_up_to']) && $t['tested_up_to'] !== '' ? (string) $t['tested_up_to'] : null,
                             'last_seen_at'     => $now,
                             'updated_at'       => $now,
                         ],
                         ['site_id' => $siteId, 'slug' => $slug],
-                        ['%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s'],
+                        ['%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s'],
                         ['%d', '%s'],
                     );
                 } else {
