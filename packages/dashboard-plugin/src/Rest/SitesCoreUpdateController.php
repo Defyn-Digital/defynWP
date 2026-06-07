@@ -47,15 +47,11 @@ final class SitesCoreUpdateController
 
         $currentVersion = (string) ($site->wpVersion ?? '');
         $targetVersion  = (string) ($site->coreUpdateVersion ?? '');
-        if (!self::isMinorUpgrade($currentVersion, $targetVersion)) {
+        if (!self::isMinorUpgrade($currentVersion, $targetVersion) && !$site->coreAllowMajor) {
             return ErrorResponse::create(
                 409,
                 'core.major_update_blocked',
-                sprintf(
-                    'Major-version updates (%s -> %s) require P2.4.1.',
-                    $currentVersion,
-                    $targetVersion
-                ),
+                'Major WordPress version upgrades require enabling major updates for this site first.',
             );
         }
 

@@ -50,6 +50,7 @@ final class UpdateSiteCore
             'previous_version' => $wpVersionBeforeAttempt,
             'target_version'   => $targetVersion,
             'attempt'          => $attempt,
+            'allow_major'      => $site->coreAllowMajor,
         ]);
 
         $vault      = $this->vault ?? new Vault(DEFYN_VAULT_KEY);
@@ -60,7 +61,7 @@ final class UpdateSiteCore
 
         $response = $this->http->signedPostJson(
             $url,
-            [],
+            ['allow_major' => $site->coreAllowMajor],
             $privateKey,
             $canonicalPath,
             timeoutSeconds: self::TIMEOUT_SECONDS,
