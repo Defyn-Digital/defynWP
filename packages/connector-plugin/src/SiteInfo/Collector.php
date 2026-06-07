@@ -81,6 +81,7 @@ final class Collector
      *   update_available: bool,
      *   update_version: ?string,
      *   is_minor_update: bool,
+     *   is_major_update_available: bool,
      *   is_auto_update_enabled: bool
      * }
      */
@@ -105,6 +106,7 @@ final class Collector
                 'update_available'       => true,
                 'update_version'         => $target,
                 'is_minor_update'        => self::isMinorUpgrade($current, $target),
+                'is_major_update_available' => !self::isMinorUpgrade($current, $target),
                 'is_auto_update_enabled' => self::isMinorAutoUpdateEnabled(),
             ];
         }
@@ -113,6 +115,7 @@ final class Collector
             'update_available'       => false,
             'update_version'         => null,
             'is_minor_update'        => false,
+            'is_major_update_available' => false,
             'is_auto_update_enabled' => self::isMinorAutoUpdateEnabled(),
         ];
     }
