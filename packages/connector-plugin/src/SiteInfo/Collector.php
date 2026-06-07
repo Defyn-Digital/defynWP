@@ -102,11 +102,12 @@ final class Collector
             if ($target === '') {
                 continue;
             }
+            $isMinor = self::isMinorUpgrade($current, $target);
             return [
                 'update_available'       => true,
                 'update_version'         => $target,
-                'is_minor_update'        => self::isMinorUpgrade($current, $target),
-                'is_major_update_available' => !self::isMinorUpgrade($current, $target),
+                'is_minor_update'        => $isMinor,
+                'is_major_update_available' => !$isMinor,
                 'is_auto_update_enabled' => self::isMinorAutoUpdateEnabled(),
             ];
         }
