@@ -2,6 +2,7 @@ import { useOverview } from '@/lib/queries/useOverview'
 import { PendingUpdatesWidget } from '@/components/overview/PendingUpdatesWidget'
 import { SitesNeedingAttentionWidget } from '@/components/overview/SitesNeedingAttentionWidget'
 import { RecentActivityWidget } from '@/components/overview/RecentActivityWidget'
+import { formatRelativeTime } from '@/lib/formatRelativeTime'
 
 export default function Overview() {
   const { data, isLoading, isError, refetch } = useOverview()
@@ -43,7 +44,7 @@ export default function Overview() {
       <div className="flex items-baseline justify-between">
         <h1 className="text-xl font-semibold">Overview</h1>
         <p className="text-xs text-muted-foreground">
-          Last refreshed: {data.generated_at}
+          Last refreshed: {formatRelativeTime(data.generated_at)}
         </p>
       </div>
 
