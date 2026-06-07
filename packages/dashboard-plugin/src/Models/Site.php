@@ -56,6 +56,8 @@ final class Site
         public readonly string  $coreUpdateState = 'idle',
         public readonly ?string $lastCoreUpdateError = null,
         public readonly ?string $lastCoreUpdateAttemptAt = null,
+        // P2.4.1 additions — major version policy flag.
+        public readonly bool    $coreAllowMajor = false,
     ) {}
 
     /** @param array<string, mixed> $row wpdb result row (all values come back as strings) */
@@ -86,6 +88,7 @@ final class Site
             coreUpdateState:         (string) ($row['core_update_state'] ?? 'idle'),
             lastCoreUpdateError:     isset($row['last_core_update_error']) ? (string) $row['last_core_update_error'] : null,
             lastCoreUpdateAttemptAt: isset($row['last_core_update_attempt_at']) ? (string) $row['last_core_update_attempt_at'] : null,
+            coreAllowMajor:          (bool) (int) ($row['core_allow_major'] ?? 0),
         );
     }
 
@@ -132,6 +135,7 @@ final class Site
             'core_update_state'           => $this->coreUpdateState,
             'last_core_update_error'      => $this->lastCoreUpdateError,
             'last_core_update_attempt_at' => $this->lastCoreUpdateAttemptAt,
+            'core_allow_major'            => $this->coreAllowMajor,
         ];
     }
 }

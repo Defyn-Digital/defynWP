@@ -77,7 +77,7 @@ final class ThemeTest extends TestCase
         $this->assertSame([
             'id', 'site_id', 'slug', 'name', 'version', 'parent_slug', 'is_active',
             'update_available', 'update_version', 'update_state', 'last_update_error',
-            'last_update_attempt_at', 'last_seen_at',
+            'last_update_attempt_at', 'last_seen_at', 'tested_up_to',
         ], array_keys($json));
         $this->assertSame('astra', $json['parent_slug']);
         $this->assertFalse($json['is_active']);

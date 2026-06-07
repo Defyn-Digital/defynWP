@@ -29,6 +29,7 @@ final class Theme
         public readonly string  $lastSeenAt,
         public readonly string  $createdAt,
         public readonly string  $updatedAt,
+        public readonly ?string $testedUpTo = null,
     ) {
     }
 
@@ -51,6 +52,7 @@ final class Theme
             lastSeenAt:          (string) $row['last_seen_at'],
             createdAt:           (string) $row['created_at'],
             updatedAt:           (string) $row['updated_at'],
+            testedUpTo:          isset($row['tested_up_to']) ? (string) $row['tested_up_to'] : null,
         );
     }
 
@@ -71,6 +73,7 @@ final class Theme
             'last_update_error'      => $this->lastUpdateError,
             'last_update_attempt_at' => $this->lastUpdateAttemptAt,
             'last_seen_at'           => $this->lastSeenAt,
+            'tested_up_to'           => $this->testedUpTo,
         ];
     }
 }

@@ -73,6 +73,14 @@ final class SiteTest extends TestCase
             'theme_counts'    => null,
             'ssl_status'      => null,
             'ssl_expires_at'  => null,
+            // P2.4: core update fields default to idle/false/null when not set.
+            'core_update_available'       => false,
+            'core_update_version'         => null,
+            'core_update_state'           => 'idle',
+            'last_core_update_error'      => null,
+            'last_core_update_attempt_at' => null,
+            // P2.4.1: major version policy flag defaults to false.
+            'core_allow_major'            => false,
         ], $site->toJson());
     }
 }

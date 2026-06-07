@@ -20,6 +20,7 @@ final class Plugin
         public readonly string $lastSeenAt,
         public readonly string $createdAt,
         public readonly string $updatedAt,
+        public readonly ?string $testedUpTo = null,
     ) {
     }
 
@@ -40,6 +41,7 @@ final class Plugin
             lastSeenAt:          (string) $row['last_seen_at'],
             createdAt:           (string) $row['created_at'],
             updatedAt:           (string) $row['updated_at'],
+            testedUpTo:          isset($row['tested_up_to']) ? (string) $row['tested_up_to'] : null,
         );
     }
 
@@ -55,6 +57,7 @@ final class Plugin
             'update_state'           => $this->updateState,
             'last_update_error'      => $this->lastUpdateError,
             'last_update_attempt_at' => $this->lastUpdateAttemptAt,
+            'tested_up_to'           => $this->testedUpTo,
         ];
     }
 }
