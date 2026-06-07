@@ -398,4 +398,110 @@ final class SitesRepository
             ['%d'],
         );
     }
+
+    /**
+     * P2.5 — count of pending plugin updates across all sites owned by $userId.
+     */
+    public function countPendingPlugins(int $userId): int
+    {
+        global $wpdb;
+        $sitesTable   = SitesTable::tableName();
+        $pluginsTable = $wpdb->prefix . 'defyn_site_plugins';
+
+        return (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*)
+             FROM {$pluginsTable} sp
+             INNER JOIN {$sitesTable} s ON s.id = sp.site_id
+             WHERE s.user_id = %d
+               AND sp.update_available = 1",
+            $userId
+        ));
+    }
+
+    /**
+     * P2.5 — count of pending theme updates across all sites owned by $userId.
+     */
+    public function countPendingThemes(int $userId): int
+    {
+        global $wpdb;
+        $sitesTable  = SitesTable::tableName();
+        $themesTable = $wpdb->prefix . 'defyn_site_themes';
+
+        return (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*)
+             FROM {$themesTable} st
+             INNER JOIN {$sitesTable} s ON s.id = st.site_id
+             WHERE s.user_id = %d
+               AND st.update_available = 1",
+            $userId
+        ));
+    }
+
+    /**
+     * P2.5 — count of pending MINOR core updates (major.minor segments match).
+     * A bump is "minor" when wp_version major.minor === core_update_version major.minor.
+     */
+    public function countPendingCoresMinor(int $userId): int
+    {
+        global $wpdb;
+        $sitesTable = SitesTable::tableName();
+
+        return (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*)
+             FROM {$sitesTable}
+             WHERE user_id = %d
+               AND core_update_available = 1
+               AND core_update_version IS NOT NULL
+               AND SUBSTRING_INDEX(wp_version, '.', 2) = SUBSTRING_INDEX(core_update_version, '.', 2)",
+            $userId
+        ));
+    }
+
+    /**
+     * P2.5 — count of pending MAJOR core updates (major or minor segments differ).
+     */
+    public function countPendingCoresMajor(int $userId): int
+    {
+        global $wpdb;
+        $sitesTable = SitesTable::tableName();
+
+        return (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*)
+             FROM {$sitesTable}
+             WHERE user_id = %d
+               AND core_update_available = 1
+               AND core_update_version IS NOT NULL
+               AND SUBSTRING_INDEX(wp_version, '.', 2) != SUBSTRING_INDEX(core_update_version, '.', 2)",
+            $userId
+        ));
+    }
+
+    /**
+     * P2.5 — count of sites owned by $userId that have ANY pending update
+     * (plugin OR theme OR core). Uses UNION to deduplicate sites that
+     * have multiple kinds of pending updates.
+     */
+    public function countSitesWithAnyUpdate(int $userId): int
+    {
+        global $wpdb;
+        $sitesTable   = SitesTable::tableName();
+        $pluginsTable = $wpdb->prefix . 'defyn_site_plugins';
+        $themesTable  = $wpdb->prefix . 'defyn_site_themes';
+
+        return (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(DISTINCT site_id) FROM (
+                SELECT sp.site_id FROM {$pluginsTable} sp
+                  INNER JOIN {$sitesTable} s ON s.id = sp.site_id
+                  WHERE s.user_id = %d AND sp.update_available = 1
+                UNION
+                SELECT st.site_id FROM {$themesTable} st
+                  INNER JOIN {$sitesTable} s ON s.id = st.site_id
+                  WHERE s.user_id = %d AND st.update_available = 1
+                UNION
+                SELECT id FROM {$sitesTable}
+                  WHERE user_id = %d AND core_update_available = 1
+             ) AS combined",
+            $userId, $userId, $userId
+        ));
+    }
 }
