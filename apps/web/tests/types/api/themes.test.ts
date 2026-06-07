@@ -18,6 +18,7 @@ describe('themeSchema', () => {
       update_state: 'idle',
       last_update_error: null,
       last_update_attempt_at: null,
+      tested_up_to: null,
     });
     expect(parsed.is_active).toBe(true);
     expect(parsed.parent_slug).toBeNull();
@@ -35,6 +36,7 @@ describe('themeSchema', () => {
       update_state: 'idle',
       last_update_error: null,
       last_update_attempt_at: null,
+      tested_up_to: null,
     });
     expect(parsed.parent_slug).toBe('astra');
   });

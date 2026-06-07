@@ -41,8 +41,17 @@ export const siteSchema = z.object({
   // P2.4 — transient meta from connector /status, NOT persisted.
   is_minor_update: z.boolean().optional(),
   is_auto_update_enabled: z.boolean().optional(),
+  // P2.4.1 — operator toggle: allow WP major-version updates for this site.
+  core_allow_major: z.boolean(),
 });
 export type Site = z.infer<typeof siteSchema>;
+
+// P2.4.1 — response from POST /sites/{id}/core/allow-major.
+export const coreAllowMajorResponseSchema = z.object({
+  site_id: z.number().int(),
+  core_allow_major: z.boolean(),
+});
+export type CoreAllowMajorResponse = z.infer<typeof coreAllowMajorResponseSchema>;
 
 export const sitesListSchema = z.object({
   sites: z.array(siteSchema),

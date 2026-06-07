@@ -15,6 +15,7 @@ describe('pluginSchema', () => {
       update_state: 'idle',
       last_update_error: null,
       last_update_attempt_at: null,
+      tested_up_to: null,
     });
     expect(parsed.update_available).toBe(true);
     expect(parsed.update_version).toBe('1.1');
@@ -30,6 +31,7 @@ describe('pluginSchema', () => {
       update_state: 'idle',
       last_update_error: null,
       last_update_attempt_at: null,
+      tested_up_to: null,
     });
     expect(parsed.version).toBeNull();
   });
@@ -48,7 +50,7 @@ describe('sitePluginsListResponseSchema', () => {
   it('parses a populated list', () => {
     const parsed = sitePluginsListResponseSchema.parse({
       plugins: [
-        { slug: 'a.php', name: 'A', version: '1', update_available: false, update_version: null, update_state: 'idle', last_update_error: null, last_update_attempt_at: null },
+        { slug: 'a.php', name: 'A', version: '1', update_available: false, update_version: null, update_state: 'idle', last_update_error: null, last_update_attempt_at: null, tested_up_to: null },
       ],
       total: 1,
       last_synced_at: '2026-06-04 11:30:00',

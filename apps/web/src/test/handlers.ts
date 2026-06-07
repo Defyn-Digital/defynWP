@@ -111,13 +111,18 @@ handlers.push(
       core_update_state: 'idle',
       last_core_update_error: null,
       last_core_update_attempt_at: null,
+      core_allow_major: false,
     };
     mockSites.push(site);
     return HttpResponse.json({ site_id: site.id }, { status: 202 });
   }),
 
   // GET /sites — list.
-  http.get('*/wp-json/defyn/v1/sites', () => HttpResponse.json({ sites: mockSites }, { status: 200 })),
+  // P2.4.1: ensure core_allow_major always appears even for legacy mock fixtures.
+  http.get('*/wp-json/defyn/v1/sites', () => {
+    const sites = mockSites.map((s) => ({ core_allow_major: false, ...s }));
+    return HttpResponse.json({ sites }, { status: 200 });
+  }),
 
   // GET /activity — global activity feed (paginated, filterable).
   http.get('*/wp-json/defyn/v1/activity', ({ request }) => {
@@ -183,7 +188,8 @@ handlers.push(
       last_core_update_attempt_at: null,
     };
     const coreState = mockSiteCoreState[id] ?? defaultCore;
-    const response = { ...site, ...coreState };
+    // P2.4.1 — ensure core_allow_major is always present in the response.
+    const response = { core_allow_major: false, ...site, ...coreState };
     return HttpResponse.json(response, { status: 200 });
   }),
 
@@ -254,6 +260,7 @@ export function seedMockSitesAllStatuses(): void {
       core_update_state: 'idle',
       last_core_update_error: null,
       last_core_update_attempt_at: null,
+      core_allow_major: false,
     },
     {
       id: nextSiteId++,
@@ -276,6 +283,7 @@ export function seedMockSitesAllStatuses(): void {
       core_update_state: 'idle',
       last_core_update_error: null,
       last_core_update_attempt_at: null,
+      core_allow_major: false,
     },
     {
       id: nextSiteId++,
@@ -298,6 +306,7 @@ export function seedMockSitesAllStatuses(): void {
       core_update_state: 'idle',
       last_core_update_error: null,
       last_core_update_attempt_at: null,
+      core_allow_major: false,
     },
     {
       id: nextSiteId++,
@@ -320,6 +329,7 @@ export function seedMockSitesAllStatuses(): void {
       core_update_state: 'idle',
       last_core_update_error: null,
       last_core_update_attempt_at: null,
+      core_allow_major: false,
     },
   );
 }
@@ -538,6 +548,19 @@ handlers.push(
     }, 200);
 
     return HttpResponse.json({ scheduled: true, site_id: siteId, slug, update_state: 'queued' }, { status: 202 });
+  }),
+
+  // P2.4.1 — POST /sites/:id/core/allow-major
+  http.post('*/wp-json/defyn/v1/sites/:id/core/allow-major', async ({ request, params }) => {
+    const siteId = Number(params.id);
+    const body = (await request.json()) as { allow?: boolean };
+    const allow = body.allow === true;
+    // Persist the toggle into the site object if it exists in mockSites.
+    const site = mockSites.find((s) => s.id === siteId);
+    if (site) {
+      (site as Record<string, unknown>).core_allow_major = allow;
+    }
+    return HttpResponse.json({ site_id: siteId, core_allow_major: allow }, { status: 200 });
   }),
 
   // P2.4 — POST /sites/:id/core/refresh

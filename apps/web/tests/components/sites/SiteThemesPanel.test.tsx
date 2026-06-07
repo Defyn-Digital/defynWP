@@ -42,6 +42,7 @@ describe('SiteThemesPanel', () => {
         update_state: 'idle',
         last_update_error: null,
         last_update_attempt_at: '2026-06-06 05:00:00',
+        tested_up_to: null,
       },
     ];
     wrap(1);

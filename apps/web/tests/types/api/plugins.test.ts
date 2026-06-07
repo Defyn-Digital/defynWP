@@ -12,6 +12,7 @@ describe('pluginSchema (P2.2 extension)', () => {
       update_state: 'idle',
       last_update_error: null,
       last_update_attempt_at: null,
+      tested_up_to: null,
     });
     expect(parsed.update_state).toBe('idle');
   });

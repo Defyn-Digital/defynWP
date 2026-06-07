@@ -11,6 +11,8 @@ export const themeSchema = z.object({
   update_state: z.enum(['idle', 'queued', 'updating', 'failed']),
   last_update_error: z.string().nullable(),
   last_update_attempt_at: z.string().nullable(),
+  // P2.4.1 — highest WP version the theme has been tested against; null when unknown.
+  tested_up_to: z.string().nullable(),
 });
 
 export type Theme = z.infer<typeof themeSchema>;

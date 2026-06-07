@@ -16,6 +16,7 @@ const base: Theme = {
   update_state: 'idle',
   last_update_error: null,
   last_update_attempt_at: null,
+  tested_up_to: null,
 };
 
 function wrap(t: Theme) {
