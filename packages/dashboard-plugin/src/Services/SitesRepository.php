@@ -14,6 +14,16 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class SitesRepository
 {
+    private \wpdb  $wpdb;
+    private string $table;
+
+    public function __construct()
+    {
+        global $wpdb;
+        $this->wpdb  = $wpdb;
+        $this->table = SitesTable::tableName();
+    }
+
     public function insertPending(
         int    $userId,
         string $url,
@@ -84,14 +94,44 @@ final class SitesRepository
     }
 
     /** @return list<Site> */
-    public function findAllForUser(int $userId): array
+    public function findAllForUser(int $userId, ?string $filter = null): array
     {
         global $wpdb;
-        $table = SitesTable::tableName();
-        $rows = $wpdb->get_results(
-            $wpdb->prepare("SELECT * FROM {$table} WHERE user_id = %d ORDER BY id ASC", $userId),
-            ARRAY_A,
-        );
+
+        if ($filter === 'has-plugin-updates') {
+            $pluginsTable = $wpdb->prefix . 'defyn_site_plugins';
+            $rows = $wpdb->get_results($wpdb->prepare(
+                "SELECT s.* FROM {$this->table} s
+                 WHERE s.user_id = %d
+                   AND EXISTS (SELECT 1 FROM {$pluginsTable} sp WHERE sp.site_id = s.id AND sp.update_available = 1)
+                 ORDER BY s.id ASC",
+                $userId
+            ), ARRAY_A);
+        } elseif ($filter === 'has-theme-updates') {
+            $themesTable = $wpdb->prefix . 'defyn_site_themes';
+            $rows = $wpdb->get_results($wpdb->prepare(
+                "SELECT s.* FROM {$this->table} s
+                 WHERE s.user_id = %d
+                   AND EXISTS (SELECT 1 FROM {$themesTable} st WHERE st.site_id = s.id AND st.update_available = 1)
+                 ORDER BY s.id ASC",
+                $userId
+            ), ARRAY_A);
+        } elseif ($filter === 'has-core-update') {
+            $rows = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM {$this->table}
+                 WHERE user_id = %d AND core_update_available = 1
+                 ORDER BY id ASC",
+                $userId
+            ), ARRAY_A);
+        } else {
+            // Preserve exact original unfiltered behavior.
+            $table = SitesTable::tableName();
+            $rows = $wpdb->get_results(
+                $wpdb->prepare("SELECT * FROM {$table} WHERE user_id = %d ORDER BY id ASC", $userId),
+                ARRAY_A,
+            );
+        }
+
         return array_map([Site::class, 'fromRow'], $rows ?: []);
     }
 
@@ -503,5 +543,66 @@ final class SitesRepository
              ) AS combined",
             $userId, $userId, $userId
         ));
+    }
+
+    /**
+     * P2.5 — sites owned by $userId that have at least one attention reason.
+     * Capped at 50 rows. Hardcoded thresholds per spec § 3.4.
+     *
+     * @return list<array{site_id:int,url:string,label:string,reasons:list<string>,last_contact_at:?string,ssl_expires_at:?string}>
+     */
+    public function findSitesNeedingAttention(int $userId): array
+    {
+        $sitesTable   = $this->table;
+        $pluginsTable = $this->wpdb->prefix . 'defyn_site_plugins';
+        $themesTable  = $this->wpdb->prefix . 'defyn_site_themes';
+
+        $rows = $this->wpdb->get_results($this->wpdb->prepare(
+            "SELECT
+                s.id,
+                s.url,
+                s.label,
+                s.last_contact_at,
+                s.ssl_expires_at,
+                CASE WHEN s.last_contact_at IS NOT NULL AND s.last_contact_at < (UTC_TIMESTAMP() - INTERVAL 15 MINUTE) THEN 1 ELSE 0 END AS is_offline,
+                CASE WHEN s.ssl_expires_at IS NOT NULL AND s.ssl_expires_at < (UTC_TIMESTAMP() + INTERVAL 30 DAY) THEN 1 ELSE 0 END AS is_ssl_expiring,
+                CASE WHEN s.last_sync_at IS NOT NULL AND s.last_sync_at < (UTC_TIMESTAMP() - INTERVAL 24 HOUR) THEN 1 ELSE 0 END AS is_sync_stale,
+                CASE WHEN s.core_update_state = 'failed'
+                     OR EXISTS (SELECT 1 FROM {$pluginsTable} sp WHERE sp.site_id = s.id AND sp.update_state = 'failed')
+                     OR EXISTS (SELECT 1 FROM {$themesTable} st WHERE st.site_id = s.id AND st.update_state = 'failed')
+                     THEN 1 ELSE 0 END AS has_failed_update
+             FROM {$sitesTable} s
+             WHERE s.user_id = %d
+             HAVING is_offline = 1 OR is_ssl_expiring = 1 OR is_sync_stale = 1 OR has_failed_update = 1
+             ORDER BY s.last_contact_at ASC
+             LIMIT 50",
+            $userId
+        ), ARRAY_A);
+
+        $out = [];
+        foreach ($rows ?? [] as $row) {
+            $reasons = [];
+            if ((int) $row['is_offline'] === 1) {
+                $reasons[] = 'offline';
+            }
+            if ((int) $row['has_failed_update'] === 1) {
+                $reasons[] = 'failed_update';
+            }
+            if ((int) $row['is_ssl_expiring'] === 1) {
+                $reasons[] = 'ssl_expiring';
+            }
+            if ((int) $row['is_sync_stale'] === 1) {
+                $reasons[] = 'sync_stale';
+            }
+            $out[] = [
+                'site_id'         => (int) $row['id'],
+                'url'             => (string) $row['url'],
+                'label'           => (string) $row['label'],
+                'reasons'         => $reasons,
+                'last_contact_at' => $row['last_contact_at'] ?? null,
+                'ssl_expires_at'  => $row['ssl_expires_at'] ?? null,
+            ];
+        }
+        return $out;
     }
 }

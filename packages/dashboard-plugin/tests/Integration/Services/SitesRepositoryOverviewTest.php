@@ -9,6 +9,21 @@ use Defyn\Dashboard\Tests\Integration\AbstractSchemaTestCase;
 
 final class SitesRepositoryOverviewTest extends AbstractSchemaTestCase
 {
+    protected function setUp(): void
+    {
+        global $wpdb;
+        // Purge custom tables BEFORE the parent starts its transaction.
+        // Explicitly commit so the deletes survive the rollback that tearDown
+        // will issue for this test's inserts.
+        // phpcs:disable WordPress.DB.PreparedSQL
+        $wpdb->query('SET autocommit = 1');
+        $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_site_plugins");
+        $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_site_themes");
+        $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_sites");
+        // phpcs:enable WordPress.DB.PreparedSQL
+        parent::setUp();
+    }
+
     public function testCountPendingPluginsReturnsZeroWhenNoSites(): void
     {
         $this->assertSame(0, (new SitesRepository())->countPendingPlugins(1));
@@ -79,6 +94,118 @@ final class SitesRepositoryOverviewTest extends AbstractSchemaTestCase
         ], ['id' => $siteC]);                                            // siteC has core update
 
         $this->assertSame(3, (new SitesRepository())->countSitesWithAnyUpdate(1));
+    }
+
+    public function testFindSitesNeedingAttentionReturnsEmptyWhenAllHealthy(): void
+    {
+        global $wpdb;
+        $siteA = $this->seedSite(1);
+        $wpdb->update($wpdb->prefix . 'defyn_sites', [
+            'last_contact_at' => gmdate('Y-m-d H:i:s'),
+            'last_sync_at'    => gmdate('Y-m-d H:i:s'),
+            'ssl_expires_at'  => gmdate('Y-m-d H:i:s', strtotime('+90 days')),
+        ], ['id' => $siteA]);
+
+        $this->assertSame([], (new SitesRepository())->findSitesNeedingAttention(1));
+    }
+
+    public function testFindSitesNeedingAttentionFlagsOfflineSitesPast15MinThreshold(): void
+    {
+        global $wpdb;
+        $siteA = $this->seedSite(1);
+        $wpdb->update($wpdb->prefix . 'defyn_sites', [
+            'last_contact_at' => gmdate('Y-m-d H:i:s', strtotime('-20 minutes')),
+            'last_sync_at'    => gmdate('Y-m-d H:i:s'),
+            'ssl_expires_at'  => gmdate('Y-m-d H:i:s', strtotime('+90 days')),
+        ], ['id' => $siteA]);
+
+        $result = (new SitesRepository())->findSitesNeedingAttention(1);
+        $this->assertCount(1, $result);
+        $this->assertSame($siteA, $result[0]['site_id']);
+        $this->assertContains('offline', $result[0]['reasons']);
+    }
+
+    public function testFindSitesNeedingAttentionFlagsSslExpiringWithin30Days(): void
+    {
+        global $wpdb;
+        $siteA = $this->seedSite(1);
+        $wpdb->update($wpdb->prefix . 'defyn_sites', [
+            'last_contact_at' => gmdate('Y-m-d H:i:s'),
+            'last_sync_at'    => gmdate('Y-m-d H:i:s'),
+            'ssl_expires_at'  => gmdate('Y-m-d H:i:s', strtotime('+12 days')),
+        ], ['id' => $siteA]);
+
+        $result = (new SitesRepository())->findSitesNeedingAttention(1);
+        $this->assertCount(1, $result);
+        $this->assertContains('ssl_expiring', $result[0]['reasons']);
+    }
+
+    public function testFindSitesNeedingAttentionFlagsSyncStalePast24Hours(): void
+    {
+        global $wpdb;
+        $siteA = $this->seedSite(1);
+        $wpdb->update($wpdb->prefix . 'defyn_sites', [
+            'last_contact_at' => gmdate('Y-m-d H:i:s'),
+            'last_sync_at'    => gmdate('Y-m-d H:i:s', strtotime('-2 days')),
+            'ssl_expires_at'  => gmdate('Y-m-d H:i:s', strtotime('+90 days')),
+        ], ['id' => $siteA]);
+
+        $result = (new SitesRepository())->findSitesNeedingAttention(1);
+        $this->assertContains('sync_stale', $result[0]['reasons']);
+    }
+
+    public function testFindSitesNeedingAttentionCombinesMultipleReasons(): void
+    {
+        global $wpdb;
+        $siteA = $this->seedSite(1);
+        $wpdb->update($wpdb->prefix . 'defyn_sites', [
+            'last_contact_at' => gmdate('Y-m-d H:i:s', strtotime('-20 minutes')),
+            'last_sync_at'    => gmdate('Y-m-d H:i:s', strtotime('-2 days')),
+            'ssl_expires_at'  => gmdate('Y-m-d H:i:s', strtotime('+5 days')),
+        ], ['id' => $siteA]);
+
+        $result = (new SitesRepository())->findSitesNeedingAttention(1);
+        $reasons = $result[0]['reasons'];
+        $this->assertContains('offline', $reasons);
+        $this->assertContains('ssl_expiring', $reasons);
+        $this->assertContains('sync_stale', $reasons);
+    }
+
+    public function testFindSitesNeedingAttentionLimitsToFiftyRows(): void
+    {
+        global $wpdb;
+        for ($i = 0; $i < 60; $i++) {
+            $id = $this->seedSite(1);
+            $wpdb->update($wpdb->prefix . 'defyn_sites', [
+                'last_contact_at' => gmdate('Y-m-d H:i:s', strtotime('-20 minutes')),
+            ], ['id' => $id]);
+        }
+
+        $result = (new SitesRepository())->findSitesNeedingAttention(1);
+        $this->assertCount(50, $result);
+    }
+
+    public function testFindAllForUserFilterByHasPluginUpdates(): void
+    {
+        $siteA = $this->seedSite(1);
+        $siteB = $this->seedSite(1);
+        $this->seedPlugin($siteA, 'akismet/akismet.php', true);   // has update
+        $this->seedPlugin($siteB, 'yoast/yoast.php', false);      // no update
+
+        $result = (new SitesRepository())->findAllForUser(1, 'has-plugin-updates');
+        $ids = array_map(static fn($s) => $s->id, $result);
+
+        $this->assertContains($siteA, $ids);
+        $this->assertNotContains($siteB, $ids);
+    }
+
+    public function testFindAllForUserUnfilteredReturnsAllSites(): void
+    {
+        $this->seedSite(1);
+        $this->seedSite(1);
+
+        $result = (new SitesRepository())->findAllForUser(1);
+        $this->assertCount(2, $result);
     }
 
     private function seedSite(int $userId): int
