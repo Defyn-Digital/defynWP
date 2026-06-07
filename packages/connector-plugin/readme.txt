@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 5.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.1.4
+Stable tag: 0.1.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -39,6 +39,9 @@ No. It only responds to signed requests from the specific DefynWP Dashboard inst
 The plugin's stored state (including the Ed25519 keypair) is removed from `wp_options` via `uninstall.php`.
 
 == Changelog ==
+
+= 0.1.6 =
+* Feature: WP core minor updates. GET /status now includes a `core` sub-object (update_available, update_version, is_minor_update, is_auto_update_enabled). POST /core/refresh forces a fresh wp_version_check() poll. POST /core/update runs Core_Upgrader on the install — only for minor bumps; major bumps return 409 core.major_update_blocked (deferred to P2.4.1). Shared `defyn_connector_upgrade_in_flight` transient lock now covers all 3 × 3 plugin/theme/core resource collisions on the same install (P2.4).
 
 = 0.1.5 =
 * Feature: new themes endpoints — GET /themes returns the installed-theme inventory (slug, name, version, parent_slug, is_active, update_available, update_version); POST /themes/refresh forces a fresh wp_update_themes() poll; POST /themes/{slug}/update runs Theme_Upgrader on the requested stylesheet. Reuses the existing defyn_connector_upgrade_in_flight transient lock with PluginUpdateController, so concurrent plugin/theme upgrades on the same install serialise (P2.3).
