@@ -3,7 +3,7 @@
  * Plugin Name:       DefynWP Connector
  * Plugin URI:        https://defyn.dev
  * Description:       DefynWP — connector agent for managed WordPress sites. Pairs with the central DefynWP Dashboard.
- * Version:           0.1.6
+ * Version:           0.1.7
  * Requires at least: 5.5
  * Requires PHP:      8.1
  * Author:            DefynWP
@@ -39,7 +39,7 @@ if (!extension_loaded('sodium')) {
     return;
 }
 
-define('DEFYN_CONNECTOR_VERSION', '0.1.0');
+define('DEFYN_CONNECTOR_VERSION', '0.1.7');
 define('DEFYN_CONNECTOR_FILE', __FILE__);
 define('DEFYN_CONNECTOR_DIR', __DIR__);
 
