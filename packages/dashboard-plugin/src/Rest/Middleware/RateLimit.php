@@ -58,6 +58,13 @@ final class RateLimit
     public const CORE_REFRESH_LIMIT  = 6;
     public const CORE_REFRESH_WINDOW = HOUR_IN_SECONDS;
 
+    // P2.4 — per-core-update button on SiteCoreCard. Bucket is per-(user, site) —
+    // core updates are heavyweight (WordPress entire system), so tighter than
+    // plugins/themes (3/hour instead of 6/hour). Separate bucket from all other
+    // update types per spec § 9.3.
+    public const CORE_UPDATE_LIMIT  = 3;
+    public const CORE_UPDATE_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -257,6 +264,40 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::CORE_REFRESH_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /sites/{id}/core/update.
+     *
+     * Separate transient-bucket from sitesCoreRefresh per spec § 9.3 — core
+     * updates are heavyweight (full WordPress system), so tighter limit (3/hour
+     * vs. 6/hour refresh). Same auth-chain pattern as pluginsUpdate and themesUpdate.
+     *
+     * @return true|WP_Error
+     */
+    public static function coreUpdate(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_coreUpdate_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::CORE_UPDATE_LIMIT) {
+            return new WP_Error(
+                'core.rate_limited',
+                'Too many core update requests for this site. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::CORE_UPDATE_WINDOW);
         return true;
     }
 
