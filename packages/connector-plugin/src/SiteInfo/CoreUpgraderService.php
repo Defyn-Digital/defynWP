@@ -33,7 +33,7 @@ final class CoreUpgraderService
     /**
      * @return array{success: true, previous_version: string, new_version: string, server_time: int}
      */
-    public function upgrade(): array
+    public function upgrade(bool $allowMajor = false): array
     {
         if (!function_exists('get_core_updates')) {
             require_once ABSPATH . 'wp-admin/includes/update.php';
@@ -62,7 +62,7 @@ final class CoreUpgraderService
             );
         }
 
-        if (!self::isMinorUpgrade($current, $target)) {
+        if (!self::isMinorUpgrade($current, $target) && !$allowMajor) {
             throw new MajorUpdateBlockedException($current, $target);
         }
 
