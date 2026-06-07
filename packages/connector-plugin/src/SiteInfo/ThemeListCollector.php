@@ -38,15 +38,11 @@ final class ThemeListCollector
             ? (array) $updates->response
             : [];
 
-        // Register 'Tested up to' as an extra theme header so WP_Theme::get()
-        // surfaces it. Without this filter, WP_Theme only parses the standard
-        // registered headers and 'TestedUpTo' always returns false.
-        add_filter('extra_theme_headers', [$this, 'registerTestedUpToHeader']);
-        try {
-            $allThemes = wp_get_themes() ?: [];
-        } finally {
-            remove_filter('extra_theme_headers', [$this, 'registerTestedUpToHeader']);
-        }
+        // wp_get_themes() is cached. On Redis-backed hosts (e.g. Kinsta) the cache
+        // is often warm before our extra_theme_headers filter fires, causing
+        // WP_Theme::get('TestedUpTo') to always return false. We bypass the cache
+        // by reading style.css via get_file_data() per theme directly.
+        $allThemes = wp_get_themes() ?: [];
 
         $themes = [];
         foreach ($allThemes as $stylesheet => $theme) {
@@ -57,7 +53,6 @@ final class ThemeListCollector
             $newVersion = isset($updateRow['new_version']) ? (string) $updateRow['new_version'] : null;
             $version    = (string) $theme->get('Version');
 
-            $tested = $theme->get('TestedUpTo');
             $themes[] = [
                 'slug'             => $slug,
                 'name'             => (string) $theme->get('Name'),
@@ -66,7 +61,7 @@ final class ThemeListCollector
                 'is_active'        => $slug === $activeStylesheet,
                 'update_available' => $hasUpdate,
                 'update_version'   => $hasUpdate ? $newVersion : null,
-                'tested_up_to'     => ($tested !== false && $tested !== '') ? (string) $tested : null,
+                'tested_up_to'     => $this->readTestedUpToFromTheme($theme),
             ];
         }
 
@@ -76,16 +71,20 @@ final class ThemeListCollector
     }
 
     /**
-     * Callback for the 'extra_theme_headers' filter.
-     * Appends 'Tested up to' so WP_Theme::get('TestedUpTo') surfaces it.
-     * Must be public so WordPress can call it via the filter.
-     *
-     * @param string[] $headers
-     * @return string[]
+     * Read the 'Tested up to' header directly from the theme's style.css,
+     * bypassing the WP object cache that wp_get_themes() relies on. Needed
+     * because on Redis-backed hosts (e.g. Kinsta) the theme cache is often warm
+     * before our extra_theme_headers filter fires, causing the header to be
+     * silently omitted from cached results.
      */
-    public function registerTestedUpToHeader(array $headers): array
+    private function readTestedUpToFromTheme(\WP_Theme $theme): ?string
     {
-        $headers[] = 'Tested up to';
-        return $headers;
+        $stylesheet = $theme->get_stylesheet_directory() . '/style.css';
+        if (!is_readable($stylesheet)) {
+            return null;
+        }
+        $headers = get_file_data($stylesheet, ['TestedUpTo' => 'Tested up to'], 'theme');
+        $value   = $headers['TestedUpTo'] ?? '';
+        return $value !== '' ? (string) $value : null;
     }
 }

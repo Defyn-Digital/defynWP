@@ -33,15 +33,12 @@ final class PluginListCollector
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
 
-        // Register 'Tested up to' as an extra plugin header so get_plugins()
-        // surfaces it. Without this filter, get_plugins() only returns the
-        // standard WP plugin headers and 'Tested up to' is always stripped.
-        add_filter('extra_plugin_headers', [$this, 'registerTestedUpToHeader']);
-        try {
-            $all = get_plugins() ?: [];
-        } finally {
-            remove_filter('extra_plugin_headers', [$this, 'registerTestedUpToHeader']);
-        }
+        // get_plugins() is cached in the WP object cache. If any earlier code
+        // path already populated that cache WITHOUT our extra_plugin_headers
+        // filter active (e.g. Redis object cache on Kinsta), the filter approach
+        // silently returns null for every plugin. We bypass the cache entirely by
+        // calling get_file_data() per plugin file directly.
+        $all = get_plugins() ?: [];
 
         $updates = get_site_transient('update_plugins');
         $byPath  = is_object($updates) && isset($updates->response)
@@ -64,9 +61,7 @@ final class PluginListCollector
                 'update_version'   => $upd !== null && isset($upd->new_version)
                     ? (string) $upd->new_version
                     : null,
-                'tested_up_to'     => !empty($header['Tested up to'])
-                    ? (string) $header['Tested up to']
-                    : null,
+                'tested_up_to'     => $this->readTestedUpToFromPluginFile((string) $slug),
             ];
         }
 
@@ -84,16 +79,20 @@ final class PluginListCollector
     }
 
     /**
-     * Callback for the 'extra_plugin_headers' filter.
-     * Appends 'Tested up to' so get_plugins() surfaces it in each plugin's
-     * header array. Must be public so WordPress can call it via the filter.
-     *
-     * @param string[] $headers
-     * @return string[]
+     * Read the 'Tested up to' header directly from the plugin's main PHP file,
+     * bypassing the WP object cache that get_plugins() relies on. Needed because
+     * on Redis-backed hosts (e.g. Kinsta) the plugin cache is often warm before
+     * our extra_plugin_headers filter fires, causing the header to be silently
+     * omitted from cached results.
      */
-    public function registerTestedUpToHeader(array $headers): array
+    private function readTestedUpToFromPluginFile(string $slug): ?string
     {
-        $headers[] = 'Tested up to';
-        return $headers;
+        $pluginPath = WP_PLUGIN_DIR . '/' . $slug;
+        if (!is_readable($pluginPath)) {
+            return null;
+        }
+        $headers = get_file_data($pluginPath, ['TestedUpTo' => 'Tested up to'], 'plugin');
+        $value   = $headers['TestedUpTo'] ?? '';
+        return $value !== '' ? (string) $value : null;
     }
 }

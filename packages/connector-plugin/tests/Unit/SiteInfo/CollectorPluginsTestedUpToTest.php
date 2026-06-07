@@ -7,31 +7,20 @@ namespace Defyn\Connector\Tests\Unit\SiteInfo;
 use Defyn\Connector\SiteInfo\PluginListCollector;
 use WP_UnitTestCase;
 
+// Note: testing the "header present" branch reliably requires a real plugin
+// file that contains a "Tested up to:" header. The WP test suite's bundled
+// plugins do not carry that header, so a positive-value assertion cannot be
+// made here without spinning up a temporary plugin file. Production smoke at
+// smartcoding.com.au is the integration verification for the non-null path.
 final class CollectorPluginsTestedUpToTest extends WP_UnitTestCase
 {
-    public function testCollectorEmitsTestedUpToWhenHeaderPresent(): void
+    public function testEveryPluginRowHasTestedUpToKey(): void
     {
         $result = (new PluginListCollector())->collect();
-        $rows = $result['plugins'];
+        $rows   = $result['plugins'];
 
-        // Every plugin row should have the tested_up_to key and it should be string or null
         foreach ($rows as $row) {
             $this->assertArrayHasKey('tested_up_to', $row, 'every plugin row must have tested_up_to key');
-            if ($row['tested_up_to'] !== null) {
-                // If the key is present and has a value, it should be a string
-                $this->assertIsString($row['tested_up_to']);
-            }
-        }
-    }
-
-    public function testCollectorEmitsNullWhenHeaderAbsent(): void
-    {
-        $result = (new PluginListCollector())->collect();
-        $rows = $result['plugins'];
-
-        // All rows should have the tested_up_to key
-        foreach ($rows as $row) {
-            $this->assertArrayHasKey('tested_up_to', $row);
             $this->assertTrue(
                 $row['tested_up_to'] === null || is_string($row['tested_up_to']),
                 'tested_up_to must be null or string'
