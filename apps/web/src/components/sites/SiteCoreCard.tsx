@@ -17,6 +17,23 @@ import { useUpdateSiteCore } from '@/lib/mutations/useUpdateSiteCore';
 
 const MAX_ERROR_LENGTH = 200;
 
+/**
+ * Returns true iff `target` is a minor-version-or-patch bump from `current`,
+ * i.e. major + minor segments match (e.g. 7.0 → 7.0.1 = minor; 7.0 → 8.0 = major).
+ *
+ * Mirrors the PHP `isMinorUpgrade()` helper in SitesCoreUpdateController +
+ * CoreUpgraderService. The dashboard's Site.toJson() does not surface
+ * `is_minor_update` directly, so the SPA derives it from the version strings.
+ */
+function isMinorBump(current: string | null | undefined, target: string | null | undefined): boolean {
+  if (!current || !target) {
+    return false;
+  }
+  const [cMaj = '0', cMin = '0'] = current.split('.');
+  const [tMaj = '0', tMin = '0'] = target.split('.');
+  return cMaj === tMaj && cMin === tMin;
+}
+
 interface SiteCoreCardProps {
   siteId: number;
 }
@@ -37,8 +54,10 @@ export function SiteCoreCard({ siteId }: SiteCoreCardProps) {
   const updating = state === 'queued' || state === 'updating' || isPolling;
   const failed = state === 'failed';
 
-  // Major-update derived flags (P2.4.1).
-  const isMajor = site.core_update_available && site.is_minor_update === false;
+  // Major-update derived flags (P2.4.1). is_minor_update is not in the
+  // dashboard's Site.toJson() — derive locally from wp_version + target.
+  const isMinor = isMinorBump(site.wp_version, site.core_update_version);
+  const isMajor = site.core_update_available && !isMinor;
   const isBlockedMajor = isMajor && !site.core_allow_major;
   const isAllowedMajor = isMajor && site.core_allow_major;
 
@@ -247,7 +266,7 @@ export function SiteCoreCard({ siteId }: SiteCoreCardProps) {
         onOpenChange={setConfirmOpen}
         currentVersion={site.wp_version ?? ''}
         targetVersion={site.core_update_version ?? ''}
-        isMinorUpdate={site.is_minor_update !== false}
+        isMinorUpdate={isMinor}
         isAutoUpdateEnabled={site.is_auto_update_enabled === true}
         plugins={plugins}
         themes={themes}
