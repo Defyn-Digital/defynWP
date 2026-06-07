@@ -209,6 +209,16 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'coreAllowMajor'],
         ]);
 
+        // P2.5 — read-only operator overview. RateLimit::overview chains
+        // RequireAuth::check internally and adds a per-user 30/MINUTE throttle —
+        // FIRST per-minute bucket in the project (all prior buckets are per-hour).
+        // The SPA polls this endpoint every 60s while the tab is active.
+        register_rest_route(self::NAMESPACE, '/overview', [
+            'methods'             => 'GET',
+            'callback'            => [new OverviewController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'overview'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],

@@ -72,6 +72,13 @@ final class RateLimit
     public const CORE_ALLOW_MAJOR_LIMIT  = 10;
     public const CORE_ALLOW_MAJOR_WINDOW = HOUR_IN_SECONDS;
 
+    // P2.5 — overview dashboard polling endpoint. FIRST per-MINUTE bucket
+    // in the project (all prior buckets are per-hour). The SPA polls every
+    // 60s while the tab is active = 60/hr from one tab; we cap at 30/min
+    // to allow multiple tabs / rapid manual refresh without DoSing the DB.
+    public const OVERVIEW_LIMIT  = 30;
+    public const OVERVIEW_WINDOW = MINUTE_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -339,6 +346,38 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::CORE_ALLOW_MAJOR_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /overview.
+     *
+     * Per-MINUTE bucket (NOT per-hour like every other RateLimit method).
+     * Plan-bug trap #1 — copy-paste from coreUpdate's HOUR_IN_SECONDS is wrong.
+     *
+     * @return true|WP_Error
+     */
+    public static function overview(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_overview_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::OVERVIEW_LIMIT) {
+            return new \WP_Error(
+                'overview.rate_limited',
+                'Too many requests. The overview polls every minute — try again shortly.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::OVERVIEW_WINDOW);
         return true;
     }
 
