@@ -21,7 +21,8 @@ final class PluginListCollector
      *     name: string,
      *     version: ?string,
      *     update_available: bool,
-     *     update_version: ?string
+     *     update_version: ?string,
+     *     tested_up_to: ?string
      *   }>,
      *   truncated: bool
      * }
@@ -53,6 +54,9 @@ final class PluginListCollector
                 'update_available' => $upd !== null,
                 'update_version'   => $upd !== null && isset($upd->new_version)
                     ? (string) $upd->new_version
+                    : null,
+                'tested_up_to'     => !empty($header['Tested up to'])
+                    ? (string) $header['Tested up to']
                     : null,
             ];
         }

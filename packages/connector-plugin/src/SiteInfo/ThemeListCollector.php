@@ -21,7 +21,8 @@ final class ThemeListCollector
      *     parent_slug: ?string,
      *     is_active: bool,
      *     update_available: bool,
-     *     update_version: ?string
+     *     update_version: ?string,
+     *     tested_up_to: ?string
      *   }>
      * }
      */
@@ -46,6 +47,7 @@ final class ThemeListCollector
             $newVersion = isset($updateRow['new_version']) ? (string) $updateRow['new_version'] : null;
             $version    = (string) $theme->get('Version');
 
+            $tested = $theme->get('TestedUpTo');
             $themes[] = [
                 'slug'             => $slug,
                 'name'             => (string) $theme->get('Name'),
@@ -54,6 +56,7 @@ final class ThemeListCollector
                 'is_active'        => $slug === $activeStylesheet,
                 'update_available' => $hasUpdate,
                 'update_version'   => $hasUpdate ? $newVersion : null,
+                'tested_up_to'     => ($tested !== false && $tested !== '') ? (string) $tested : null,
             ];
         }
 
