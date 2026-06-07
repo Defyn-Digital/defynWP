@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useUpdateSiteCore } from '@/lib/mutations/useUpdateSiteCore';
-import { useSite } from '@/lib/queries/useSite';
 import {
   resetMockSites,
   resetMockSiteCoreState,

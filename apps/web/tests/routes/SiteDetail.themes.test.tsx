@@ -41,7 +41,7 @@ describe('SiteDetail — themes integration', () => {
       plugin_counts: { installed: 10, active: 5 },
       theme_counts: { installed: 2, active: 1 },
       ssl_status: 'enabled',
-      ssl_expires_at: '2027-01-01T00:00:00Z',
+      ssl_expires_at: '2027-01-01T00:00:00Z', core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false,
     });
   });
 

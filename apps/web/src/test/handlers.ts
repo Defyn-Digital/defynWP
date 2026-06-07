@@ -118,10 +118,8 @@ handlers.push(
   }),
 
   // GET /sites — list.
-  // P2.4.1: ensure core_allow_major always appears even for legacy mock fixtures.
   http.get('*/wp-json/defyn/v1/sites', () => {
-    const sites = mockSites.map((s) => ({ core_allow_major: false, ...s }));
-    return HttpResponse.json({ sites }, { status: 200 });
+    return HttpResponse.json({ sites: mockSites }, { status: 200 });
   }),
 
   // GET /activity — global activity feed (paginated, filterable).
@@ -188,8 +186,7 @@ handlers.push(
       last_core_update_attempt_at: null,
     };
     const coreState = mockSiteCoreState[id] ?? defaultCore;
-    // P2.4.1 — ensure core_allow_major is always present in the response.
-    const response = { core_allow_major: false, ...site, ...coreState };
+    const response = { ...site, ...coreState };
     return HttpResponse.json(response, { status: 200 });
   }),
 
@@ -483,10 +480,7 @@ handlers.push(
     // Test default: bump last_synced_at on the in-memory store after a short delay,
     // so the useRefreshSiteThemes polling test can observe the advance.
     setTimeout(() => {
-      const themes = mockSiteThemes[siteId] ?? [];
-      // Update all themes to have a new last_synced_at (by mutating a marker on first theme)
-      // Actually, we need to track last_synced_at separately. For themes, we return it from GET,
-      // so we'll store it in a map.
+      // Track last_synced_at separately in a per-site map; the GET handler reads from it.
       if (!mockThemesLastSynced) mockThemesLastSynced = {};
       mockThemesLastSynced[siteId] = new Date().toISOString();
     }, 20);

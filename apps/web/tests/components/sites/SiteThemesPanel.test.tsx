@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactElement } from 'react';
 import { SiteThemesPanel } from '@/components/sites/SiteThemesPanel';
 import { mockSiteThemes, resetMockSiteThemes } from '@/test/handlers';
 import { setAccessToken } from '@/lib/apiClient';
