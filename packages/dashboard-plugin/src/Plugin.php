@@ -8,11 +8,13 @@ use Defyn\Dashboard\Jobs\CleanupExpiredCodes;
 use Defyn\Dashboard\Jobs\CompleteConnection;
 use Defyn\Dashboard\Jobs\HealthPing;
 use Defyn\Dashboard\Jobs\HealthPingAll;
+use Defyn\Dashboard\Jobs\RefreshSiteCore;
 use Defyn\Dashboard\Jobs\RefreshSitePlugins;
 use Defyn\Dashboard\Jobs\RefreshSiteThemes;
 use Defyn\Dashboard\Jobs\Scheduler;
 use Defyn\Dashboard\Jobs\SyncAllSites;
 use Defyn\Dashboard\Jobs\SyncSite;
+use Defyn\Dashboard\Jobs\UpdateSiteCore;
 use Defyn\Dashboard\Jobs\UpdateSitePlugin;
 use Defyn\Dashboard\Jobs\UpdateSiteTheme;
 use Defyn\Dashboard\Rest\RestRouter;
@@ -85,6 +87,16 @@ final class Plugin
         add_action(UpdateSiteTheme::HOOK, static function (int $siteId, string $slug, int $attempt = 0): void {
             (new UpdateSiteTheme())->handle($siteId, $slug, $attempt);
         }, 10, 3);
+
+        // P2.4 — operator-triggered WP core inventory refresh.
+        add_action(RefreshSiteCore::HOOK, static function (int $siteId): void {
+            (new RefreshSiteCore())->handle($siteId);
+        }, 10, 1);
+
+        // P2.4 — operator-triggered WP core update.
+        add_action(UpdateSiteCore::HOOK, static function (int $siteId, int $attempt = 0): void {
+            (new UpdateSiteCore())->handle($siteId, $attempt);
+        }, 10, 2);
 
         // F7 — fan-out + cleanup master jobs. Master jobs take no args
         // (accepted_args=0); they enumerate sites/codes internally and

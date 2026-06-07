@@ -6,6 +6,7 @@ namespace Defyn\Dashboard\Jobs;
 
 use Defyn\Dashboard\Crypto\Vault;
 use Defyn\Dashboard\Http\SignedHttpClient;
+use Defyn\Dashboard\Jobs\RefreshSiteCore;
 use Defyn\Dashboard\Services\ActivityLogger;
 use Defyn\Dashboard\Services\SitesRepository;
 use Defyn\Dashboard\Services\SyncPluginsService;
@@ -86,6 +87,12 @@ final class SyncSite
         // next tick to catch up.
         if (function_exists('as_schedule_single_action')) {
             as_schedule_single_action(time(), RefreshSiteThemes::HOOK, [$siteId], 'defyn');
+        }
+
+        // P2.4 — fan-out to core refresh too. Core inventory hydrates on the
+        // same recurring tick as plugins + themes. Best-effort scheduling.
+        if (function_exists('as_schedule_single_action')) {
+            as_schedule_single_action(time(), RefreshSiteCore::HOOK, [$siteId], 'defyn');
         }
     }
 
