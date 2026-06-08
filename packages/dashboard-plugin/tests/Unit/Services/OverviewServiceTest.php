@@ -76,6 +76,19 @@ final class OverviewServiceTest extends AbstractSchemaTestCase
         );
     }
 
+    public function testComposeIncludesTotalSitesCount(): void
+    {
+        $this->seedSite(1);
+        $this->seedSite(1);
+        $this->seedSite(1);
+        $this->seedSite(2); // other user's site
+
+        $result = (new OverviewService())->compose(1);
+
+        $this->assertArrayHasKey('total_sites', $result);
+        $this->assertSame(3, $result['total_sites']);
+    }
+
     private function seedSite(int $userId): int
     {
         global $wpdb;

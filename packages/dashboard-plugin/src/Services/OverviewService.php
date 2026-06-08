@@ -34,6 +34,7 @@ final class OverviewService
      *     id:int, site_id:?int, site_label:?string, event_type:string,
      *     details:array<string,mixed>|null, created_at:string
      *   }>,
+     *   total_sites: int,
      *   generated_at: string
      * }
      */
@@ -63,6 +64,7 @@ final class OverviewService
             ],
             'sites_needing_attention' => $this->sites->findSitesNeedingAttention($userId),
             'recent_activity'         => $activity,
+            'total_sites'             => $this->sites->countAllForUser($userId),
             'generated_at'            => gmdate('Y-m-d H:i:s'),
         ];
     }
