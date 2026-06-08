@@ -575,8 +575,21 @@ handlers.push(
       },
       sites_needing_attention: [],
       recent_activity: [],
+      total_sites: 0,
       generated_at: '2026-06-07 11:30:00',
     });
+  }),
+
+  // P2.6 — POST /overview/sync-all — default synthetic 200; tests override via server.use().
+  http.post('*/wp-json/defyn/v1/overview/sync-all', () => {
+    return HttpResponse.json(
+      {
+        scheduled_count: 0,
+        site_ids: [],
+        scheduled_at: '2026-06-08 09:30:42',
+      },
+      { status: 200 },
+    );
   }),
 
   // P2.4 — POST /sites/:id/core/update

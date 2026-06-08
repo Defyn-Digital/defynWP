@@ -120,6 +120,14 @@ export const overviewSchema = z.object({
     details: z.record(z.string(), z.unknown()).nullable(),
     created_at: z.string(),
   })),
+  total_sites: z.number().int().nonnegative(),
   generated_at: z.string(),
 });
 export type Overview = z.infer<typeof overviewSchema>;
+
+export const syncAllSitesResponseSchema = z.object({
+  scheduled_count: z.number().int().nonnegative(),
+  site_ids: z.array(z.number().int()),
+  scheduled_at: z.string(),
+});
+export type SyncAllSitesResponse = z.infer<typeof syncAllSitesResponseSchema>;
