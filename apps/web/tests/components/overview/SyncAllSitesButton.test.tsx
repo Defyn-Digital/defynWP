@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/setup';
 import { SyncAllSitesButton } from '@/components/overview/SyncAllSitesButton';
-import React from 'react';
 
 function renderButton(totalSites: number) {
   const qc = new QueryClient({
