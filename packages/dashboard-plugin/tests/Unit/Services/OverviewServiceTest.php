@@ -10,6 +10,22 @@ use Defyn\Dashboard\Tests\Integration\AbstractSchemaTestCase;
 
 final class OverviewServiceTest extends AbstractSchemaTestCase
 {
+    protected function setUp(): void
+    {
+        global $wpdb;
+        // Purge custom tables BEFORE the parent starts its transaction so a
+        // pre-existing fixture row doesn't bleed into total_sites assertions.
+        // Mirrors SitesRepositoryOverviewTest::setUp() from P2.5 Task 1.
+        // phpcs:disable WordPress.DB.PreparedSQL
+        $wpdb->query('SET autocommit = 1');
+        $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_activity_log");
+        $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_site_plugins");
+        $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_site_themes");
+        $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_sites");
+        // phpcs:enable WordPress.DB.PreparedSQL
+        parent::setUp();
+    }
+
     public function testComposeReturnsFullEnvelopeShape(): void
     {
         $this->seedSite(1);
