@@ -79,6 +79,13 @@ final class RateLimit
     public const OVERVIEW_LIMIT  = 30;
     public const OVERVIEW_WINDOW = MINUTE_IN_SECONDS;
 
+    // P2.6 — bulk fan-out endpoint POST /overview/sync-all. Same shape as
+    // coreAllowMajor from P2.4.1: per-user, 10/HOUR. Tighter than the
+    // /overview read-only poll (which is 30/MINUTE) because each call
+    // schedules N AS jobs — runaway bursts would back-pressure the queue.
+    public const OVERVIEW_SYNC_ALL_LIMIT  = 10;
+    public const OVERVIEW_SYNC_ALL_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -378,6 +385,40 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::OVERVIEW_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /overview/sync-all.
+     *
+     * Per-user, 10/HOUR — same shape as coreAllowMajor from P2.4.1. The
+     * bucket key DOES NOT collide with the /overview read poll's bucket
+     * (`defyn_rl_overview_%d`) because this method uses a different prefix.
+     * Plan-bug trap #1 — DO NOT copy MINUTE_IN_SECONDS from `overview()`.
+     *
+     * @return true|WP_Error
+     */
+    public static function overviewSyncAll(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_overviewSyncAll_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::OVERVIEW_SYNC_ALL_LIMIT) {
+            return new \WP_Error(
+                'overview.rate_limited',
+                'Too many bulk sync requests. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::OVERVIEW_SYNC_ALL_WINDOW);
         return true;
     }
 

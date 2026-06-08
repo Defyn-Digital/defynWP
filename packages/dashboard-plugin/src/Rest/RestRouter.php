@@ -219,6 +219,15 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'overview'],
         ]);
 
+        // P2.6 — bulk fan-out: POST /overview/sync-all. Schedules the existing
+        // `defyn_sync_site` AS job per owned site and emits ONE fleet-scoped
+        // activity event (site_id=null). RateLimit::overviewSyncAll is 10/HOUR.
+        register_rest_route(self::NAMESPACE, '/overview/sync-all', [
+            'methods'             => 'POST',
+            'callback'            => [new OverviewSyncAllController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'overviewSyncAll'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],
