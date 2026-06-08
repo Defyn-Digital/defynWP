@@ -277,4 +277,46 @@ final class SitePluginsRepository
         );
         return $result === false ? 0 : (int) $result;
     }
+
+    /**
+     * P2.7 — flat list of every (site, plugin) pair with update_available=1 across
+     * all sites owned by $userId. Drives the SPA's "Bulk update plugins" confirm
+     * dialog. ORDER BY site label, then plugin name for a stable display order.
+     *
+     * Returns rows with keys: site_id, site_label, slug, plugin_name,
+     * current_version, target_version.
+     *
+     * @return list<array{site_id:int,site_label:string,slug:string,plugin_name:string,current_version:string,target_version:?string}>
+     */
+    public function findAllPendingUpdatesForUser(int $userId): array
+    {
+        global $wpdb;
+        $sitesTable   = $wpdb->prefix . 'defyn_sites';
+        $pluginsTable = $wpdb->prefix . 'defyn_site_plugins';
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT s.id AS site_id, s.label AS site_label,
+                    sp.slug, sp.name AS plugin_name,
+                    sp.version AS current_version, sp.update_version AS target_version
+             FROM {$sitesTable} s
+             INNER JOIN {$pluginsTable} sp ON sp.site_id = s.id
+             WHERE s.user_id = %d
+               AND sp.update_available = 1
+             ORDER BY s.label, sp.name",
+            $userId
+        ), ARRAY_A);
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        return array_map(static fn(array $row) => [
+            'site_id'         => (int) $row['site_id'],
+            'site_label'      => (string) $row['site_label'],
+            'slug'            => (string) $row['slug'],
+            'plugin_name'     => (string) $row['plugin_name'],
+            'current_version' => (string) $row['current_version'],
+            'target_version'  => $row['target_version'] !== null ? (string) $row['target_version'] : null,
+        ], $rows);
+    }
 }
