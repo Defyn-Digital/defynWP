@@ -208,6 +208,25 @@ final class SitesRepositoryOverviewTest extends AbstractSchemaTestCase
         $this->assertCount(2, $result);
     }
 
+    public function testCountAllForUserReturnsZeroWhenUserHasNoSites(): void
+    {
+        $this->assertSame(0, (new SitesRepository())->countAllForUser(1));
+    }
+
+    public function testCountAllForUserReturnsCorrectCountAndExcludesOtherUsers(): void
+    {
+        $this->seedSite(1);
+        $this->seedSite(1);
+        $this->seedSite(1);
+        $this->seedSite(1);
+        $this->seedSite(1);
+        $this->seedSite(2); // different user — must NOT count for user 1
+
+        $repo = new SitesRepository();
+        $this->assertSame(5, $repo->countAllForUser(1));
+        $this->assertSame(1, $repo->countAllForUser(2));
+    }
+
     private function seedSite(int $userId): int
     {
         global $wpdb;

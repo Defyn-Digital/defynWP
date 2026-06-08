@@ -546,6 +546,27 @@ final class SitesRepository
     }
 
     /**
+     * P2.6 — count of sites owned by $userId. Used by OverviewService to
+     * emit `total_sites` on the /overview response so the SPA's "Sync all
+     * N sites" button can display the dynamic count.
+     *
+     * Implementation note: COUNT(*) on the sites table directly — DO NOT
+     * use count(findAllForUser($userId)), which materializes the full row
+     * set just to count it. Mirrors the existing countPendingPlugins
+     * pattern at line ~445.
+     */
+    public function countAllForUser(int $userId): int
+    {
+        global $wpdb;
+        $sitesTable = SitesTable::tableName();
+
+        return (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$sitesTable} WHERE user_id = %d",
+            $userId
+        ));
+    }
+
+    /**
      * P2.5 — sites owned by $userId that have at least one attention reason.
      * Capped at 50 rows. Hardcoded thresholds per spec § 3.4.
      *
