@@ -2,6 +2,7 @@ import { useOverview } from '@/lib/queries/useOverview'
 import { PendingUpdatesWidget } from '@/components/overview/PendingUpdatesWidget'
 import { SitesNeedingAttentionWidget } from '@/components/overview/SitesNeedingAttentionWidget'
 import { RecentActivityWidget } from '@/components/overview/RecentActivityWidget'
+import { SyncAllSitesButton } from '@/components/overview/SyncAllSitesButton'
 import { formatRelativeTime } from '@/lib/formatRelativeTime'
 
 export default function Overview() {
@@ -41,11 +42,14 @@ export default function Overview() {
 
   return (
     <div className="space-y-4 p-4">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-start justify-between">
         <h1 className="text-xl font-semibold">Overview</h1>
-        <p className="text-xs text-muted-foreground">
-          Last refreshed: {formatRelativeTime(data.generated_at)}
-        </p>
+        <div className="flex flex-col items-end gap-1">
+          <p className="text-xs text-muted-foreground">
+            Last refreshed: {formatRelativeTime(data.generated_at)}
+          </p>
+          <SyncAllSitesButton totalSites={data.total_sites} />
+        </div>
       </div>
 
       <PendingUpdatesWidget counts={data.pending_updates} />

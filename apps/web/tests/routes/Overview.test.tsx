@@ -51,6 +51,7 @@ describe('Overview route', () => {
               created_at: '2026-06-07 11:30:00',
             },
           ],
+          total_sites: 12,
           generated_at: '2026-06-07 11:30:00',
         }),
       ),
@@ -74,5 +75,26 @@ describe('Overview route', () => {
 
     renderRoute()
     await waitFor(() => expect(screen.getByText(/try again/i)).toBeInTheDocument())
+  })
+
+  it('renders the Sync all sites button in the header', async () => {
+    server.use(
+      http.get('*/wp-json/defyn/v1/overview', () =>
+        HttpResponse.json({
+          pending_updates: {
+            plugins: 0, themes: 0, cores_minor: 0, cores_major: 0, sites_with_any_update: 0,
+          },
+          sites_needing_attention: [],
+          recent_activity: [],
+          total_sites: 12,
+          generated_at: '2026-06-07 11:30:00',
+        })
+      )
+    )
+
+    renderRoute()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /sync all sites/i })).toBeInTheDocument()
+    );
   })
 })
