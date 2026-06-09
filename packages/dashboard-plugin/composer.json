@@ -2,7 +2,7 @@
     "name": "defyn/dashboard-plugin",
     "description": "DefynWP — central dashboard plugin (backend brain).",
     "type": "wordpress-plugin",
-    "version": "0.7.1",
+    "version": "0.8.0",
     "license": "proprietary",
     "require": {
         "php": ">=8.1",

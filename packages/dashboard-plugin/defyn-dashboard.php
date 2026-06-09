@@ -3,7 +3,7 @@
  * Plugin Name:       DefynWP Dashboard
  * Plugin URI:        https://defyn.dev
  * Description:       Central dashboard for managing multiple WordPress sites — the backend brain.
- * Version:           0.7.1
+ * Version:           0.8.0
  * Requires at least: 5.5
  * Requires PHP:      8.1
  * Author:            DefynWP
@@ -43,7 +43,7 @@ if (!defined('DEFYN_JWT_SECRET')) {
 }
 
 // Constants used throughout the plugin
-define('DEFYN_DASHBOARD_VERSION', '0.7.1');
+define('DEFYN_DASHBOARD_VERSION', '0.8.0');
 define('DEFYN_DASHBOARD_FILE', __FILE__);
 define('DEFYN_DASHBOARD_DIR', __DIR__);
 
