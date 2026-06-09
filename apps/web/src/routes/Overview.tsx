@@ -3,6 +3,7 @@ import { PendingUpdatesWidget } from '@/components/overview/PendingUpdatesWidget
 import { SitesNeedingAttentionWidget } from '@/components/overview/SitesNeedingAttentionWidget'
 import { RecentActivityWidget } from '@/components/overview/RecentActivityWidget'
 import { SyncAllSitesButton } from '@/components/overview/SyncAllSitesButton'
+import { BulkUpdatePluginsButton } from '@/components/overview/BulkUpdatePluginsButton'
 import { formatRelativeTime } from '@/lib/formatRelativeTime'
 
 export default function Overview() {
@@ -49,6 +50,7 @@ export default function Overview() {
             Last refreshed: {formatRelativeTime(data.generated_at)}
           </p>
           <SyncAllSitesButton totalSites={data.total_sites} />
+          <BulkUpdatePluginsButton pendingCount={data.pending_updates.plugins} />
         </div>
       </div>
 
