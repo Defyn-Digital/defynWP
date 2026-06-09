@@ -104,6 +104,12 @@ final class RateLimit
     public const OVERVIEW_PENDING_THEME_UPDATES_LIMIT  = 30;
     public const OVERVIEW_PENDING_THEME_UPDATES_WINDOW = MINUTE_IN_SECONDS;
 
+    // P2.8 — POST /overview/bulk-update-themes. Per-user, 5/HOUR — mirror of
+    // P2.7's BULK_PLUGIN_UPDATE because both fan-out destructive writes.
+    // Plan-bug trap #1 carry-forward: window is HOUR_IN_SECONDS, NOT MINUTE.
+    public const BULK_THEME_UPDATE_LIMIT  = 5;
+    public const BULK_THEME_UPDATE_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -535,6 +541,41 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::OVERVIEW_PENDING_THEME_UPDATES_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /overview/bulk-update-themes.
+     *
+     * Per-user, 5/HOUR. Distinct prefix `defyn_rl_bulkThemeUpdate_%d` so it
+     * does NOT collide with P2.7's bulkPluginUpdate bucket. Mirror of
+     * bulkPluginUpdate — tighter than overviewSyncAll's 10/HOUR because this
+     * fan-outs destructive writes. Plan-bug trap #1 carry-forward: window is
+     * HOUR_IN_SECONDS, NOT MINUTE.
+     *
+     * @return true|WP_Error
+     */
+    public static function bulkThemeUpdate(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_bulkThemeUpdate_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::BULK_THEME_UPDATE_LIMIT) {
+            return new \WP_Error(
+                'bulk.rate_limited',
+                'Too many bulk update requests. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::BULK_THEME_UPDATE_WINDOW);
         return true;
     }
 

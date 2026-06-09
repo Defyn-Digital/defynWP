@@ -256,6 +256,15 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'overviewPendingThemeUpdates'],
         ]);
 
+        // P2.8 — POST /overview/bulk-update-themes. Fan-outs the P2.3 UpdateSiteTheme
+        // AS job per confirmed pair; emits ONE fleet-scoped activity event.
+        // RateLimit::bulkThemeUpdate is 5/HOUR (mirror of P2.7's bulkPluginUpdate).
+        register_rest_route(self::NAMESPACE, '/overview/bulk-update-themes', [
+            'methods'             => 'POST',
+            'callback'            => [new OverviewBulkUpdateThemesController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'bulkThemeUpdate'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],
