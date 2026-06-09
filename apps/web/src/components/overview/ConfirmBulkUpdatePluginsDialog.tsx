@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PendingPluginUpdatesGroup } from '@/components/overview/PendingPluginUpdatesGroup';
-import { isPluginMajorBump } from '@/lib/semver';
+import { isMajorBump } from '@/lib/semver';
 import type { PendingPluginUpdateRow } from '@/types/api';
 
 interface ConfirmBulkUpdatePluginsDialogProps {
@@ -40,7 +40,7 @@ export function ConfirmBulkUpdatePluginsDialog({
   // P2.7.1 — when skipMajor is ON, hide rows where current → target crosses a major boundary.
   const visibleRows = useMemo(
     () => skipMajor
-      ? rows.filter((r) => !isPluginMajorBump(r.current_version, r.target_version))
+      ? rows.filter((r) => !isMajorBump(r.current_version, r.target_version))
       : rows,
     [rows, skipMajor],
   );

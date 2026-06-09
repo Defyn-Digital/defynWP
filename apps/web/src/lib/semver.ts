@@ -1,5 +1,5 @@
 /**
- * P2.7.1 — npm-style major bump detection for plugin updates.
+ * P2.8 — npm-style major bump detection for plugin/theme updates.
  *
  * Returns true when the leftmost numeric segment differs between
  * current and target (e.g. 1.x → 2.x). Returns false for:
@@ -8,12 +8,15 @@
  *   - unparseable major (treat as not major — match conservative default)
  *
  * Distinct from P2.4.1's SiteCoreCard `isMinorBump` which uses WP-core
- * convention (major.minor both must match). For plugins we use npm
- * convention (major segment only).
+ * convention (major.minor both must match). For plugins/themes we use
+ * npm convention (major segment only).
  *
- * Spec: docs/superpowers/specs/2026-06-09-p2-7-1-minor-only-filter-design.md § 2
+ * Renamed from isPluginMajorBump in P2.8 since both plugins (P2.7.1) and
+ * themes (P2.8) use the same helper — the predicate is resource-agnostic.
+ *
+ * Spec: docs/superpowers/specs/2026-06-09-p2-8-bulk-theme-updates-design.md § 7 #14
  */
-export function isPluginMajorBump(
+export function isMajorBump(
   current: string | null | undefined,
   target: string | null | undefined,
 ): boolean {
