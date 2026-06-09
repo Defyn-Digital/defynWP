@@ -98,6 +98,12 @@ final class RateLimit
     public const BULK_PLUGIN_UPDATE_LIMIT  = 5;
     public const BULK_PLUGIN_UPDATE_WINDOW = HOUR_IN_SECONDS;
 
+    // P2.8 — GET /overview/pending-theme-updates. Per-MINUTE bucket — mirror of
+    // P2.7's OVERVIEW_PENDING_PLUGIN_UPDATES because the SPA fetches this on
+    // dialog open. NOT HOUR_IN_SECONDS (plan-bug trap #1 carry-forward from P2.7).
+    public const OVERVIEW_PENDING_THEME_UPDATES_LIMIT  = 30;
+    public const OVERVIEW_PENDING_THEME_UPDATES_WINDOW = MINUTE_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -496,6 +502,39 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::BULK_PLUGIN_UPDATE_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /overview/pending-theme-updates.
+     *
+     * Per-MINUTE bucket — mirror of P2.7's overviewPendingPluginUpdates because
+     * the SPA fetches this on dialog open. Distinct prefix from defyn_rl_overview_%d
+     * and defyn_rl_overviewPendingPluginUpdates_%d.
+     *
+     * @return true|WP_Error
+     */
+    public static function overviewPendingThemeUpdates(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_overviewPendingThemeUpdates_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::OVERVIEW_PENDING_THEME_UPDATES_LIMIT) {
+            return new \WP_Error(
+                'overview.rate_limited',
+                'Too many requests. Try again in a moment.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::OVERVIEW_PENDING_THEME_UPDATES_WINDOW);
         return true;
     }
 

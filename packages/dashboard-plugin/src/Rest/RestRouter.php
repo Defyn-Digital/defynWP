@@ -246,6 +246,16 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'bulkPluginUpdate'],
         ]);
 
+        // P2.8 — GET /overview/pending-theme-updates. Returns the flat list of
+        // eligible (site, theme) pairs for the SPA's bulk theme-update confirm dialog.
+        // RateLimit::overviewPendingThemeUpdates is 30/MINUTE — mirror of P2.7's
+        // overviewPendingPluginUpdates because the SPA fetches this on dialog open.
+        register_rest_route(self::NAMESPACE, '/overview/pending-theme-updates', [
+            'methods'             => 'GET',
+            'callback'            => [new OverviewPendingThemeUpdatesController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'overviewPendingThemeUpdates'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],
