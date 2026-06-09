@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 5.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.8.0
+Stable tag: 0.8.1
 License: Proprietary
 License URI: https://defyn.dev/license
 
@@ -39,6 +39,12 @@ No. It only signs and sends requests to the specific managed sites you connect t
 The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_refresh_tokens`, `wp_defyn_activity_log`, `wp_defyn_site_plugins`) and stored options are removed via `uninstall.php`.
 
 == Changelog ==
+
+= 0.8.1 =
+* Bulk theme updates across fleet: POST /defyn/v1/overview/bulk-update-themes fan-outs the existing P2.3 UpdateSiteTheme AS job per confirmed (site, theme) pair. 5/hour rate limit. Single overview.bulk_theme_update_requested activity event captures the fleet-scoped intent.
+* New GET /defyn/v1/overview/pending-theme-updates returns a flat list of eligible (site, theme) pairs for the SPA's confirmation dialog. 30/minute rate limit.
+* SPA confirmation dialog ships with the "Skip major bumps" toggle baked in from day 1 (mirrors P2.7.1 for plugins). Semver helper isPluginMajorBump renamed to isMajorBump in apps/web/src/lib/semver.ts (resource-agnostic).
+* Patch bump because endpoints + event type are additive on top of the v0.8.0 destructive-bulk shape.
 
 = 0.8.0 =
 * Bulk plugin updates across fleet: POST /defyn/v1/overview/bulk-update-plugins fan-outs the existing P2.2 UpdateSitePlugin AS job per confirmed (site, plugin) pair. 5/hour rate limit. Single overview.bulk_plugin_update_requested activity event captures the fleet-scoped intent.
