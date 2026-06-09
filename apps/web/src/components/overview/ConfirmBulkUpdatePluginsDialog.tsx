@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PendingPluginUpdatesGroup } from '@/components/overview/PendingPluginUpdatesGroup';
+import { isPluginMajorBump } from '@/lib/semver';
 import type { PendingPluginUpdateRow } from '@/types/api';
 
 interface ConfirmBulkUpdatePluginsDialogProps {
@@ -34,10 +35,19 @@ export function ConfirmBulkUpdatePluginsDialog({
 }: ConfirmBulkUpdatePluginsDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const [showAll, setShowAll] = useState(false);
+  const [skipMajor, setSkipMajor] = useState(false);
+
+  // P2.7.1 — when skipMajor is ON, hide rows where current → target crosses a major boundary.
+  const visibleRows = useMemo(
+    () => skipMajor
+      ? rows.filter((r) => !isPluginMajorBump(r.current_version, r.target_version))
+      : rows,
+    [rows, skipMajor],
+  );
 
   const allKeys = useMemo(
-    () => rows.map((r) => `${r.site_id}:${r.slug}`),
-    [rows],
+    () => visibleRows.map((r) => `${r.site_id}:${r.slug}`),
+    [visibleRows],
   );
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(() => new Set(allKeys));
 
@@ -53,16 +63,16 @@ export function ConfirmBulkUpdatePluginsDialog({
   // Group rows by site_label, preserving the server's order.
   const grouped = useMemo(() => {
     const map = new Map<string, PendingPluginUpdateRow[]>();
-    for (const row of rows) {
+    for (const row of visibleRows) {
       const list = map.get(row.site_label) ?? [];
       list.push(row);
       map.set(row.site_label, list);
     }
     return Array.from(map.entries()); // [[label, rows], ...]
-  }, [rows]);
+  }, [visibleRows]);
 
   const selectedCount = checkedKeys.size;
-  const totalCount = rows.length;
+  const totalCount = visibleRows.length;
 
   if (!open) {
     return null;
@@ -120,6 +130,19 @@ export function ConfirmBulkUpdatePluginsDialog({
         <p>This will run the plugin upgrader on every checked pair below. Each site briefly enters maintenance mode during its update.</p>
         <p>Uncheck any pair you want to skip — server fans out exactly what's checked. Already-updated rows are silently no-op'd.</p>
       </div>
+
+      {/* P2.7.1 — Skip major bumps toggle */}
+      <label className="mt-3 flex items-center gap-2 text-sm text-zinc-700">
+        <input
+          type="checkbox"
+          checked={skipMajor}
+          onChange={(e) => setSkipMajor(e.target.checked)}
+        />
+        Skip major bumps
+        <span className="text-xs text-zinc-500">
+          (hide updates where the major version changes, e.g. 1.x → 2.x)
+        </span>
+      </label>
 
       <div className="mt-3 space-y-2">
         {visibleGroups.map(([label, groupRows]) => (
