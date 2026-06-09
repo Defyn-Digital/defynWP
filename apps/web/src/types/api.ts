@@ -131,3 +131,37 @@ export const syncAllSitesResponseSchema = z.object({
   scheduled_at: z.string(),
 });
 export type SyncAllSitesResponse = z.infer<typeof syncAllSitesResponseSchema>;
+
+// P2.7 — GET /defyn/v1/overview/pending-plugin-updates response.
+export const pendingPluginUpdateRowSchema = z.object({
+  site_id: z.number().int(),
+  site_label: z.string(),
+  slug: z.string(),
+  plugin_name: z.string(),
+  current_version: z.string(),
+  target_version: z.string().nullable(),
+});
+export type PendingPluginUpdateRow = z.infer<typeof pendingPluginUpdateRowSchema>;
+
+export const pendingPluginUpdatesSchema = z.object({
+  pending_updates: z.array(pendingPluginUpdateRowSchema),
+  generated_at: z.string(),
+});
+export type PendingPluginUpdates = z.infer<typeof pendingPluginUpdatesSchema>;
+
+// P2.7 — POST /defyn/v1/overview/bulk-update-plugins response.
+const bulkUpdatePairSchema = z.object({
+  site_id: z.number().int(),
+  slug: z.string(),
+});
+
+export const bulkUpdatePluginsResponseSchema = z.object({
+  scheduled_count: z.number().int().nonnegative(),
+  skipped_count: z.number().int().nonnegative(),
+  scheduled_pairs: z.array(bulkUpdatePairSchema),
+  skipped_pairs: z.array(bulkUpdatePairSchema.extend({
+    reason: z.enum(['site_not_owned', 'plugin_not_found', 'no_update_available']),
+  })),
+  scheduled_at: z.string(),
+});
+export type BulkUpdatePluginsResponse = z.infer<typeof bulkUpdatePluginsResponseSchema>;

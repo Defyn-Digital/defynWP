@@ -592,6 +592,29 @@ handlers.push(
     );
   }),
 
+  // P2.7 — GET /overview/pending-plugin-updates default empty list.
+  http.get('*/wp-json/defyn/v1/overview/pending-plugin-updates', () => {
+    return HttpResponse.json({
+      pending_updates: [],
+      generated_at: '2026-06-09 23:15:00',
+    });
+  }),
+
+  // P2.7 — POST /overview/bulk-update-plugins default synthetic 202.
+  http.post('*/wp-json/defyn/v1/overview/bulk-update-plugins', async ({ request }) => {
+    const body = (await request.json()) as { updates: Array<{ site_id: number; slug: string }> };
+    return HttpResponse.json(
+      {
+        scheduled_count: body.updates.length,
+        skipped_count: 0,
+        scheduled_pairs: body.updates,
+        skipped_pairs: [],
+        scheduled_at: '2026-06-09 23:15:42',
+      },
+      { status: body.updates.length > 0 ? 202 : 200 },
+    );
+  }),
+
   // P2.4 — POST /sites/:id/core/update
   // Returns 202 immediately and schedules deferred state transitions
   // (queued -> updating @ 50ms -> idle @ 200ms) so the polling tests have real state changes to observe.
