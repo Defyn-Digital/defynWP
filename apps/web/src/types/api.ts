@@ -165,3 +165,37 @@ export const bulkUpdatePluginsResponseSchema = z.object({
   scheduled_at: z.string(),
 });
 export type BulkUpdatePluginsResponse = z.infer<typeof bulkUpdatePluginsResponseSchema>;
+
+// P2.8 — GET /defyn/v1/overview/pending-theme-updates response.
+export const pendingThemeUpdateRowSchema = z.object({
+  site_id: z.number().int(),
+  site_label: z.string(),
+  slug: z.string(),
+  theme_name: z.string(),
+  current_version: z.string(),
+  target_version: z.string().nullable(),
+});
+export type PendingThemeUpdateRow = z.infer<typeof pendingThemeUpdateRowSchema>;
+
+export const pendingThemeUpdatesSchema = z.object({
+  pending_updates: z.array(pendingThemeUpdateRowSchema),
+  generated_at: z.string(),
+});
+export type PendingThemeUpdates = z.infer<typeof pendingThemeUpdatesSchema>;
+
+// P2.8 — POST /defyn/v1/overview/bulk-update-themes request + response.
+export const bulkUpdateThemesRequestSchema = z.object({
+  updates: z.array(bulkUpdatePairSchema).min(1),
+});
+export type BulkUpdateThemesRequest = z.infer<typeof bulkUpdateThemesRequestSchema>;
+
+export const bulkUpdateThemesResponseSchema = z.object({
+  scheduled_count: z.number().int().nonnegative(),
+  skipped_count: z.number().int().nonnegative(),
+  scheduled_pairs: z.array(bulkUpdatePairSchema),
+  skipped_pairs: z.array(bulkUpdatePairSchema.extend({
+    reason: z.enum(['site_not_owned', 'theme_not_found', 'no_update_available']),
+  })),
+  scheduled_at: z.string(),
+});
+export type BulkUpdateThemesResponse = z.infer<typeof bulkUpdateThemesResponseSchema>;
