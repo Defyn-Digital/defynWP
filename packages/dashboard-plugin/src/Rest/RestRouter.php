@@ -237,6 +237,15 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'overviewPendingPluginUpdates'],
         ]);
 
+        // P2.7 — POST /overview/bulk-update-plugins. Fan-outs the P2.2 UpdateSitePlugin
+        // AS job per confirmed pair; emits ONE fleet-scoped activity event.
+        // RateLimit::bulkPluginUpdate is 5/HOUR.
+        register_rest_route(self::NAMESPACE, '/overview/bulk-update-plugins', [
+            'methods'             => 'POST',
+            'callback'            => [new OverviewBulkUpdatePluginsController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'bulkPluginUpdate'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],

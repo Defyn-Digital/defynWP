@@ -92,6 +92,12 @@ final class RateLimit
     public const OVERVIEW_PENDING_PLUGIN_UPDATES_LIMIT  = 30;
     public const OVERVIEW_PENDING_PLUGIN_UPDATES_WINDOW = MINUTE_IN_SECONDS;
 
+    // P2.7 — POST /overview/bulk-update-plugins. Per-user, 5/HOUR — distinct
+    // from P2.6's overviewSyncAll (10/HOUR) and tighter to reflect destructive
+    // nature (each call fan-outs N writes). Plan-bug trap #1: window is HOUR_IN_SECONDS.
+    public const BULK_PLUGIN_UPDATE_LIMIT  = 5;
+    public const BULK_PLUGIN_UPDATE_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -457,6 +463,39 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::OVERVIEW_PENDING_PLUGIN_UPDATES_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /overview/bulk-update-plugins.
+     *
+     * Per-user, 5/HOUR. Distinct prefix `defyn_rl_bulkPluginUpdate_%d`.
+     * Plan-bug trap #1: tighter than overviewSyncAll's 10/HOUR because this
+     * fan-outs destructive writes.
+     *
+     * @return true|WP_Error
+     */
+    public static function bulkPluginUpdate(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_bulkPluginUpdate_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::BULK_PLUGIN_UPDATE_LIMIT) {
+            return new \WP_Error(
+                'bulk.rate_limited',
+                'Too many bulk update requests. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::BULK_PLUGIN_UPDATE_WINDOW);
         return true;
     }
 
