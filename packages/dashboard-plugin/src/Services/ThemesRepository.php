@@ -262,4 +262,44 @@ final class ThemesRepository
         );
         return $result === false ? 0 : (int) $result;
     }
+
+    /**
+     * P2.8 — INNER JOIN'd query feeding the operator's bulk-update-themes dialog.
+     *
+     * Returns rows with keys: site_id, site_label, slug, theme_name,
+     * current_version, target_version.
+     *
+     * @return list<array{site_id:int,site_label:string,slug:string,theme_name:string,current_version:string,target_version:?string}>
+     */
+    public function findAllPendingUpdatesForUser(int $userId): array
+    {
+        global $wpdb;
+        $sitesTable  = $wpdb->prefix . 'defyn_sites';
+        $themesTable = $wpdb->prefix . 'defyn_site_themes';
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT s.id AS site_id, s.label AS site_label,
+                    st.slug, st.name AS theme_name,
+                    st.version AS current_version, st.update_version AS target_version
+             FROM {$sitesTable} s
+             INNER JOIN {$themesTable} st ON st.site_id = s.id
+             WHERE s.user_id = %d
+               AND st.update_available = 1
+             ORDER BY s.label, st.name",
+            $userId
+        ), ARRAY_A);
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        return array_map(static fn(array $row) => [
+            'site_id'         => (int) $row['site_id'],
+            'site_label'      => (string) $row['site_label'],
+            'slug'            => (string) $row['slug'],
+            'theme_name'      => (string) $row['theme_name'],
+            'current_version' => (string) $row['current_version'],
+            'target_version'  => $row['target_version'] !== null ? (string) $row['target_version'] : null,
+        ], $rows);
+    }
 }
