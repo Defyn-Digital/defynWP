@@ -228,6 +228,15 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'overviewSyncAll'],
         ]);
 
+        // P2.7 — GET /overview/pending-plugin-updates. Returns the flat list of
+        // eligible (site, plugin) pairs for the SPA's bulk update confirm dialog.
+        // RateLimit::overviewPendingPluginUpdates is 30/MINUTE.
+        register_rest_route(self::NAMESPACE, '/overview/pending-plugin-updates', [
+            'methods'             => 'GET',
+            'callback'            => [new OverviewPendingPluginUpdatesController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'overviewPendingPluginUpdates'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],

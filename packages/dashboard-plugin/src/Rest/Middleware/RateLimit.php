@@ -86,6 +86,12 @@ final class RateLimit
     public const OVERVIEW_SYNC_ALL_LIMIT  = 10;
     public const OVERVIEW_SYNC_ALL_WINDOW = HOUR_IN_SECONDS;
 
+    // P2.7 — GET /overview/pending-plugin-updates. Per-MINUTE bucket — same shape
+    // as P2.5's overview poll because the SPA fetches this on dialog open. NOT
+    // HOUR_IN_SECONDS (plan-bug trap #2 — common copy-paste from the bulk endpoint).
+    public const OVERVIEW_PENDING_PLUGIN_UPDATES_LIMIT  = 30;
+    public const OVERVIEW_PENDING_PLUGIN_UPDATES_WINDOW = MINUTE_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -419,6 +425,38 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::OVERVIEW_SYNC_ALL_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /overview/pending-plugin-updates.
+     *
+     * Per-MINUTE bucket — mirrors P2.5's overview() pattern because the SPA
+     * fetches this on dialog open. Distinct prefix from defyn_rl_overview_%d.
+     *
+     * @return true|WP_Error
+     */
+    public static function overviewPendingPluginUpdates(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_overviewPendingPluginUpdates_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::OVERVIEW_PENDING_PLUGIN_UPDATES_LIMIT) {
+            return new \WP_Error(
+                'overview.rate_limited',
+                'Too many requests. Try again in a moment.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::OVERVIEW_PENDING_PLUGIN_UPDATES_WINDOW);
         return true;
     }
 
