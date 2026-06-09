@@ -4,6 +4,7 @@ import { SitesNeedingAttentionWidget } from '@/components/overview/SitesNeedingA
 import { RecentActivityWidget } from '@/components/overview/RecentActivityWidget'
 import { SyncAllSitesButton } from '@/components/overview/SyncAllSitesButton'
 import { BulkUpdatePluginsButton } from '@/components/overview/BulkUpdatePluginsButton'
+import { BulkUpdateThemesButton } from '@/components/overview/BulkUpdateThemesButton'
 import { formatRelativeTime } from '@/lib/formatRelativeTime'
 
 export default function Overview() {
@@ -51,6 +52,7 @@ export default function Overview() {
           </p>
           <SyncAllSitesButton totalSites={data.total_sites} />
           <BulkUpdatePluginsButton pendingCount={data.pending_updates.plugins} />
+          <BulkUpdateThemesButton pendingCount={data.pending_updates.themes} />
         </div>
       </div>
 
