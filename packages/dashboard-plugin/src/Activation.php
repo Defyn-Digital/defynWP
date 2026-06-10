@@ -6,6 +6,8 @@ namespace Defyn\Dashboard;
 
 use Defyn\Dashboard\Jobs\Scheduler;
 use Defyn\Dashboard\Schema\ActivityLogTable;
+use Defyn\Dashboard\Schema\BulkJobItemsTable;
+use Defyn\Dashboard\Schema\BulkJobsTable;
 use Defyn\Dashboard\Schema\ConnectionCodesTable;
 use Defyn\Dashboard\Schema\SchemaTable;
 use Defyn\Dashboard\Schema\SchemaVersion;
@@ -21,7 +23,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 6;
+    public const SCHEMA_VERSION = 7;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -35,6 +37,8 @@ final class Activation
         ActivityLogTable::class,
         SitePluginsTable::class,
         SiteThemesTable::class,
+        BulkJobsTable::class,
+        BulkJobItemsTable::class,
     ];
 
     /** Throttle key for {@see maybeRunSelfHeal} — checked at most once per hour. */
