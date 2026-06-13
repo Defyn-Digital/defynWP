@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 5.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.8.1
+Stable tag: 0.9.0
 License: Proprietary
 License URI: https://defyn.dev/license
 
@@ -39,6 +39,14 @@ No. It only signs and sends requests to the specific managed sites you connect t
 The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_refresh_tokens`, `wp_defyn_activity_log`, `wp_defyn_site_plugins`) and stored options are removed via `uninstall.php`.
 
 == Changelog ==
+
+= 0.9.0 =
+* Bulk-jobs entity: every POST /overview/bulk-update-plugins and POST /overview/bulk-update-themes now creates a tracked job in wp_defyn_bulk_jobs + N child rows in wp_defyn_bulk_job_items. Response envelope adds job_id.
+* New GET /defyn/v1/jobs (30/MIN) + GET /defyn/v1/jobs/{id} (30/MIN) feed the new SPA /jobs route and per-job detail view.
+* New POST /defyn/v1/jobs/{id}/cancel (5/HR) cancels all queued items via as_unschedule_action. Items already started can't be cancelled.
+* New POST /defyn/v1/jobs/{id}/items/{item_id}/retry (20/HR) + POST /defyn/v1/jobs/{id}/retry-failed (5/HR) re-schedule failed items.
+* Schema v6 → v7 (additive: 2 new tables, no destructive ALTERs). Self-heal handles upgrade transparently.
+* Minor version bump because the new domain entity is a meaningful surface change, not a patch.
 
 = 0.8.1 =
 * Bulk theme updates across fleet: POST /defyn/v1/overview/bulk-update-themes fan-outs the existing P2.3 UpdateSiteTheme AS job per confirmed (site, theme) pair. 5/hour rate limit. Single overview.bulk_theme_update_requested activity event captures the fleet-scoped intent.
