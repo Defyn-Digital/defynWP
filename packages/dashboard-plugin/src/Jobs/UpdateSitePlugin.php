@@ -7,6 +7,7 @@ namespace Defyn\Dashboard\Jobs;
 use Defyn\Dashboard\Crypto\Vault;
 use Defyn\Dashboard\Http\SignedHttpClient;
 use Defyn\Dashboard\Services\ActivityLogger;
+use Defyn\Dashboard\Services\BulkJobsRepository;
 use Defyn\Dashboard\Services\SitePluginsRepository;
 use Defyn\Dashboard\Services\SitesRepository;
 
@@ -42,22 +43,37 @@ final class UpdateSitePlugin
         private readonly SignedHttpClient $http = new SignedHttpClient(),
         private readonly ActivityLogger $log = new ActivityLogger(),
         private readonly ?Vault $vault = null,
+        private readonly BulkJobsRepository $bulkJobs = new BulkJobsRepository(),
     ) {
     }
 
-    public function handle(int $siteId, string $slug, int $attempt = 0): void
+    public function handle(int $siteId, string $slug, int $attempt = 0, int $jobItemId = 0): void
     {
+        $now = gmdate('Y-m-d H:i:s');
+
         $site = $this->sites->findById($siteId);
         if ($site === null) {
+            // Terminal — a bulk-job item pointing at a deleted site can never
+            // succeed; without the mark it would hang in `queued` forever.
+            if ($jobItemId > 0) {
+                $this->bulkJobs->markItemFailed($jobItemId, $now, 'Site no longer exists.');
+            }
             return;
         }
 
         $row = $this->repo->findRowForSiteAndSlug($siteId, $slug);
         if ($row === null) {
+            if ($jobItemId > 0) {
+                $this->bulkJobs->markItemFailed($jobItemId, $now, 'Plugin row no longer exists.');
+            }
             return;
         }
 
-        $now = gmdate('Y-m-d H:i:s');
+        // P2.9 — queued → started at handle entry. The repository UPDATE is
+        // guarded queued-only, so 409-retry re-entries (already started) no-op.
+        if ($jobItemId > 0) {
+            $this->bulkJobs->markItemStarted($jobItemId, $now);
+        }
 
         $this->repo->markUpdating($siteId, $slug, $now);
         // ActivityLogger::log(?int $userId, ?int $siteId, string $eventType, ?array $details).
@@ -92,6 +108,9 @@ final class UpdateSitePlugin
                 'previous_version' => $previousVersion,
                 'new_version'      => $newVersion,
             ]);
+            if ($jobItemId > 0) {
+                $this->bulkJobs->markItemSucceeded($jobItemId, $now);
+            }
             return;
         }
 
@@ -113,12 +132,17 @@ final class UpdateSitePlugin
                     'error_message'     => 'Site is busy after 5 retries.',
                     'attempted_version' => $row['update_version'] ?? null,
                 ]);
+                if ($jobItemId > 0) {
+                    $this->bulkJobs->markItemFailed($jobItemId, $now, 'Site is busy after 5 retries.');
+                }
                 return;
             }
 
             $delay   = 60 * (2 ** $attempt); // 60, 120, 240, 480, 960
             $nextRun = time() + $delay;
-            \as_schedule_single_action($nextRun, self::HOOK, [$siteId, $slug, $attempt + 1]);
+            // P2.9 — propagate the item id so the retry attempt keeps marking
+            // lifecycle on the SAME item. No terminal mark — stays `started`.
+            \as_schedule_single_action($nextRun, self::HOOK, [$siteId, $slug, $attempt + 1, $jobItemId]);
             $this->log->log(null, $siteId, 'plugin_update.retry', [
                 'slug'        => $slug,
                 'attempt'     => $attempt,
@@ -144,5 +168,8 @@ final class UpdateSitePlugin
             'error_message'     => $errorMessage,
             'attempted_version' => $row['update_version'] ?? null,
         ]);
+        if ($jobItemId > 0) {
+            $this->bulkJobs->markItemFailed($jobItemId, $now, $errorMessage);
+        }
     }
 }

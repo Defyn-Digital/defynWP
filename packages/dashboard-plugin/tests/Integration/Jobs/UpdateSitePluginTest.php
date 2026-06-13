@@ -169,10 +169,11 @@ final class UpdateSitePluginTest extends AbstractSchemaTestCase
         self::assertEqualsWithDelta($now + 120, $scheduled[1]['when'], 5);
         self::assertEqualsWithDelta($now + 240, $scheduled[2]['when'], 5);
 
-        // Each schedule increments the attempt arg
-        self::assertSame([$siteId, 'akismet', 1], $scheduled[0]['args']);
-        self::assertSame([$siteId, 'akismet', 2], $scheduled[1]['args']);
-        self::assertSame([$siteId, 'akismet', 3], $scheduled[2]['args']);
+        // Each schedule increments the attempt arg. P2.9 — the reschedule now
+        // carries a 4th arg (bulk-job item id); 0 here = no bulk-job tracking.
+        self::assertSame([$siteId, 'akismet', 1, 0], $scheduled[0]['args']);
+        self::assertSame([$siteId, 'akismet', 2, 0], $scheduled[1]['args']);
+        self::assertSame([$siteId, 'akismet', 3, 0], $scheduled[2]['args']);
 
         // Row stays in 'updating' across retries (don't flip to failed yet)
         $row = (new SitePluginsRepository())->findRowForSiteAndSlug($siteId, 'akismet');

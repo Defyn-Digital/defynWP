@@ -72,9 +72,11 @@ final class Plugin
         // P2.2 — operator-triggered plugin update. Scheduled by
         // SitesPluginsUpdateController; handler calls connector /plugins/{slug}/update
         // with a 120s HTTP timeout, branches on success / 409 retry / failure.
-        add_action(UpdateSitePlugin::HOOK, static function (int $siteId, string $slug, int $attempt = 0): void {
-            (new UpdateSitePlugin())->handle($siteId, $slug, $attempt);
-        }, 10, 3);
+        // P2.9 — 4th arg is the bulk-job item id (0 = no tracking). Default
+        // param keeps pre-v0.9.0 3-arg AS rows from fataling.
+        add_action(UpdateSitePlugin::HOOK, static function (int $siteId, string $slug, int $attempt = 0, int $jobItemId = 0): void {
+            (new UpdateSitePlugin())->handle($siteId, $slug, $attempt, $jobItemId);
+        }, 10, 4);
 
         // P2.3 — operator-triggered theme inventory refresh. Scheduled by
         // SitesThemesRefreshController; handler hits connector /themes/refresh
@@ -84,9 +86,10 @@ final class Plugin
         }, 10, 1);
 
         // P2.3 — operator-triggered theme update.
-        add_action(UpdateSiteTheme::HOOK, static function (int $siteId, string $slug, int $attempt = 0): void {
-            (new UpdateSiteTheme())->handle($siteId, $slug, $attempt);
-        }, 10, 3);
+        // P2.9 — same 4-arg bump as UpdateSitePlugin::HOOK above.
+        add_action(UpdateSiteTheme::HOOK, static function (int $siteId, string $slug, int $attempt = 0, int $jobItemId = 0): void {
+            (new UpdateSiteTheme())->handle($siteId, $slug, $attempt, $jobItemId);
+        }, 10, 4);
 
         // P2.4 — operator-triggered WP core inventory refresh.
         add_action(RefreshSiteCore::HOOK, static function (int $siteId): void {
