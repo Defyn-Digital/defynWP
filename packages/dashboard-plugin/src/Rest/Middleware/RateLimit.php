@@ -120,6 +120,12 @@ final class RateLimit
     public const JOBS_DETAIL_LIMIT  = 30;
     public const JOBS_DETAIL_WINDOW = MINUTE_IN_SECONDS;
 
+    // P2.9 — POST /jobs/{id}/cancel. 5/HOUR — a control action with fan-out
+    // side effects (N as_unschedule calls); same weight class as the bulk
+    // POST endpoints.
+    public const JOBS_CANCEL_LIMIT  = 5;
+    public const JOBS_CANCEL_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -649,6 +655,37 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::JOBS_DETAIL_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /jobs/{id}/cancel.
+     *
+     * Per-user, 5/HOUR. Distinct prefix `defyn_rl_jobsCancel_%d`.
+     *
+     * @return true|WP_Error
+     */
+    public static function jobsCancel(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_jobsCancel_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::JOBS_CANCEL_LIMIT) {
+            return new \WP_Error(
+                'jobs.rate_limited',
+                'Too many cancel requests. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::JOBS_CANCEL_WINDOW);
         return true;
     }
 

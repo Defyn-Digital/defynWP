@@ -281,6 +281,15 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'jobsDetail'],
         ]);
 
+        // P2.9 — POST /jobs/{id}/cancel. Unschedules + cancels all
+        // still-queued items (started items keep running — UI is honest).
+        // RateLimit::jobsCancel is 5/HOUR.
+        register_rest_route(self::NAMESPACE, '/jobs/(?P<id>\d+)/cancel', [
+            'methods'             => 'POST',
+            'callback'            => [new JobsCancelController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'jobsCancel'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],
