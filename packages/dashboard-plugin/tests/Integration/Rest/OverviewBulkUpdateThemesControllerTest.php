@@ -30,10 +30,14 @@ final class OverviewBulkUpdateThemesControllerTest extends AbstractSchemaTestCas
         }
         $this->freshlyActivate('defyn_site_themes');
         $this->freshlyActivate('defyn_activity_log');
+        $this->freshlyActivate('defyn_bulk_jobs');
+        $this->freshlyActivate('defyn_bulk_job_items');
 
         global $wpdb;
         // phpcs:disable WordPress.DB.PreparedSQL
         $wpdb->query('SET autocommit = 1');
+        $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_bulk_job_items");
+        $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_bulk_jobs");
         $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_activity_log");
         $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_site_themes");
         $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_sites");
@@ -176,11 +180,17 @@ final class OverviewBulkUpdateThemesControllerTest extends AbstractSchemaTestCas
         ]]));
         rest_do_request($request);
 
+        global $wpdb;
+        $itemId = (int) $wpdb->get_var(
+            "SELECT id FROM {$wpdb->prefix}defyn_bulk_job_items WHERE resource_slug = 'astra'"
+        );
+        $this->assertGreaterThan(0, $itemId, 'bulk_job_items row must exist for the scheduled pair');
+
         $astraJobs = as_get_scheduled_actions([
             'hook' => 'defyn_update_site_theme',
-            'args' => [$siteA, 'astra', 0],
+            'args' => [$siteA, 'astra', 0, $itemId],
         ]);
-        $this->assertGreaterThanOrEqual(1, count($astraJobs));
+        $this->assertGreaterThanOrEqual(1, count($astraJobs), 'AS action must carry the item id as 4th arg');
     }
 
     public function testActivityEventEmittedWithCorrectDetails(): void
@@ -242,6 +252,61 @@ final class OverviewBulkUpdateThemesControllerTest extends AbstractSchemaTestCas
             "SELECT COUNT(*) FROM {$wpdb->prefix}defyn_activity_log WHERE event_type = 'overview.bulk_theme_update_requested'"
         );
         $this->assertSame(0, $count);
+    }
+
+    public function testHappyPathCreatesJobAndItemsAndReturnsJobId(): void
+    {
+        $siteA = $this->seedSite(1, 'SmartCoding');
+        $this->seedTheme($siteA, 'astra',   'Astra',   '4.6.3', '4.7.0', true);
+        $this->seedTheme($siteA, 'blocksy', 'Blocksy', '2.0.1', '2.0.2', true);
+
+        $token   = $this->token(1);
+        $request = new WP_REST_Request('POST', '/defyn/v1/overview/bulk-update-themes');
+        $request->set_header('Authorization', 'Bearer ' . $token);
+        $request->set_header('Content-Type', 'application/json');
+        $request->set_body(json_encode(['updates' => [
+            ['site_id' => $siteA, 'slug' => 'astra'],
+            ['site_id' => $siteA, 'slug' => 'blocksy'],
+        ]]));
+        $response = rest_do_request($request);
+        $body     = $response->get_data();
+
+        $this->assertSame(202, $response->get_status());
+        $this->assertIsInt($body['job_id']);
+
+        global $wpdb;
+        $job = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}defyn_bulk_jobs WHERE id = %d",
+            $body['job_id']
+        ), ARRAY_A);
+        $this->assertSame('1', $job['user_id']);
+        $this->assertSame('theme_update', $job['kind']);
+        $this->assertSame('2', $job['scheduled_count']);
+        $this->assertSame('0', $job['skipped_count']);
+
+        $itemCount = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}defyn_bulk_job_items WHERE job_id = %d AND state = 'queued'",
+            $body['job_id']
+        ));
+        $this->assertSame(2, $itemCount, 'one queued item per scheduled pair');
+    }
+
+    public function testZeroValidPairsReturnsNullJobIdAndNoJobRow(): void
+    {
+        $token   = $this->token(1);
+        $request = new WP_REST_Request('POST', '/defyn/v1/overview/bulk-update-themes');
+        $request->set_header('Authorization', 'Bearer ' . $token);
+        $request->set_header('Content-Type', 'application/json');
+        $request->set_body(json_encode(['updates' => [['site_id' => 999, 'slug' => 'ghost']]]));
+        $response = rest_do_request($request);
+        $body     = $response->get_data();
+
+        $this->assertSame(200, $response->get_status());
+        $this->assertNull($body['job_id'], 'guardrail #12 — null job_id when nothing scheduled');
+
+        global $wpdb;
+        $jobCount = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}defyn_bulk_jobs");
+        $this->assertSame(0, $jobCount, 'guardrail #12 — no job row when nothing scheduled');
     }
 
     private function seedSite(int $userId, string $label): int

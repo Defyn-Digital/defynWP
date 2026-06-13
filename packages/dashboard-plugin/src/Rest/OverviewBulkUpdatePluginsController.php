@@ -6,6 +6,7 @@ namespace Defyn\Dashboard\Rest;
 
 use Defyn\Dashboard\Rest\Responses\ErrorResponse;
 use Defyn\Dashboard\Services\ActivityLogger;
+use Defyn\Dashboard\Services\BulkJobsRepository;
 use Defyn\Dashboard\Services\SitePluginsRepository;
 use Defyn\Dashboard\Services\SitesRepository;
 use WP_REST_Request;
@@ -35,6 +36,7 @@ final class OverviewBulkUpdatePluginsController
         private readonly SitesRepository $sites = new SitesRepository(),
         private readonly SitePluginsRepository $plugins = new SitePluginsRepository(),
         private readonly ActivityLogger $logger = new ActivityLogger(),
+        private readonly BulkJobsRepository $bulkJobs = new BulkJobsRepository(),
     ) {
     }
 
@@ -72,11 +74,28 @@ final class OverviewBulkUpdatePluginsController
                     continue;
                 }
 
-                as_schedule_single_action(time(), 'defyn_update_site_plugin', [$siteId, $slug, 0], 'defyn');
                 $scheduled[] = ['site_id' => $siteId, 'slug' => $slug];
             }
 
+            $now   = gmdate('Y-m-d H:i:s');
+            $jobId = null;
+
             if (count($scheduled) > 0) {
+                // P2.9 (trap #33) — create the tracked job + items BEFORE the
+                // AS fan-out so each action carries its item id as 4th arg.
+                // Guardrail #12 — job row ONLY when something was scheduled.
+                $jobId    = $this->bulkJobs->createJob($userId, 'plugin_update', count($scheduled), count($skipped), $now);
+                $enriched = $this->bulkJobs->createItems($jobId, $scheduled, $now);
+
+                foreach ($enriched as $pair) {
+                    as_schedule_single_action(
+                        time(),
+                        'defyn_update_site_plugin',
+                        [$pair['site_id'], $pair['slug'], 0, $pair['item_id']],
+                        'defyn'
+                    );
+                }
+
                 $this->logger->log(
                     $userId,
                     null,                                              // fleet-scoped — trap #4
@@ -91,11 +110,12 @@ final class OverviewBulkUpdatePluginsController
 
             return new WP_REST_Response(
                 [
+                    'job_id'          => $jobId,
                     'scheduled_count' => count($scheduled),
                     'skipped_count'   => count($skipped),
                     'scheduled_pairs' => array_values($scheduled),
                     'skipped_pairs'   => array_values($skipped),
-                    'scheduled_at'    => gmdate('Y-m-d H:i:s'),
+                    'scheduled_at'    => $now,
                 ],
                 count($scheduled) > 0 ? 202 : 200
             );

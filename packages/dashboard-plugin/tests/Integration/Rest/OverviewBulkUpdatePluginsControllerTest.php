@@ -20,10 +20,14 @@ final class OverviewBulkUpdatePluginsControllerTest extends AbstractSchemaTestCa
             define('DEFYN_JWT_SECRET', 'test-secret-32-chars-padding-padding');
         }
         $this->freshlyActivate('defyn_site_plugins');
+        $this->freshlyActivate('defyn_bulk_jobs');
+        $this->freshlyActivate('defyn_bulk_job_items');
 
         global $wpdb;
         // phpcs:disable WordPress.DB.PreparedSQL
         $wpdb->query('SET autocommit = 1');
+        $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_bulk_job_items");
+        $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_bulk_jobs");
         $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_activity_log");
         $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_site_plugins");
         $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_sites");
@@ -158,13 +162,20 @@ final class OverviewBulkUpdatePluginsControllerTest extends AbstractSchemaTestCa
         ]]));
         rest_do_request($request);
 
+        global $wpdb;
+        $akismetItemId = (int) $wpdb->get_var(
+            "SELECT id FROM {$wpdb->prefix}defyn_bulk_job_items WHERE resource_slug = 'akismet'"
+        );
         $akismetJobs = as_get_scheduled_actions([
             'hook' => 'defyn_update_site_plugin',
-            'args' => [$siteA, 'akismet', 0],
+            'args' => [$siteA, 'akismet', 0, $akismetItemId],
         ]);
+        $yoastItemId = (int) $wpdb->get_var(
+            "SELECT id FROM {$wpdb->prefix}defyn_bulk_job_items WHERE resource_slug = 'yoast'"
+        );
         $yoastJobs = as_get_scheduled_actions([
             'hook' => 'defyn_update_site_plugin',
-            'args' => [$siteA, 'yoast', 0],
+            'args' => [$siteA, 'yoast', 0, $yoastItemId],
         ]);
         $this->assertGreaterThanOrEqual(1, count($akismetJobs));
         $this->assertGreaterThanOrEqual(1, count($yoastJobs));
@@ -232,6 +243,59 @@ final class OverviewBulkUpdatePluginsControllerTest extends AbstractSchemaTestCa
             'overview.bulk_plugin_update_requested'
         ));
         $this->assertSame([], $logRows);
+    }
+
+    public function testHappyPathCreatesJobAndItemsAndReturnsJobId(): void
+    {
+        $siteA = $this->seedSite(1, 'SmartCoding');
+        $this->seedPlugin($siteA, 'akismet', 'Akismet', '5.3', '5.3.1', true);
+        $this->seedPlugin($siteA, 'yoast',   'Yoast',   '22.5', '22.6', true);
+
+        $token   = $this->token(1);
+        $request = new WP_REST_Request('POST', '/defyn/v1/overview/bulk-update-plugins');
+        $request->set_header('Authorization', 'Bearer ' . $token);
+        $request->set_header('Content-Type', 'application/json');
+        $request->set_body(json_encode(['updates' => [
+            ['site_id' => $siteA, 'slug' => 'akismet'],
+            ['site_id' => $siteA, 'slug' => 'yoast'],
+        ]]));
+        $response = rest_do_request($request);
+        $body     = $response->get_data();
+
+        $this->assertSame(202, $response->get_status());
+        $this->assertIsInt($body['job_id']);
+
+        global $wpdb;
+        $job = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}defyn_bulk_jobs WHERE id = %d",
+            $body['job_id']
+        ), ARRAY_A);
+        $this->assertSame('plugin_update', $job['kind']);
+        $this->assertSame('2', $job['scheduled_count']);
+
+        $itemCount = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}defyn_bulk_job_items WHERE job_id = %d AND state = 'queued'",
+            $body['job_id']
+        ));
+        $this->assertSame(2, $itemCount);
+    }
+
+    public function testZeroValidPairsReturnsNullJobIdAndNoJobRow(): void
+    {
+        $token   = $this->token(1);
+        $request = new WP_REST_Request('POST', '/defyn/v1/overview/bulk-update-plugins');
+        $request->set_header('Authorization', 'Bearer ' . $token);
+        $request->set_header('Content-Type', 'application/json');
+        $request->set_body(json_encode(['updates' => [['site_id' => 999, 'slug' => 'ghost']]]));
+        $response = rest_do_request($request);
+        $body     = $response->get_data();
+
+        $this->assertSame(200, $response->get_status());
+        $this->assertNull($body['job_id']);
+
+        global $wpdb;
+        $jobCount = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}defyn_bulk_jobs");
+        $this->assertSame(0, $jobCount);
     }
 
     private function seedSite(int $userId, string $label): int
