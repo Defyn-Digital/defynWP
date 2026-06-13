@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/setup';
 import { BulkUpdatePluginsButton } from '@/components/overview/BulkUpdatePluginsButton';
@@ -11,7 +12,12 @@ function renderBtn(pendingCount: number) {
   });
   return render(
     <QueryClientProvider client={qc}>
-      <BulkUpdatePluginsButton pendingCount={pendingCount} />
+      <MemoryRouter initialEntries={['/overview']}>
+        <Routes>
+          <Route path="/overview" element={<BulkUpdatePluginsButton pendingCount={pendingCount} />} />
+          <Route path="/jobs/:id" element={<div>JOB DETAIL PROBE</div>} />
+        </Routes>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -88,6 +94,44 @@ describe('BulkUpdatePluginsButton', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/scheduling 1 updates/i)).toBeInTheDocument();
+    });
+  });
+
+  it('navigatesToJobDetailOnSuccess', async () => {
+    server.use(
+      http.get('*/wp-json/defyn/v1/overview/pending-plugin-updates', () =>
+        HttpResponse.json({
+          pending_updates: [
+            { site_id: 1, site_label: 'SmartCoding', slug: 'akismet', plugin_name: 'Akismet', current_version: '5.3', target_version: '5.3.1' },
+          ],
+          generated_at: '2026-06-09 23:00:00',
+        }),
+      ),
+      http.post('*/wp-json/defyn/v1/overview/bulk-update-plugins', () =>
+        HttpResponse.json(
+          {
+            job_id: 42,
+            scheduled_count: 1,
+            skipped_count: 0,
+            scheduled_pairs: [{ site_id: 1, slug: 'akismet' }],
+            skipped_pairs: [],
+            scheduled_at: '2026-06-09 23:15:42',
+          },
+          { status: 202 },
+        ),
+      ),
+    );
+
+    renderBtn(1);
+    fireEvent.click(screen.getByRole('button', { name: /bulk update plugins.*1/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/bulk update 1 plugins across 1 sites\?/i)).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /bulk update 1 plugins/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('JOB DETAIL PROBE')).toBeInTheDocument();
     });
   });
 });

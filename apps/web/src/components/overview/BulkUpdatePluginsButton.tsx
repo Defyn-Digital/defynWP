@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBulkUpdatePlugins } from '@/lib/mutations/useBulkUpdatePlugins';
@@ -23,6 +24,7 @@ interface BulkUpdatePluginsButtonProps {
  */
 export function BulkUpdatePluginsButton({ pendingCount }: BulkUpdatePluginsButtonProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const navigate = useNavigate();
   const pending = usePendingPluginUpdates(dialogOpen);
   const mutation = useBulkUpdatePlugins();
 
@@ -33,7 +35,18 @@ export function BulkUpdatePluginsButton({ pendingCount }: BulkUpdatePluginsButto
   const handleConfirm = (selectedPairs: Array<{ site_id: number; slug: string }>) => {
     setDialogOpen(false);
     if (selectedPairs.length > 0) {
-      mutation.mutate({ updates: selectedPairs });
+      mutation.mutate(
+        { updates: selectedPairs },
+        {
+          onSuccess: (data) => {
+            // Guardrail #11 — jump straight to the tracked job. job_id is
+            // null on the all-skipped 200 path: stay on /overview.
+            if (data.job_id !== null) {
+              navigate(`/jobs/${data.job_id}`);
+            }
+          },
+        },
+      );
     }
   };
 
