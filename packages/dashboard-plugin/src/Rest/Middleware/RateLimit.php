@@ -126,6 +126,17 @@ final class RateLimit
     public const JOBS_CANCEL_LIMIT  = 5;
     public const JOBS_CANCEL_WINDOW = HOUR_IN_SECONDS;
 
+    // P2.9 — POST /jobs/{id}/items/{item_id}/retry. 20/HOUR — looser than
+    // the bulk buckets because per-item retries legitimately come in bursts
+    // after a flaky-network bulk run.
+    public const JOBS_RETRY_ITEM_LIMIT  = 20;
+    public const JOBS_RETRY_ITEM_WINDOW = HOUR_IN_SECONDS;
+
+    // P2.9 — POST /jobs/{id}/retry-failed. 5/HOUR — bulk fan-out, same
+    // weight class as bulkPluginUpdate / bulkThemeUpdate / jobsCancel.
+    public const JOBS_RETRY_FAILED_LIMIT  = 5;
+    public const JOBS_RETRY_FAILED_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -686,6 +697,68 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::JOBS_CANCEL_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /jobs/{id}/items/{item_id}/retry.
+     *
+     * Per-user, 20/HOUR. Distinct prefix `defyn_rl_jobsRetryItem_%d`.
+     *
+     * @return true|WP_Error
+     */
+    public static function jobsRetryItem(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_jobsRetryItem_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::JOBS_RETRY_ITEM_LIMIT) {
+            return new \WP_Error(
+                'jobs.rate_limited',
+                'Too many retry requests. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::JOBS_RETRY_ITEM_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /jobs/{id}/retry-failed.
+     *
+     * Per-user, 5/HOUR. Distinct prefix `defyn_rl_jobsRetryFailed_%d`.
+     *
+     * @return true|WP_Error
+     */
+    public static function jobsRetryFailed(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_jobsRetryFailed_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::JOBS_RETRY_FAILED_LIMIT) {
+            return new \WP_Error(
+                'jobs.rate_limited',
+                'Too many bulk retry requests. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::JOBS_RETRY_FAILED_WINDOW);
         return true;
     }
 

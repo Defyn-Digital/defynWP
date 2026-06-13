@@ -290,6 +290,22 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'jobsCancel'],
         ]);
 
+        // P2.9 — POST /jobs/{id}/items/{item_id}/retry. Only `failed` items
+        // are retryable. RateLimit::jobsRetryItem is 20/HOUR.
+        register_rest_route(self::NAMESPACE, '/jobs/(?P<id>\d+)/items/(?P<item_id>\d+)/retry', [
+            'methods'             => 'POST',
+            'callback'            => [new JobsRetryItemController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'jobsRetryItem'],
+        ]);
+
+        // P2.9 — POST /jobs/{id}/retry-failed. Re-queues every failed item
+        // in one request. RateLimit::jobsRetryFailed is 5/HOUR.
+        register_rest_route(self::NAMESPACE, '/jobs/(?P<id>\d+)/retry-failed', [
+            'methods'             => 'POST',
+            'callback'            => [new JobsRetryFailedController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'jobsRetryFailed'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],
