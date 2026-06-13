@@ -110,6 +110,11 @@ final class RateLimit
     public const BULK_THEME_UPDATE_LIMIT  = 5;
     public const BULK_THEME_UPDATE_WINDOW = HOUR_IN_SECONDS;
 
+    // P2.9 — GET /jobs list. Per-MINUTE bucket — the SPA polls every 10s
+    // while any job is active (mirror of P2.5's overview() 30/MIN shape).
+    public const JOBS_LIST_LIMIT  = 30;
+    public const JOBS_LIST_WINDOW = MINUTE_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -576,6 +581,38 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::BULK_THEME_UPDATE_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /jobs.
+     *
+     * Per-user, 30/MINUTE. Chains RequireAuth::check first (same pattern as
+     * every post-P2.1 bucket). Distinct prefix `defyn_rl_jobsList_%d`.
+     *
+     * @return true|WP_Error
+     */
+    public static function jobsList(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_jobsList_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::JOBS_LIST_LIMIT) {
+            return new \WP_Error(
+                'jobs.rate_limited',
+                'Too many requests. The jobs list polls every few seconds — try again shortly.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::JOBS_LIST_WINDOW);
         return true;
     }
 

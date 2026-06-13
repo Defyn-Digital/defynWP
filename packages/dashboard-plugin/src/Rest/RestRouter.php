@@ -265,6 +265,14 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'bulkThemeUpdate'],
         ]);
 
+        // P2.9 — GET /jobs. Paginated, status-filterable list of the
+        // operator's bulk jobs. RateLimit::jobsList is 30/MINUTE.
+        register_rest_route(self::NAMESPACE, '/jobs', [
+            'methods'             => 'GET',
+            'callback'            => [new JobsListController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'jobsList'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],
