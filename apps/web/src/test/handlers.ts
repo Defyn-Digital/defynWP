@@ -372,6 +372,29 @@ export function resetMockSiteCoreState(): void {
   }
 }
 
+// P2.9 — bulk-jobs fixtures shared by the /jobs handlers.
+const MOCK_JOB = {
+  id: 42,
+  kind: 'plugin_update',
+  scheduled_count: 3,
+  skipped_count: 0,
+  succeeded_count: 1,
+  failed_count: 1,
+  cancelled_count: 0,
+  queued_count: 1,
+  started_count: 0,
+  state: 'in_progress',
+  started_at: '2026-06-09 21:00:00',
+  completed_at: null,
+  created_at: '2026-06-09 20:59:15',
+};
+
+const MOCK_JOB_ITEMS = [
+  { id: 201, site_id: 1, site_label: 'SmartCoding', resource_slug: 'akismet', resource_name: 'Akismet Anti-Spam', current_version: '5.3', target_version: '5.3.1', state: 'succeeded', error_message: null, started_at: '2026-06-09 21:00:02', completed_at: '2026-06-09 21:00:11', created_at: '2026-06-09 20:59:15' },
+  { id: 202, site_id: 1, site_label: 'SmartCoding', resource_slug: 'elementor', resource_name: 'Elementor', current_version: '3.18.2', target_version: '4.0.0', state: 'failed', error_message: 'Could not copy file.', started_at: '2026-06-09 21:00:12', completed_at: '2026-06-09 21:00:40', created_at: '2026-06-09 20:59:15' },
+  { id: 203, site_id: 2, site_label: 'AcmeBlog', resource_slug: 'yoast', resource_name: 'Yoast SEO', current_version: '22.5', target_version: '22.6', state: 'queued', error_message: null, started_at: null, completed_at: null, created_at: '2026-06-09 20:59:15' },
+];
+
 handlers.push(
   http.get('*/wp-json/defyn/v1/sites/:id/plugins', ({ params }) => {
     const siteId = Number(params.id);
@@ -605,6 +628,7 @@ handlers.push(
     const body = (await request.json()) as { updates: Array<{ site_id: number; slug: string }> };
     return HttpResponse.json(
       {
+        job_id: body.updates.length > 0 ? 42 : null,
         scheduled_count: body.updates.length,
         skipped_count: 0,
         scheduled_pairs: body.updates,
@@ -628,6 +652,7 @@ handlers.push(
     const body = (await request.json()) as { updates: Array<{ site_id: number; slug: string }> };
     return HttpResponse.json(
       {
+        job_id: body.updates.length > 0 ? 42 : null,
         scheduled_count: body.updates.length,
         skipped_count: 0,
         scheduled_pairs: body.updates,
@@ -635,6 +660,53 @@ handlers.push(
         scheduled_at: '2026-06-09 23:45:42',
       },
       { status: body.updates.length > 0 ? 202 : 200 },
+    );
+  }),
+
+  // P2.9 — GET /jobs default list (one in_progress job; completed filter empty).
+  http.get('*/wp-json/defyn/v1/jobs', ({ request }) => {
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status') ?? 'all';
+    const jobs = status === 'completed' ? [] : [MOCK_JOB];
+    return HttpResponse.json({
+      jobs,
+      total: jobs.length,
+      page: Number(url.searchParams.get('page') ?? '1'),
+      per_page: Number(url.searchParams.get('per_page') ?? '20'),
+      generated_at: '2026-06-09 21:30:00',
+    });
+  }),
+
+  // P2.9 — GET /jobs/:id default detail.
+  http.get('*/wp-json/defyn/v1/jobs/:id', ({ params }) => {
+    return HttpResponse.json({
+      job: { ...MOCK_JOB, id: Number(params.id) },
+      items: MOCK_JOB_ITEMS,
+      generated_at: '2026-06-09 21:30:00',
+    });
+  }),
+
+  // P2.9 — POST /jobs/:id/cancel default synchronous 200.
+  http.post('*/wp-json/defyn/v1/jobs/:id/cancel', () => {
+    return HttpResponse.json(
+      { cancelled_count: 1, still_running_count: 0, cancelled_at: '2026-06-09 21:30:42' },
+      { status: 200 },
+    );
+  }),
+
+  // P2.9 — POST /jobs/:id/items/:itemId/retry default 202.
+  http.post('*/wp-json/defyn/v1/jobs/:id/items/:itemId/retry', ({ params }) => {
+    return HttpResponse.json(
+      { item_id: Number(params.itemId), scheduled_at: '2026-06-09 21:35:00' },
+      { status: 202 },
+    );
+  }),
+
+  // P2.9 — POST /jobs/:id/retry-failed default 202.
+  http.post('*/wp-json/defyn/v1/jobs/:id/retry-failed', () => {
+    return HttpResponse.json(
+      { retried_count: 1, retried_item_ids: [202], scheduled_at: '2026-06-09 21:40:00' },
+      { status: 202 },
     );
   }),
 

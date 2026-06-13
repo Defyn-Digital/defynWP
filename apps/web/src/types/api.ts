@@ -156,6 +156,7 @@ const bulkUpdatePairSchema = z.object({
 });
 
 export const bulkUpdatePluginsResponseSchema = z.object({
+  job_id: z.number().int().nullable(),
   scheduled_count: z.number().int().nonnegative(),
   skipped_count: z.number().int().nonnegative(),
   scheduled_pairs: z.array(bulkUpdatePairSchema),
@@ -190,6 +191,7 @@ export const bulkUpdateThemesRequestSchema = z.object({
 export type BulkUpdateThemesRequest = z.infer<typeof bulkUpdateThemesRequestSchema>;
 
 export const bulkUpdateThemesResponseSchema = z.object({
+  job_id: z.number().int().nullable(),
   scheduled_count: z.number().int().nonnegative(),
   skipped_count: z.number().int().nonnegative(),
   scheduled_pairs: z.array(bulkUpdatePairSchema),
@@ -199,3 +201,82 @@ export const bulkUpdateThemesResponseSchema = z.object({
   scheduled_at: z.string(),
 });
 export type BulkUpdateThemesResponse = z.infer<typeof bulkUpdateThemesResponseSchema>;
+
+// P2.9 — Bulk-jobs entity.
+export const jobKindSchema = z.enum(['plugin_update', 'theme_update']);
+export type JobKind = z.infer<typeof jobKindSchema>;
+
+export const jobStateSchema = z.enum(['queued', 'in_progress', 'completed', 'partial']);
+export type JobState = z.infer<typeof jobStateSchema>;
+
+export const jobItemStateSchema = z.enum(['queued', 'started', 'succeeded', 'failed', 'cancelled']);
+export type JobItemState = z.infer<typeof jobItemStateSchema>;
+
+export const jobSchema = z.object({
+  id: z.number().int().positive(),
+  kind: jobKindSchema,
+  scheduled_count: z.number().int().nonnegative(),
+  skipped_count: z.number().int().nonnegative(),
+  succeeded_count: z.number().int().nonnegative(),
+  failed_count: z.number().int().nonnegative(),
+  cancelled_count: z.number().int().nonnegative(),
+  queued_count: z.number().int().nonnegative(),
+  started_count: z.number().int().nonnegative(),
+  state: jobStateSchema,
+  started_at: z.string().nullable(),
+  completed_at: z.string().nullable(),
+  created_at: z.string(),
+});
+export type Job = z.infer<typeof jobSchema>;
+
+export const jobItemSchema = z.object({
+  id: z.number().int().positive(),
+  site_id: z.number().int(),
+  site_label: z.string(),
+  resource_slug: z.string(),
+  resource_name: z.string(),
+  current_version: z.string().nullable(),
+  target_version: z.string().nullable(),
+  state: jobItemStateSchema,
+  error_message: z.string().nullable(),
+  started_at: z.string().nullable(),
+  completed_at: z.string().nullable(),
+  created_at: z.string(),
+});
+export type JobItem = z.infer<typeof jobItemSchema>;
+
+export const jobsListResponseSchema = z.object({
+  jobs: z.array(jobSchema),
+  total: z.number().int().nonnegative(),
+  page: z.number().int().positive(),
+  per_page: z.number().int().positive(),
+  generated_at: z.string(),
+});
+export type JobsListResponse = z.infer<typeof jobsListResponseSchema>;
+
+export const jobDetailResponseSchema = z.object({
+  job: jobSchema,
+  items: z.array(jobItemSchema),
+  generated_at: z.string(),
+});
+export type JobDetailResponse = z.infer<typeof jobDetailResponseSchema>;
+
+export const cancelJobResponseSchema = z.object({
+  cancelled_count: z.number().int().nonnegative(),
+  still_running_count: z.number().int().nonnegative(),
+  cancelled_at: z.string(),
+});
+export type CancelJobResponse = z.infer<typeof cancelJobResponseSchema>;
+
+export const retryItemResponseSchema = z.object({
+  item_id: z.number().int().positive(),
+  scheduled_at: z.string(),
+});
+export type RetryItemResponse = z.infer<typeof retryItemResponseSchema>;
+
+export const retryFailedResponseSchema = z.object({
+  retried_count: z.number().int().nonnegative(),
+  retried_item_ids: z.array(z.number().int()),
+  scheduled_at: z.string(),
+});
+export type RetryFailedResponse = z.infer<typeof retryFailedResponseSchema>;

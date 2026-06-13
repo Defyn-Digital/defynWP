@@ -20,6 +20,7 @@ describe('useBulkUpdateThemes', () => {
         capturedBody = await request.json();
         return HttpResponse.json(
           {
+            job_id: 42,
             scheduled_count: 2,
             skipped_count: 0,
             scheduled_pairs: [
@@ -58,6 +59,7 @@ describe('useBulkUpdateThemes', () => {
       http.post('*/wp-json/defyn/v1/overview/bulk-update-themes', () =>
         HttpResponse.json(
           {
+            job_id: 42,
             scheduled_count: 1,
             skipped_count: 0,
             scheduled_pairs: [{ site_id: 1, slug: 'astra' }],

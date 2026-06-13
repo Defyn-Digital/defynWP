@@ -67,6 +67,7 @@ describe('BulkUpdatePluginsButton', () => {
         await new Promise((r) => setTimeout(r, 40));
         return HttpResponse.json(
           {
+            job_id: 42,
             scheduled_count: 1,
             skipped_count: 0,
             scheduled_pairs: [{ site_id: 1, slug: 'akismet' }],
