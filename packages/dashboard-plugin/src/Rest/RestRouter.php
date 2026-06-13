@@ -273,6 +273,14 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'jobsList'],
         ]);
 
+        // P2.9 — GET /jobs/{id}. Job header + items with response-time
+        // resource resolution. RateLimit::jobsDetail is 30/MINUTE.
+        register_rest_route(self::NAMESPACE, '/jobs/(?P<id>\d+)', [
+            'methods'             => 'GET',
+            'callback'            => [new JobsDetailController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'jobsDetail'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],

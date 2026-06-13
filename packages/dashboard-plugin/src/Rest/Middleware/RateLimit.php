@@ -115,6 +115,11 @@ final class RateLimit
     public const JOBS_LIST_LIMIT  = 30;
     public const JOBS_LIST_WINDOW = MINUTE_IN_SECONDS;
 
+    // P2.9 — GET /jobs/{id} detail. Per-MINUTE — the SPA polls every 5s
+    // while any item is queued/started.
+    public const JOBS_DETAIL_LIMIT  = 30;
+    public const JOBS_DETAIL_WINDOW = MINUTE_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -613,6 +618,37 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::JOBS_LIST_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /jobs/{id}.
+     *
+     * Per-user, 30/MINUTE. Distinct prefix `defyn_rl_jobsDetail_%d`.
+     *
+     * @return true|WP_Error
+     */
+    public static function jobsDetail(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_jobsDetail_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::JOBS_DETAIL_LIMIT) {
+            return new \WP_Error(
+                'jobs.rate_limited',
+                'Too many requests. The job detail polls every few seconds — try again shortly.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::JOBS_DETAIL_WINDOW);
         return true;
     }
 

@@ -6,6 +6,9 @@ namespace Defyn\Dashboard\Services;
 
 use Defyn\Dashboard\Schema\BulkJobItemsTable;
 use Defyn\Dashboard\Schema\BulkJobsTable;
+use Defyn\Dashboard\Schema\SitePluginsTable;
+use Defyn\Dashboard\Schema\SitesTable;
+use Defyn\Dashboard\Schema\SiteThemesTable;
 
 /**
  * P2.9 — CRUD + lifecycle marks for the BulkJob entity (spec § 2.8).
@@ -113,6 +116,38 @@ final class BulkJobsRepository
             $jobId
         ), ARRAY_A);
         return is_array($row) ? $row : null;
+    }
+
+    /**
+     * Detail-view items with response-time resource resolution (spec § 2.2):
+     * LEFT JOIN defyn_sites for the label and the kind's inventory table for
+     * name/current/target versions. Deleted rows yield NULLs — the controller
+     * substitutes the slug / "Site #N" fallbacks.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function findItemsForJobWithResources(int $jobId, string $kind): array
+    {
+        global $wpdb;
+        $items    = BulkJobItemsTable::tableName();
+        $sites    = SitesTable::tableName();
+        $resource = $kind === 'theme_update'
+            ? SiteThemesTable::tableName()
+            : SitePluginsTable::tableName();
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT i.*, s.label AS site_label,
+                    r.name AS resource_name,
+                    r.version AS resource_current_version,
+                    r.update_version AS resource_target_version
+             FROM {$items} i
+             LEFT JOIN {$sites} s ON s.id = i.site_id
+             LEFT JOIN {$resource} r ON r.site_id = i.site_id AND r.slug = i.resource_slug
+             WHERE i.job_id = %d
+             ORDER BY i.id ASC",
+            $jobId
+        ), ARRAY_A);
+        return is_array($rows) ? $rows : [];
     }
 
     // ─── Lifecycle marks (each triggers refreshJobTimestamps — guardrail #8) ──
