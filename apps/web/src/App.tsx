@@ -7,6 +7,8 @@ import SitesList from './routes/SitesList';
 import SiteAdd from './routes/SiteAdd';
 import SiteDetail from './routes/SiteDetail';
 import Activity from './routes/Activity';
+import Jobs from './routes/Jobs';
+import JobDetail from './routes/JobDetail';
 
 export default function App() {
   return (
@@ -18,6 +20,8 @@ export default function App() {
         <Route path="/sites" element={<SitesList />} />
         <Route path="/sites/add" element={<SiteAdd />} />
         <Route path="/sites/:id" element={<SiteDetail />} />
+        <Route path="/jobs" element={<Jobs />} />
+        <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/activity" element={<Activity />} />
       </Route>
     </Routes>
