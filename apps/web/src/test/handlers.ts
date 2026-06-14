@@ -600,7 +600,13 @@ handlers.push(
       recent_activity: [],
       total_sites: 0,
       generated_at: '2026-06-07 11:30:00',
+      open_incidents: [],
     });
+  }),
+
+  // P3.1 — GET /sites/:id/incidents — empty list by default.
+  http.get('*/wp-json/defyn/v1/sites/:id/incidents', () => {
+    return HttpResponse.json({ data: { incidents: [] }, error: null });
   }),
 
   // P2.6 — POST /overview/sync-all — default synthetic 200; tests override via server.use().

@@ -36,6 +36,7 @@ describe('useOverview', () => {
           recent_activity: [],
           total_sites: 0,
           generated_at: '2026-06-07 11:30:00',
+          open_incidents: [],
         })
       )
     )

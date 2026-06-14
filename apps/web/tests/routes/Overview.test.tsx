@@ -53,6 +53,7 @@ describe('Overview route', () => {
           ],
           total_sites: 12,
           generated_at: '2026-06-07 11:30:00',
+          open_incidents: [],
         }),
       ),
     )
@@ -88,6 +89,7 @@ describe('Overview route', () => {
           recent_activity: [],
           total_sites: 12,
           generated_at: '2026-06-07 11:30:00',
+          open_incidents: [],
         })
       )
     )

@@ -87,6 +87,25 @@ export const activityListResponseSchema = z.object({
 });
 export type ActivityListResponse = z.infer<typeof activityListResponseSchema>;
 
+// P3.1 — Site monitoring incident schemas.
+export const incidentSchema = z.object({
+  id: z.number(),
+  site_id: z.number(),
+  started_at: z.string(),
+  ended_at: z.string().nullable(),
+  duration_seconds: z.number().nullable(),
+  last_error: z.string().nullable(),
+  created_at: z.string(),
+});
+export type Incident = z.infer<typeof incidentSchema>;
+
+export const openIncidentSchema = z.object({
+  site_id: z.number(),
+  site_label: z.string(),
+  started_at: z.string(),
+});
+export type OpenIncident = z.infer<typeof openIncidentSchema>;
+
 // P2.5 — Overview dashboard schema.
 export const overviewAttentionReasonSchema = z.enum([
   'offline',
@@ -122,6 +141,7 @@ export const overviewSchema = z.object({
   })),
   total_sites: z.number().int().nonnegative(),
   generated_at: z.string(),
+  open_incidents: z.array(openIncidentSchema),
 });
 export type Overview = z.infer<typeof overviewSchema>;
 
