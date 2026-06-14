@@ -567,6 +567,29 @@ final class SitesRepository
     }
 
     /**
+     * P3.1 — Atomically increment consecutive_failures for a site and return
+     * the new value. Called by HealthService after each failed ping attempt.
+     */
+    public function incrementConsecutiveFailures(int $siteId): int
+    {
+        global $wpdb;
+        $t = SitesTable::tableName();
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        $wpdb->query($wpdb->prepare("UPDATE `{$t}` SET consecutive_failures = consecutive_failures + 1 WHERE id = %d", $siteId));
+        return (int) $wpdb->get_var($wpdb->prepare("SELECT consecutive_failures FROM `{$t}` WHERE id = %d", $siteId));
+    }
+
+    /**
+     * P3.1 — Reset consecutive_failures to 0 after a successful ping (recovery).
+     */
+    public function resetConsecutiveFailures(int $siteId): void
+    {
+        global $wpdb;
+        $t = SitesTable::tableName();
+        $wpdb->update($t, ['consecutive_failures' => 0], ['id' => $siteId], ['%d'], ['%d']);
+    }
+
+    /**
      * P2.5 — sites owned by $userId that have at least one attention reason.
      * Capped at 50 rows. Hardcoded thresholds per spec § 3.4.
      *

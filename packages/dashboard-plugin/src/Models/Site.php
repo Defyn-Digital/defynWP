@@ -58,6 +58,8 @@ final class Site
         public readonly ?string $lastCoreUpdateAttemptAt = null,
         // P2.4.1 additions — major version policy flag.
         public readonly bool    $coreAllowMajor = false,
+        // P3.1 additions — consecutive health-check failure counter (internal; not surfaced to SPA).
+        public readonly int     $consecutiveFailures = 0,
     ) {}
 
     /** @param array<string, mixed> $row wpdb result row (all values come back as strings) */
@@ -89,6 +91,7 @@ final class Site
             lastCoreUpdateError:     isset($row['last_core_update_error']) ? (string) $row['last_core_update_error'] : null,
             lastCoreUpdateAttemptAt: isset($row['last_core_update_attempt_at']) ? (string) $row['last_core_update_attempt_at'] : null,
             coreAllowMajor:          (bool) (int) ($row['core_allow_major'] ?? 0),
+            consecutiveFailures:     isset($row['consecutive_failures']) ? (int) $row['consecutive_failures'] : 0,
         );
     }
 
