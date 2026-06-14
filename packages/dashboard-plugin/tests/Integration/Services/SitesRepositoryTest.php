@@ -116,4 +116,20 @@ final class SitesRepositoryTest extends AbstractSchemaTestCase
         $repo->recordResponseTime($id, null);
         self::assertNull($repo->findById($id)->lastResponseTimeMs);
     }
+
+    public function testSetAlertsMutedAndSslStampHelpers(): void
+    {
+        $repo = new SitesRepository();
+        $id = $repo->insertPending(userId: 1, url: 'https://m.test', label: 'M', ourPublicKey: 'pk', ourPrivateKeyEncrypted: 'enc');
+
+        $repo->setAlertsMuted($id, true);
+        self::assertTrue($repo->findById($id)->alertsMuted);
+        $repo->setAlertsMuted($id, false);
+        self::assertFalse($repo->findById($id)->alertsMuted);
+
+        $repo->markSslAlertSent($id, '2026-06-14 02:00:00');
+        self::assertSame('2026-06-14 02:00:00', $repo->findById($id)->sslAlertSentAt);
+        $repo->clearSslAlertSent($id);
+        self::assertNull($repo->findById($id)->sslAlertSentAt);
+    }
 }

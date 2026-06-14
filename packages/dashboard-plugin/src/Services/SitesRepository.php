@@ -621,6 +621,39 @@ final class SitesRepository
     }
 
     /**
+     * P3.3 — Toggle the alerts_muted flag for a site. When muted, alerting
+     * services skip emitting notifications for that site.
+     */
+    public function setAlertsMuted(int $siteId, bool $muted): void
+    {
+        global $wpdb;
+        $wpdb->update(SitesTable::tableName(), ['alerts_muted' => $muted ? 1 : 0], ['id' => $siteId], ['%d'], ['%d']);
+    }
+
+    /**
+     * P3.3 — Record the UTC timestamp at which an SSL-expiry alert was last sent
+     * for a site, so the alerter can suppress re-sends within the cooldown window.
+     */
+    public function markSslAlertSent(int $siteId, string $nowUtc): void
+    {
+        global $wpdb;
+        $wpdb->update(SitesTable::tableName(), ['ssl_alert_sent_at' => $nowUtc], ['id' => $siteId], ['%s'], ['%d']);
+    }
+
+    /**
+     * P3.3 — Clear the ssl_alert_sent_at stamp (e.g. after SSL renews or when
+     * the cooldown is manually reset). Uses an explicit prepared query because
+     * $wpdb->update() does not reliably emit SQL NULL.
+     */
+    public function clearSslAlertSent(int $siteId): void
+    {
+        global $wpdb;
+        $table = SitesTable::tableName();
+        // phpcs:ignore WordPress.DB.PreparedSQL — table name is a constant.
+        $wpdb->query($wpdb->prepare("UPDATE `{$table}` SET ssl_alert_sent_at = NULL WHERE id = %d", $siteId));
+    }
+
+    /**
      * P2.5 — sites owned by $userId that have at least one attention reason.
      * Capped at 50 rows. Hardcoded thresholds per spec § 3.4.
      *
