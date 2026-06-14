@@ -38,6 +38,7 @@ final class HealthService
         private readonly SignedHttpClient $httpClient = new SignedHttpClient(),
         private readonly ?SitesRepository $repo = null,
         private readonly ?ActivityLogger $logger = null,
+        private readonly ?IncidentService $incidents = null,
     ) {}
 
     public function ping(int $siteId): void
@@ -55,6 +56,7 @@ final class HealthService
             $message = 'Site is missing its encrypted private key.';
             $repo->markOffline($siteId, $message);
             $logger->log($site->userId, $siteId, 'site.health_failed', ['error' => $message]);
+            ($this->incidents ?? new IncidentService())->recordFailure($site, $message);
             return;
         }
 
@@ -67,6 +69,7 @@ final class HealthService
             $message = 'Failed to decrypt site keypair.';
             $repo->markOffline($siteId, $message);
             $logger->log($site->userId, $siteId, 'site.health_failed', ['error' => $message]);
+            ($this->incidents ?? new IncidentService())->recordFailure($site, $message);
             return;
         }
 
@@ -78,21 +81,25 @@ final class HealthService
         if ($response['error'] !== '') {
             $repo->markOffline($siteId, $response['error']);
             $logger->log($site->userId, $siteId, 'site.health_failed', ['error' => $response['error']]);
+            ($this->incidents ?? new IncidentService())->recordFailure($site, $response['error']);
             return;
         }
         if ($response['status'] < 200 || $response['status'] >= 300) {
             $message = 'Connector returned status ' . $response['status'];
             $repo->markOffline($siteId, $message);
             $logger->log($site->userId, $siteId, 'site.health_failed', ['error' => $message]);
+            ($this->incidents ?? new IncidentService())->recordFailure($site, $message);
             return;
         }
 
         if ($site->status === 'offline') {
             $repo->markRecovered($siteId);
             $logger->log($site->userId, $siteId, 'site.recovered');
+            ($this->incidents ?? new IncidentService())->recordSuccess($site);
         } else {
             $repo->markContactAt($siteId);
             $logger->log($site->userId, $siteId, 'site.health_ok');
+            ($this->incidents ?? new IncidentService())->recordSuccess($site);
         }
     }
 }
