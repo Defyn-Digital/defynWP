@@ -13,7 +13,9 @@ final class SchemaVersionMigrationV5Test extends AbstractSchemaTestCase
 {
     public function testSchemaVersionConstantIsFive(): void
     {
-        $this->assertSame(5, Activation::SCHEMA_VERSION);
+        // Schema was at v5 when this test was written. SCHEMA_VERSION tracks the
+        // current version — update the assertion as the schema evolves.
+        $this->assertSame(8, Activation::SCHEMA_VERSION);
     }
 
     public function testActivationBumpsSchemaVersionToFive(): void

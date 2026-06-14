@@ -14,7 +14,9 @@ final class SchemaVersionMigrationV6Test extends AbstractSchemaTestCase
 {
     public function testSchemaVersionConstantIsSix(): void
     {
-        $this->assertSame(6, Activation::SCHEMA_VERSION);
+        // Schema was at v6 when this test was written. SCHEMA_VERSION tracks the
+        // current version — update the assertion as the schema evolves.
+        $this->assertSame(8, Activation::SCHEMA_VERSION);
     }
 
     public function testActivationAddsCoreAllowMajorColumn(): void
@@ -74,6 +76,8 @@ final class SchemaVersionMigrationV6Test extends AbstractSchemaTestCase
     {
         Activation::ensureSchema();
         Activation::ensureSchema(); // second call should not error
-        $this->assertSame(6, Activation::SCHEMA_VERSION);
+        // Schema was at v6 when this test was written. SCHEMA_VERSION tracks the
+        // current version — update the assertion as the schema evolves.
+        $this->assertSame(8, Activation::SCHEMA_VERSION);
     }
 }

@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 5.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.9.0
+Stable tag: 0.10.0
 License: Proprietary
 License URI: https://defyn.dev/license
 
@@ -39,6 +39,12 @@ No. It only signs and sends requests to the specific managed sites you connect t
 The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_refresh_tokens`, `wp_defyn_activity_log`, `wp_defyn_site_plugins`) and stored options are removed via `uninstall.php`.
 
 == Changelog ==
+
+= 0.10.0 =
+* Site monitoring (P3.1): schema v7 → v8 adds wp_defyn_site_incidents table (incident tracking with type, severity, opened_at/resolved_at).
+* New IncidentService detects and auto-resolves incidents during background syncs.
+* GET /defyn/v1/overview gains additive incidents field (open count per severity).
+* Minor version bump: new domain entity + schema change is a meaningful surface addition.
 
 = 0.9.0 =
 * Bulk-jobs entity: every POST /overview/bulk-update-plugins and POST /overview/bulk-update-themes now creates a tracked job in wp_defyn_bulk_jobs + N child rows in wp_defyn_bulk_job_items. Response envelope adds job_id.
