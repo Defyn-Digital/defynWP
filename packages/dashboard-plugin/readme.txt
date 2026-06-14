@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 5.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.11.0
+Stable tag: 0.12.0
 License: Proprietary
 License URI: https://defyn.dev/license
 
@@ -39,6 +39,11 @@ No. It only signs and sends requests to the specific managed sites you connect t
 The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_refresh_tokens`, `wp_defyn_activity_log`, `wp_defyn_site_plugins`) and stored options are removed via `uninstall.php`.
 
 == Changelog ==
+
+= 0.12.0 =
+* Monitoring alerting expansion & config (P3.3): schema v9 → v10 adds wp_defyn_sites.alerts_muted + ssl_alert_sent_at. Slack alerts via a new SlackNotifier behind a MultiNotifier composite (email always + Slack when the operator configures a webhook); the webhook lives in per-operator user_meta (defyn_slack_webhook_url), host-allowlisted to hooks.slack.com.
+* Proactive SSL-expiry alerts: a new daily SslCheckAll/SslCheck fan-out fires once when a cert drops under 14 days (de-duped via ssl_alert_sent_at, reset on renewal). New site.ssl_expiring activity event.
+* Per-site mute: POST /defyn/v1/sites/{id}/alerts/mute (incidents + SSL still recorded; notifications suppressed). New GET /defyn/v1/settings + POST /defyn/v1/settings/slack-webhook back the new SPA /settings page. Connector unchanged. Completes the Monitoring phase.
 
 = 0.11.0 =
 * Monitoring performance & uptime visibility (P3.2): schema v8 → v9 adds wp_defyn_sites.last_response_time_ms. HealthService now times the existing signed /heartbeat round-trip and persists per-site latency (NULL on a failed ping).
