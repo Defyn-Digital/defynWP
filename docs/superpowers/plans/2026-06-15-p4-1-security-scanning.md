@@ -662,12 +662,23 @@ git commit -m "feat(p4-1): VulnerabilitiesRepository (per-source upsert + findBy
 > External boundary + best-effort. Use the **note from Task 1** for the exact URL, auth scheme, and JSON key names; the mapping below targets the documented Wordfence record shape — adjust field paths to match Task 1's findings.
 
 **Files:**
+- Modify: `packages/dashboard-plugin/composer.json` (add `halaxa/json-machine`)
 - Create: `src/Services/VulnFeedService.php`
 - Test: `tests/Integration/Services/VulnFeedServiceTest.php`
 
-Contract: `refreshIfStale(): void` — (1) read the key from `DEFYN_WORDFENCE_API_KEY`; empty ⇒ `error_log` once and return; (2) if `get_option('defyn_vuln_feed_synced_at')` is within ~24h, return; (3) `wp_remote_get` the v3 feed with auth; non-2xx/transport/JSON-error ⇒ log and return (last-good rows intact); (4) map records → per-source range rows → `VulnerabilitiesRepository::upsertForSource`; (5) `update_option('defyn_vuln_feed_synced_at', gmdate(...))`. The key is never logged.
+> **CRITICAL — feed size (from Task 1's note `053f8f0`):** the Wordfence v3 **production** feed is **~117 MB / 12k+ records**. A whole-body `wp_remote_get` + `json_decode` would hold ~350–700 MB in PHP memory → **fatal on Kinsta**. We MUST **stream the body to a temp file** (`wp_remote_get` with `'stream' => true, 'filename' => $tmp`) and **parse it incrementally** with the pure-PHP streaming parser **`halaxa/json-machine`** (iterates the top-level UUID→record object lazily; memory stays flat at a few MB). Confirmed feed facts from Task 1 to hard-code: URL `https://www.wordfence.com/api/intelligence/v3/vulnerabilities/production`; auth `Authorization: Bearer <key>` header; top-level JSON is an **object keyed by UUID** (UUID → our `source_id`); `affected_versions` is a **dict keyed by a range-label, NOT an array** (iterate its values — the plan's `foreach` already does); `cvss.score` is a **string**; unbounded lower bound is the literal `"*"`; fixed version is `patched_versions[]` (array); `cve` can be null.
 
-- [ ] **Step 1: Write the failing test** `tests/Integration/Services/VulnFeedServiceTest.php` (mock HTTP via the `pre_http_request` filter; drive the key via an injected closure so we don't depend on a real constant):
+Contract: `refreshIfStale(): void` — (1) read the key from `DEFYN_WORDFENCE_API_KEY`; empty ⇒ `error_log` once and return; (2) if `get_option('defyn_vuln_feed_synced_at')` is within ~24h, return; (3) **stream-download** the v3 feed to a temp file (an injectable `downloader(url,key): ?string` returning the path, or null on transport/non-2xx — best-effort, last-good rows intact); (4) **stream-parse** the file with `JsonMachine\Items::fromFile($path, ['decoder' => new ExtJsonDecoder(true)])`, mapping each record → per-source range rows → `VulnerabilitiesRepository::upsertForSource` (per-source atomic); (5) `update_option('defyn_vuln_feed_synced_at', gmdate(...))`; (6) always `unlink` the temp file. The key is never logged.
+
+- [ ] **Step 0: Add the streaming-parser dependency.** From `packages/dashboard-plugin/`:
+
+```bash
+composer require halaxa/json-machine
+```
+
+Verify it landed in `composer.json` `require` (NOT `require-dev`) — it's a production dependency (it ships in the release zip after `composer install --no-dev`). It is pure PHP (only needs ext-json), so it survives the `--no-dev` prune cleanly.
+
+- [ ] **Step 1: Write the failing test** `tests/Integration/Services/VulnFeedServiceTest.php` (inject the **downloader** as a closure returning a local fixture-file path — `pre_http_request` can't intercept a streamed download, and we don't want a 117 MB fixture; drive the key via an injected closure too):
 
 ```php
 <?php
@@ -681,6 +692,9 @@ use Defyn\Dashboard\Tests\Integration\AbstractSchemaTestCase;
 
 final class VulnFeedServiceTest extends AbstractSchemaTestCase
 {
+    /** @var list<string> temp fixture files to clean up */
+    private array $tmpFiles = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -690,7 +704,12 @@ final class VulnFeedServiceTest extends AbstractSchemaTestCase
 
     protected function tearDown(): void
     {
-        remove_all_filters('pre_http_request');
+        foreach ($this->tmpFiles as $f) {
+            if (is_file($f)) {
+                unlink($f);
+            }
+        }
+        $this->tmpFiles = [];
         parent::tearDown();
     }
 
@@ -704,45 +723,63 @@ final class VulnFeedServiceTest extends AbstractSchemaTestCase
 
     public function testMapsSamplePayloadIntoRows(): void
     {
-        $sample = wp_json_encode($this->sampleFeed());
-        add_filter('pre_http_request', static fn () => ['response' => ['code' => 200], 'body' => $sample], 10, 3);
-
-        $svc = new VulnFeedService(keyProvider: static fn (): string => 'test-key');
+        $path = $this->fixtureFile($this->sampleFeed());
+        $svc  = new VulnFeedService(
+            keyProvider: static fn (): string => 'test-key',
+            downloader:  static fn (): ?string => $path,
+        );
         $svc->refreshIfStale();
 
         $repo = new VulnerabilitiesRepository();
         self::assertGreaterThan(0, $repo->countAll());
         $rows = $repo->findByTypeAndSlug('plugin', 'elementor');
         self::assertNotEmpty($rows);
+        self::assertSame('CVE-2024-5678', $rows[0]['cve']);
+        self::assertNull($rows[0]['from_version'], 'literal "*" lower bound maps to null');
+        self::assertSame('3.18.3', $rows[0]['fixed_in'], 'fixed_in from patched_versions[0]');
         self::assertNotFalse(get_option('defyn_vuln_feed_synced_at'));
     }
 
-    public function testHttpFailureLeavesPriorRowsAndDoesNotThrow(): void
+    public function testDownloadFailureLeavesPriorRowsAndDoesNotThrow(): void
     {
         (new VulnerabilitiesRepository())->upsertForSource('prior', [[
             'type'=>'plugin','slug'=>'akismet','title'=>'x','severity'=>'low','cvss_score'=>null,
             'cve'=>null,'from_version'=>null,'from_inclusive'=>true,'to_version'=>'1.0','to_inclusive'=>false,
             'fixed_in'=>'1.0','updated_at'=>'2026-06-15 00:00:00',
         ]]);
-        add_filter('pre_http_request', static fn () => new \WP_Error('http', 'boom'), 10, 3);
 
-        $svc = new VulnFeedService(keyProvider: static fn (): string => 'test-key');
+        $svc = new VulnFeedService(
+            keyProvider: static fn (): string => 'test-key',
+            downloader:  static fn (): ?string => null, // transport/non-2xx failure
+        );
         $svc->refreshIfStale(); // must not throw
         self::assertSame(1, (new VulnerabilitiesRepository())->countAll(), 'prior rows preserved');
+        self::assertFalse(get_option('defyn_vuln_feed_synced_at'), 'synced stamp not set on failed download');
     }
 
     public function testStalenessSkipWhenRecentlySynced(): void
     {
         update_option('defyn_vuln_feed_synced_at', gmdate('Y-m-d H:i:s'));
-        add_filter('pre_http_request', static function () {
-            throw new \RuntimeException('HTTP should not be called when fresh');
-        }, 10, 3);
-        $svc = new VulnFeedService(keyProvider: static fn (): string => 'test-key');
-        $svc->refreshIfStale(); // returns without hitting HTTP
+        $svc = new VulnFeedService(
+            keyProvider: static fn (): string => 'test-key',
+            downloader:  static function (): ?string {
+                throw new \RuntimeException('download should not be called when fresh');
+            },
+        );
+        $svc->refreshIfStale(); // returns without downloading
         self::assertTrue(true);
     }
 
-    /** @return array<string,mixed> Minimal Wordfence-shaped record map keyed by UUID. ADJUST to Task 1's note. */
+    /** Writes the feed to a temp JSON file and returns its path (json-machine parses from file). */
+    private function fixtureFile(array $feed): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'defyn-vuln-fixture');
+        file_put_contents($path, (string) wp_json_encode($feed));
+        $this->tmpFiles[] = $path;
+        return $path;
+    }
+
+    /** @return array<string,mixed> Wordfence v3 record map keyed by UUID (per Task 1 note 053f8f0). */
     private function sampleFeed(): array
     {
         return [
@@ -750,12 +787,12 @@ final class VulnFeedServiceTest extends AbstractSchemaTestCase
                 'id' => 'uuid-1',
                 'title' => 'Elementor <= 3.18.2 - XSS',
                 'cve' => 'CVE-2024-5678',
-                'cvss' => ['score' => 7.5, 'rating' => 'High'],
+                'cvss' => ['score' => '9.8', 'rating' => 'Critical'], // score is a STRING in the real feed
                 'software' => [[
                     'type' => 'plugin',
                     'slug' => 'elementor',
                     'name' => 'Elementor',
-                    'affected_versions' => [
+                    'affected_versions' => [ // dict keyed by range-label, NOT an array
                         '* - 3.18.2' => [
                             'from_version' => '*', 'from_inclusive' => true,
                             'to_version' => '3.18.2', 'to_inclusive' => true,
@@ -771,29 +808,36 @@ final class VulnFeedServiceTest extends AbstractSchemaTestCase
 
 - [ ] **Step 2: Run red** → FAIL.
 
-- [ ] **Step 3: Create `src/Services/VulnFeedService.php`** (map per Task 1's note; treat `from_version === '*'` as null/unbounded; severity from `cvss.rating` lowercased, default `unknown`):
+- [ ] **Step 3: Create `src/Services/VulnFeedService.php`** (stream-download → json-machine stream-parse; map per Task 1's note: `from_version === '*'` → null; `cvss.score` string → float; severity from `cvss.rating` lowercased, default `unknown`):
 
 ```php
 <?php
 declare(strict_types=1);
 namespace Defyn\Dashboard\Services;
 
+use JsonMachine\Items;
+use JsonMachine\JsonDecoder\ExtJsonDecoder;
+
 final class VulnFeedService
 {
-    private const FEED_URL = 'https://www.wordfence.com/api/intelligence/v3/vulnerabilities/production'; // CONFIRM in Task 1
+    private const FEED_URL = 'https://www.wordfence.com/api/intelligence/v3/vulnerabilities/production';
     private const STALE_SECONDS = 86400;
     private const OPTION = 'defyn_vuln_feed_synced_at';
 
     /** @var callable(): string */
     private $keyProvider;
+    /** @var callable(string,string): ?string returns a path to the downloaded feed file, or null on failure */
+    private $downloader;
 
     public function __construct(
         ?callable $keyProvider = null,
         private readonly ?VulnerabilitiesRepository $repo = null,
+        ?callable $downloader = null,
     ) {
         $this->keyProvider = $keyProvider ?? static function (): string {
             return defined('DEFYN_WORDFENCE_API_KEY') ? (string) constant('DEFYN_WORDFENCE_API_KEY') : '';
         };
+        $this->downloader = $downloader ?? fn (string $url, string $key): ?string => $this->download($url, $key);
     }
 
     public function refreshIfStale(): void
@@ -812,38 +856,61 @@ final class VulnFeedService
             }
         }
 
-        $response = wp_remote_get(self::FEED_URL, [
-            'timeout' => 30,
-            'headers' => ['Authorization' => 'Bearer ' . $key], // CONFIRM scheme in Task 1
-        ]);
-        if (is_wp_error($response)) {
-            error_log('[defyn] vuln feed: transport error: ' . $response->get_error_message());
-            return;
-        }
-        $code = (int) wp_remote_retrieve_response_code($response);
-        if ($code < 200 || $code >= 300) {
-            error_log('[defyn] vuln feed: non-2xx response: ' . $code); // never logs the key
-            return;
-        }
-        $decoded = json_decode((string) wp_remote_retrieve_body($response), true);
-        if (!is_array($decoded)) {
-            error_log('[defyn] vuln feed: JSON parse failure.');
-            return;
+        $path = ($this->downloader)(self::FEED_URL, $key);
+        if ($path === null) {
+            return; // transport/non-2xx (already logged in download()); last-good rows intact
         }
 
         $repo = $this->repo ?? new VulnerabilitiesRepository();
         $now  = gmdate('Y-m-d H:i:s');
-        foreach ($decoded as $sourceId => $record) {
-            if (!is_array($record)) {
-                continue;
+        try {
+            // Stream-parse the ~117MB feed lazily: top-level object keyed by UUID -> record.
+            // ExtJsonDecoder(true) decodes nested structures into associative arrays for mapRecord().
+            foreach (Items::fromFile($path, ['decoder' => new ExtJsonDecoder(true)]) as $sourceId => $record) {
+                if (!is_array($record)) {
+                    continue;
+                }
+                $rows = $this->mapRecord((string) $sourceId, $record, $now);
+                if ($rows !== []) {
+                    $repo->upsertForSource((string) $sourceId, $rows);
+                }
             }
-            $rows = $this->mapRecord((string) $sourceId, $record, $now);
-            if ($rows !== []) {
-                $repo->upsertForSource((string) $sourceId, $rows);
+            update_option(self::OPTION, $now);
+        } catch (\Throwable $e) {
+            error_log('[defyn] vuln feed: parse error: ' . $e->getMessage()); // never logs the key
+        } finally {
+            if (is_file($path)) {
+                @unlink($path);
             }
         }
+    }
 
-        update_option(self::OPTION, $now);
+    /** Stream the feed body to a temp file (never holds 117MB in memory). Returns the path, or null on failure. */
+    private function download(string $url, string $key): ?string
+    {
+        $tmp = wp_tempnam('defyn-vuln-feed');
+        if (!$tmp) {
+            error_log('[defyn] vuln feed: could not create temp file.');
+            return null;
+        }
+        $response = wp_remote_get($url, [
+            'timeout'  => 120,
+            'stream'   => true,
+            'filename' => $tmp,
+            'headers'  => ['Authorization' => 'Bearer ' . $key],
+        ]);
+        if (is_wp_error($response)) {
+            @unlink($tmp);
+            error_log('[defyn] vuln feed: transport error: ' . $response->get_error_message());
+            return null;
+        }
+        $code = (int) wp_remote_retrieve_response_code($response);
+        if ($code < 200 || $code >= 300) {
+            @unlink($tmp);
+            error_log('[defyn] vuln feed: non-2xx response: ' . $code); // never logs the key
+            return null;
+        }
+        return $tmp;
     }
 
     /**
@@ -905,11 +972,11 @@ final class VulnFeedService
 
 - [ ] **Step 4: Run green** → all 4 tests PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Commit** (include the composer manifest + lock for the new dependency):
 
 ```bash
-git add src/Services/VulnFeedService.php tests/Integration/Services/VulnFeedServiceTest.php
-git commit -m "feat(p4-1): VulnFeedService — keyed v3 feed ingest, best-effort, empty-key no-op"
+git add composer.json composer.lock src/Services/VulnFeedService.php tests/Integration/Services/VulnFeedServiceTest.php
+git commit -m "feat(p4-1): VulnFeedService — streamed keyed v3 feed ingest (json-machine), best-effort, empty-key no-op"
 ```
 
 ---
@@ -1963,6 +2030,8 @@ zip -rq dist/defyn-dashboard-0.13.0.zip dashboard-plugin \
      'dashboard-plugin/.github/*' 'dashboard-plugin/.gitignore'
 # VERIFY symfony prod deps survived (MUST print 2 lines):
 unzip -l dist/defyn-dashboard-0.13.0.zip | grep -E "deprecation-contracts/function\.php|polyfill-php83/bootstrap\.php"
+# VERIFY the new streaming-parser dep shipped (MUST print >=1 line):
+unzip -l dist/defyn-dashboard-0.13.0.zip | grep -E "json-machine/src/Items\.php"
 cd dashboard-plugin && composer install   # restore dev autoload so tests run locally
 ```
 
