@@ -82,6 +82,33 @@ final class IncidentsRepository
         return array_map([Incident::class, 'fromRow'], $rows);
     }
 
+    /**
+     * P3.2 — all incidents for the user's sites overlapping [since, now]:
+     * still-open OR ended on/after $sinceUtc. One query; grouped by site in PHP.
+     *
+     * @return array<int,array{site_id:int,started_at:string,ended_at:?string}>
+     */
+    public function findForUserSince(int $userId, string $sinceUtc): array
+    {
+        global $wpdb;
+        $i = IncidentsTable::tableName();
+        $s = SitesTable::tableName();
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT i.site_id AS site_id, i.started_at AS started_at, i.ended_at AS ended_at
+             FROM `{$i}` i INNER JOIN `{$s}` s ON s.id = i.site_id
+             WHERE s.user_id = %d AND (i.ended_at IS NULL OR i.ended_at >= %s)
+             ORDER BY i.started_at ASC",
+            $userId,
+            $sinceUtc
+        ), ARRAY_A) ?: [];
+
+        return array_map(static fn ($r) => [
+            'site_id'    => (int) $r['site_id'],
+            'started_at' => (string) $r['started_at'],
+            'ended_at'   => $r['ended_at'] !== null ? (string) $r['ended_at'] : null,
+        ], $rows);
+    }
+
     /** @return array<int,array{site_id:int,site_label:string,started_at:string}> */
     public function findOpenForUser(int $userId): array
     {

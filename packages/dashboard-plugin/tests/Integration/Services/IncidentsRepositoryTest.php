@@ -104,4 +104,32 @@ final class IncidentsRepositoryTest extends AbstractSchemaTestCase
         $this->assertCount(1, $rows);
         $this->assertSame('Mine', $rows[0]['site_label']);
     }
+
+    public function testFindForUserSinceReturnsOverlappingAndOpenIncidents(): void
+    {
+        $mine  = $this->makeSite(1, 'M');
+        $other = $this->makeSite(2, 'O');
+        $repo  = new IncidentsRepository();
+
+        // in-window closed (ended ~24h ago, well within 30-day window)
+        $a = $repo->open($mine, gmdate('Y-m-d H:i:s', time() - 90_000), 'boom');
+        $repo->close($a, gmdate('Y-m-d H:i:s', time() - 86_000), 4000);
+        // open (ongoing)
+        $repo->open($mine, gmdate('Y-m-d H:i:s', time() - 600), 'still down');
+        // closed BEFORE the window (40 days ago) — must be excluded
+        $c = $repo->open($mine, gmdate('Y-m-d H:i:s', time() - 3_500_000), 'old');
+        $repo->close($c, gmdate('Y-m-d H:i:s', time() - 3_400_000), 100000);
+        // another user's open incident — must be excluded
+        $repo->open($other, gmdate('Y-m-d H:i:s', time() - 600), 'theirs');
+
+        $since = gmdate('Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS);
+        $rows  = $repo->findForUserSince(1, $since);
+
+        self::assertCount(2, $rows);
+        foreach ($rows as $r) {
+            self::assertSame($mine, $r['site_id']);
+            self::assertArrayHasKey('started_at', $r);
+            self::assertArrayHasKey('ended_at', $r);
+        }
+    }
 }
