@@ -8,6 +8,7 @@ use Defyn\Dashboard\Rest\Middleware\Cors;
 use Defyn\Dashboard\Rest\Middleware\RateLimit;
 use Defyn\Dashboard\Rest\Middleware\RequireAuth;
 use Defyn\Dashboard\Rest\MonitoringController;
+use Defyn\Dashboard\Rest\SettingsController;
 use Defyn\Dashboard\Rest\SitesCoreAllowMajorController;
 use Defyn\Dashboard\Rest\SitesIncidentsController;
 use Defyn\Dashboard\Rest\SitesCoreRefreshController;
@@ -328,6 +329,26 @@ final class RestRouter
             'methods'             => 'GET',
             'callback'            => [new MonitoringController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'monitoring'],
+        ]);
+
+        // P3.3 — GET /settings. Returns the authenticated operator's per-user
+        // notification config (currently: Slack webhook URL or null).
+        // RateLimit::settings chains RequireAuth::check internally and adds
+        // a per-user 30/MINUTE throttle.
+        register_rest_route(self::NAMESPACE, '/settings', [
+            'methods'             => 'GET',
+            'callback'            => [new SettingsController(), 'handleGet'],
+            'permission_callback' => [RateLimit::class, 'settings'],
+        ]);
+
+        // P3.3 — POST /settings/slack-webhook. Sets or clears the operator's
+        // Slack webhook URL. Host-allowlisted to https://hooks.slack.com/ (SSRF
+        // guard). RateLimit::settingsWrite chains RequireAuth::check internally
+        // and adds a per-user 10/HOUR throttle.
+        register_rest_route(self::NAMESPACE, '/settings/slack-webhook', [
+            'methods'             => 'POST',
+            'callback'            => [new SettingsController(), 'handleSet'],
+            'permission_callback' => [RateLimit::class, 'settingsWrite'],
         ]);
 
         register_rest_route(self::NAMESPACE, '/activity', [

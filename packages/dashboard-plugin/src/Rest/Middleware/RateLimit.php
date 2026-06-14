@@ -150,6 +150,18 @@ final class RateLimit
     public const MONITORING_LIMIT  = 30;
     public const MONITORING_WINDOW = MINUTE_IN_SECONDS;
 
+    // P3.3 — GET /settings. Read-only; per-MINUTE bucket mirrors P3.2's
+    // monitoring() (same operator-driven polling cadence). Per-user only
+    // (keyed defyn_rl_settings_%d — no site dimension).
+    public const SETTINGS_LIMIT  = 30;
+    public const SETTINGS_WINDOW = MINUTE_IN_SECONDS;
+
+    // P3.3 — POST /settings/slack-webhook. Write action; 10/HOUR — same weight
+    // class as coreAllowMajor (cheap metadata write, not a destructive fan-out).
+    // Separate bucket (defyn_rl_settingsWrite_%d) so reads don't exhaust writes.
+    public const SETTINGS_WRITE_LIMIT  = 10;
+    public const SETTINGS_WRITE_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -840,6 +852,71 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::MONITORING_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /settings.
+     *
+     * Per-MINUTE bucket (mirrors monitoring() — same operator-driven polling
+     * cadence). Per-user only — keyed `defyn_rl_settings_%d`. No site dimension.
+     *
+     * @return true|WP_Error
+     */
+    public static function settings(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_settings_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::SETTINGS_LIMIT) {
+            return new \WP_Error(
+                'settings.rate_limited',
+                'Too many requests. Try again shortly.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::SETTINGS_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /settings/slack-webhook.
+     *
+     * Per-user, 10/HOUR — same weight class as coreAllowMajor (cheap metadata
+     * write). Distinct prefix `defyn_rl_settingsWrite_%d` — no collision with
+     * the GET bucket (`defyn_rl_settings_%d`).
+     *
+     * @return true|WP_Error
+     */
+    public static function settingsWrite(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_settingsWrite_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::SETTINGS_WRITE_LIMIT) {
+            return new \WP_Error(
+                'settings.rate_limited',
+                'Too many setting changes. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::SETTINGS_WRITE_WINDOW);
         return true;
     }
 
