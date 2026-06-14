@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Defyn\Dashboard\Tests\Unit\Services;
 
 use Defyn\Dashboard\Services\ActivityLogger;
+use Defyn\Dashboard\Services\IncidentsRepository;
 use Defyn\Dashboard\Services\OverviewService;
 use Defyn\Dashboard\Tests\Integration\AbstractSchemaTestCase;
 
@@ -19,6 +20,7 @@ final class OverviewServiceTest extends AbstractSchemaTestCase
         // phpcs:disable WordPress.DB.PreparedSQL
         $wpdb->query('SET autocommit = 1');
         $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_activity_log");
+        $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_incidents");
         $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_site_plugins");
         $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_site_themes");
         $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_sites");
@@ -103,6 +105,31 @@ final class OverviewServiceTest extends AbstractSchemaTestCase
 
         $this->assertArrayHasKey('total_sites', $result);
         $this->assertSame(3, $result['total_sites']);
+    }
+
+    public function testComposeIncludesOpenIncidentsForUser(): void
+    {
+        $siteId    = $this->seedSite(1);
+        $startedAt = gmdate('Y-m-d H:i:s', strtotime('-5 minutes'));
+        (new IncidentsRepository())->open($siteId, $startedAt, 'connect timeout');
+
+        $result = (new OverviewService())->compose(1);
+
+        $this->assertArrayHasKey('open_incidents', $result);
+        $this->assertCount(1, $result['open_incidents']);
+        $this->assertSame($siteId, $result['open_incidents'][0]['site_id']);
+        $this->assertSame('Example', $result['open_incidents'][0]['site_label']);
+        $this->assertSame($startedAt, $result['open_incidents'][0]['started_at']);
+    }
+
+    public function testComposeReturnsEmptyOpenIncidentsWhenNone(): void
+    {
+        $this->seedSite(1);
+
+        $result = (new OverviewService())->compose(1);
+
+        $this->assertArrayHasKey('open_incidents', $result);
+        $this->assertSame([], $result['open_incidents']);
     }
 
     private function seedSite(int $userId): int

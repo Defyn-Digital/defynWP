@@ -18,6 +18,7 @@ final class OverviewService
     public function __construct(
         private readonly SitesRepository $sites = new SitesRepository(),
         private readonly ActivityLogRepository $activity = new ActivityLogRepository(),
+        private readonly IncidentsRepository $incidents = new IncidentsRepository(),
     ) {
     }
 
@@ -30,6 +31,7 @@ final class OverviewService
      *     site_id:int, url:string, label:string, reasons:list<string>,
      *     last_contact_at:?string, ssl_expires_at:?string
      *   }>,
+     *   open_incidents: list<array{site_id:int, site_label:string, started_at:string}>,
      *   recent_activity: list<array{
      *     id:int, site_id:?int, site_label:?string, event_type:string,
      *     details:array<string,mixed>|null, created_at:string
@@ -63,6 +65,7 @@ final class OverviewService
                 'sites_with_any_update' => $this->sites->countSitesWithAnyUpdate($userId),
             ],
             'sites_needing_attention' => $this->sites->findSitesNeedingAttention($userId),
+            'open_incidents'          => $this->incidents->findOpenForUser($userId),
             'recent_activity'         => $activity,
             'total_sites'             => $this->sites->countAllForUser($userId),
             'generated_at'            => gmdate('Y-m-d H:i:s'),
