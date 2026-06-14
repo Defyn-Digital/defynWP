@@ -137,6 +137,12 @@ final class RateLimit
     public const JOBS_RETRY_FAILED_LIMIT  = 5;
     public const JOBS_RETRY_FAILED_WINDOW = HOUR_IN_SECONDS;
 
+    // P3.1 — GET /sites/{id}/incidents. Per-MINUTE bucket — the SPA may poll
+    // this while a site's incident panel is open. 30/MINUTE mirrors the P2.5
+    // overview polling bucket (same operator-driven cadence).
+    public const SITES_INCIDENTS_LIMIT  = 30;
+    public const SITES_INCIDENTS_WINDOW = MINUTE_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -759,6 +765,40 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::JOBS_RETRY_FAILED_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /sites/{id}/incidents.
+     *
+     * Per-user, 30/MINUTE. Chains RequireAuth::check first (same pattern as
+     * every post-P2.1 bucket). Distinct prefix `defyn_rl_sitesIncidents_%d_%d`
+     * keyed on (userId, siteId) so rate-limit counts are per-site, not fleet-wide.
+     *
+     * @return true|WP_Error
+     */
+    public static function sitesIncidents(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_sitesIncidents_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::SITES_INCIDENTS_LIMIT) {
+            return new \WP_Error(
+                'incidents.rate_limited',
+                'Too many requests. Try again shortly.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::SITES_INCIDENTS_WINDOW);
         return true;
     }
 
