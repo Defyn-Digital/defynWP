@@ -43,6 +43,7 @@ const baseSite = {
   last_core_update_error: null,
   last_core_update_attempt_at: null,
   core_allow_major: false,
+  alerts_muted: false,
 };
 
 describe('SiteCoreCard existing states', () => {

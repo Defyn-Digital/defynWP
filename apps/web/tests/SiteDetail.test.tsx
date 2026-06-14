@@ -35,7 +35,7 @@ describe('SiteDetail', () => {
       created_at: '2026-05-11 00:00:00',
       wp_version: null, php_version: null, active_theme: null,
       plugin_counts: null, theme_counts: null,
-      ssl_status: null, ssl_expires_at: null, core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false,
+      ssl_status: null, ssl_expires_at: null, core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false, alerts_muted: false,
     });
     renderAt(1);
     expect(await screen.findByText(/Connecting/i)).toBeInTheDocument();
@@ -51,7 +51,7 @@ describe('SiteDetail', () => {
       active_theme: { name: 'Twenty Twenty-Four', version: '1.0', parent: null },
       plugin_counts: { installed: 10, active: 5 },
       theme_counts: { installed: 2, active: 1 },
-      ssl_status: 'enabled', ssl_expires_at: '2027-01-01T00:00:00Z', core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false,
+      ssl_status: 'enabled', ssl_expires_at: '2027-01-01T00:00:00Z', core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false, alerts_muted: false,
     });
     renderAt(1);
     expect(await screen.findByText(/Connected/i)).toBeInTheDocument();
@@ -65,7 +65,7 @@ describe('SiteDetail', () => {
       created_at: '2026-05-11 00:00:00',
       wp_version: null, php_version: null, active_theme: null,
       plugin_counts: null, theme_counts: null,
-      ssl_status: null, ssl_expires_at: null, core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false,
+      ssl_status: null, ssl_expires_at: null, core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false, alerts_muted: false,
     });
     renderAt(1);
     expect(await screen.findByText('Challenge signature invalid')).toBeInTheDocument();
@@ -100,7 +100,7 @@ describe('SiteDetail runtime info', () => {
       plugin_counts: { installed: 10, active: 5 },
       theme_counts: { installed: 2, active: 1 },
       ssl_status: 'enabled',
-      ssl_expires_at: '2027-01-01T00:00:00Z', core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false,
+      ssl_expires_at: '2027-01-01T00:00:00Z', core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false, alerts_muted: false,
     });
     mockSiteThemes[1] = [
       {
@@ -143,7 +143,7 @@ describe('SiteDetail runtime info', () => {
       plugin_counts: null,
       theme_counts: null,
       ssl_status: null,
-      ssl_expires_at: null, core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false,
+      ssl_expires_at: null, core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false, alerts_muted: false,
     });
 
     renderAt(1);
@@ -166,7 +166,7 @@ describe('SiteDetail runtime info', () => {
       plugin_counts: null,
       theme_counts: null,
       ssl_status: null,
-      ssl_expires_at: null, core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false,
+      ssl_expires_at: null, core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false, alerts_muted: false,
     });
 
     renderAt(1);
@@ -201,7 +201,7 @@ describe('SiteDetail actions', () => {
       plugin_counts: { installed: 10, active: 5 },
       theme_counts: { installed: 2, active: 1 },
       ssl_status: 'enabled',
-      ssl_expires_at: '2027-01-01T00:00:00Z', core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false,
+      ssl_expires_at: '2027-01-01T00:00:00Z', core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false, alerts_muted: false,
     });
   });
 
@@ -252,7 +252,7 @@ describe('SiteDetail activity panel', () => {
       plugin_counts: { installed: 10, active: 5 },
       theme_counts: { installed: 2, active: 1 },
       ssl_status: 'enabled',
-      ssl_expires_at: '2027-01-01T00:00:00Z', core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false,
+      ssl_expires_at: '2027-01-01T00:00:00Z', core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false, alerts_muted: false,
     });
   });
 

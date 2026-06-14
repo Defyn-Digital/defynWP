@@ -33,7 +33,7 @@ describe('useSite', () => {
       plugin_counts: null,
       theme_counts: null,
       ssl_status: null,
-      ssl_expires_at: null, core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false,
+      ssl_expires_at: null, core_update_available: false, core_update_version: null, core_update_state: 'idle', last_core_update_error: null, last_core_update_attempt_at: null, core_allow_major: false, alerts_muted: false,
     });
     const { result } = renderHook(() => useSite(42), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

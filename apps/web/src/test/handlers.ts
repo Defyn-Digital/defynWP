@@ -112,6 +112,7 @@ handlers.push(
       last_core_update_error: null,
       last_core_update_attempt_at: null,
       core_allow_major: false,
+      alerts_muted: false,
     };
     mockSites.push(site);
     return HttpResponse.json({ site_id: site.id }, { status: 202 });
@@ -258,6 +259,7 @@ export function seedMockSitesAllStatuses(): void {
       last_core_update_error: null,
       last_core_update_attempt_at: null,
       core_allow_major: false,
+      alerts_muted: false,
     },
     {
       id: nextSiteId++,
@@ -281,6 +283,7 @@ export function seedMockSitesAllStatuses(): void {
       last_core_update_error: null,
       last_core_update_attempt_at: null,
       core_allow_major: false,
+      alerts_muted: false,
     },
     {
       id: nextSiteId++,
@@ -304,6 +307,7 @@ export function seedMockSitesAllStatuses(): void {
       last_core_update_error: null,
       last_core_update_attempt_at: null,
       core_allow_major: false,
+      alerts_muted: false,
     },
     {
       id: nextSiteId++,
@@ -327,6 +331,7 @@ export function seedMockSitesAllStatuses(): void {
       last_core_update_error: null,
       last_core_update_attempt_at: null,
       core_allow_major: false,
+      alerts_muted: false,
     },
   );
 }
@@ -762,5 +767,21 @@ handlers.push(
       },
       { status: 202 },
     );
+  }),
+
+  // P3.3 — GET /settings — returns current notification settings.
+  http.get('*/wp-json/defyn/v1/settings', () => {
+    return HttpResponse.json({ slack_webhook_url: null });
+  }),
+
+  // P3.3 — POST /settings/slack-webhook — update webhook URL.
+  http.post('*/wp-json/defyn/v1/settings/slack-webhook', async ({ request }) => {
+    const body = (await request.json()) as { webhook_url?: string | null };
+    return HttpResponse.json({ slack_webhook_url: body.webhook_url ?? null });
+  }),
+
+  // P3.3 — POST /sites/:id/alerts/mute — mute alerts for a site.
+  http.post('*/wp-json/defyn/v1/sites/:id/alerts/mute', ({ params }) => {
+    return HttpResponse.json({ site_id: Number(params.id), alerts_muted: true });
   }),
 );

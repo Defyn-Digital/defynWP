@@ -46,6 +46,7 @@ describe('useSites', () => {
       last_core_update_error: null,
       last_core_update_attempt_at: null,
       core_allow_major: false,
+      alerts_muted: false,
     });
     const { result } = renderHook(() => useSites(), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

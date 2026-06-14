@@ -43,6 +43,8 @@ export const siteSchema = z.object({
   is_auto_update_enabled: z.boolean().optional(),
   // P2.4.1 — operator toggle: allow WP major-version updates for this site.
   core_allow_major: z.boolean(),
+  // P3.3 — operator mute-alerts toggle for this site.
+  alerts_muted: z.boolean(),
 });
 export type Site = z.infer<typeof siteSchema>;
 
@@ -331,3 +333,7 @@ export const monitoringSchema = z.object({
   generated_at: z.string(),
 });
 export type Monitoring = z.infer<typeof monitoringSchema>;
+
+// P3.3 — operator notification settings.
+export const settingsSchema = z.object({ slack_webhook_url: z.string().nullable() });
+export type Settings = z.infer<typeof settingsSchema>;
