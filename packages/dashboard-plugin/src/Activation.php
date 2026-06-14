@@ -24,7 +24,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 8;
+    public const SCHEMA_VERSION = 9;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -90,6 +90,9 @@ final class Activation
 
         // P3.1 — add consecutive_failures to wp_defyn_sites. Guarded ALTER.
         self::addConsecutiveFailuresColumn($wpdb);
+
+        // P3.2 — add last_response_time_ms to wp_defyn_sites. Guarded ALTER.
+        self::addResponseTimeColumn($wpdb);
 
         // P2.1: SchemaVersion is the canonical migration cursor; we coalesce
         // with any in-DB value via max() so a future install starting at v3
@@ -235,5 +238,19 @@ final class Activation
         }
         // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
         $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN consecutive_failures INT NOT NULL DEFAULT 0");
+    }
+
+    private static function addResponseTimeColumn(\wpdb $wpdb): void
+    {
+        $table  = SitesTable::tableName();
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SHOW COLUMNS FROM `{$table}` LIKE %s",
+            'last_response_time_ms'
+        ));
+        if ($exists !== null) {
+            return;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+        $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN last_response_time_ms INT UNSIGNED NULL");
     }
 }
