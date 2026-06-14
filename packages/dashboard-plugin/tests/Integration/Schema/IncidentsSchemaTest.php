@@ -31,6 +31,6 @@ final class IncidentsSchemaTest extends WP_UnitTestCase
 
     public function test_schema_version_is_8(): void
     {
-        $this->assertSame(9, Activation::SCHEMA_VERSION);
+        $this->assertSame(10, Activation::SCHEMA_VERSION);
     }
 }

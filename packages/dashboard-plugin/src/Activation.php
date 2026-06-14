@@ -24,7 +24,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 9;
+    public const SCHEMA_VERSION = 10;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -93,6 +93,10 @@ final class Activation
 
         // P3.2 — add last_response_time_ms to wp_defyn_sites. Guarded ALTER.
         self::addResponseTimeColumn($wpdb);
+
+        // P3.3 — per-site mute + SSL-alert de-dup stamp. Guarded ALTERs.
+        self::addAlertsMutedColumn($wpdb);
+        self::addSslAlertSentAtColumn($wpdb);
 
         // P2.1: SchemaVersion is the canonical migration cursor; we coalesce
         // with any in-DB value via max() so a future install starting at v3
@@ -252,5 +256,27 @@ final class Activation
         }
         // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
         $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN last_response_time_ms INT UNSIGNED NULL");
+    }
+
+    private static function addAlertsMutedColumn(\wpdb $wpdb): void
+    {
+        $table  = SitesTable::tableName();
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", 'alerts_muted'));
+        if ($exists !== null) {
+            return;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+        $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN alerts_muted TINYINT NOT NULL DEFAULT 0");
+    }
+
+    private static function addSslAlertSentAtColumn(\wpdb $wpdb): void
+    {
+        $table  = SitesTable::tableName();
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", 'ssl_alert_sent_at'));
+        if ($exists !== null) {
+            return;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+        $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN ssl_alert_sent_at DATETIME NULL");
     }
 }
