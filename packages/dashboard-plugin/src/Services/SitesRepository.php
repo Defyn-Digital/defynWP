@@ -567,6 +567,37 @@ final class SitesRepository
     }
 
     /**
+     * P3.2 — persist the last measured heartbeat round-trip. NULL on a failed
+     * ping so a down site never shows a stale latency. Dedicated method:
+     * the status-flip methods (markContactAt/markRecovered/markOffline) are
+     * intentionally left untouched.
+     */
+    public function recordResponseTime(int $id, ?int $ms): void
+    {
+        global $wpdb;
+        $table = SitesTable::tableName();
+        $now   = gmdate('Y-m-d H:i:s');
+
+        if ($ms === null) {
+            // phpcs:ignore WordPress.DB.PreparedSQL — table name is a constant.
+            $wpdb->query($wpdb->prepare(
+                "UPDATE `{$table}` SET last_response_time_ms = NULL, updated_at = %s WHERE id = %d",
+                $now,
+                $id
+            ));
+            return;
+        }
+
+        $wpdb->update(
+            $table,
+            ['last_response_time_ms' => $ms, 'updated_at' => $now],
+            ['id' => $id],
+            ['%d', '%s'],
+            ['%d'],
+        );
+    }
+
+    /**
      * P3.1 — Atomically increment consecutive_failures for a site and return
      * the new value. Called by HealthService after each failed ping attempt.
      */

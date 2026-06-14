@@ -101,4 +101,19 @@ final class SitesRepositoryTest extends AbstractSchemaTestCase
         self::assertSame('error', $site->status);
         self::assertSame('Connector unreachable', $site->lastError);
     }
+
+    public function testRecordResponseTimeSetsAndNullsValue(): void
+    {
+        $repo = new SitesRepository();
+        $id = $repo->insertPending(
+            userId: 1, url: 'https://rt.test', label: 'RT',
+            ourPublicKey: 'pk', ourPrivateKeyEncrypted: 'enc',
+        );
+
+        $repo->recordResponseTime($id, 247);
+        self::assertSame(247, $repo->findById($id)->lastResponseTimeMs);
+
+        $repo->recordResponseTime($id, null);
+        self::assertNull($repo->findById($id)->lastResponseTimeMs);
+    }
 }
