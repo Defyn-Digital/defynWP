@@ -162,6 +162,13 @@ final class RateLimit
     public const SETTINGS_WRITE_LIMIT  = 10;
     public const SETTINGS_WRITE_WINDOW = HOUR_IN_SECONDS;
 
+    // P3.3 — POST /sites/{id}/alerts/mute. Separate bucket from coreAllowMajor per
+    // per resource orthogonality — toggling alert mute must not exhaust the
+    // allow-major bucket. Same weight class: cheap metadata write, 10/HOUR,
+    // per-(user, site). Key: defyn_rl_alertsMute_%d_%d.
+    public const ALERTS_MUTE_LIMIT  = 10;
+    public const ALERTS_MUTE_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -917,6 +924,41 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::SETTINGS_WRITE_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /sites/{id}/alerts/mute.
+     *
+     * Per-(user, site), 10/HOUR — exact mirror of coreAllowMajor. Toggling the
+     * mute flag is a cheap metadata write, so the limit is the same (10/HOUR vs.
+     * 3/HOUR for actual upgrades). Separate bucket (defyn_rl_alertsMute_%d_%d)
+     * so mute-toggle calls never exhaust the coreAllowMajor bucket or vice versa.
+     *
+     * @return true|WP_Error
+     */
+    public static function alertsMute(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_alertsMute_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::ALERTS_MUTE_LIMIT) {
+            return new WP_Error(
+                'alerts.rate_limited',
+                'Too many mute-toggle requests. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::ALERTS_MUTE_WINDOW);
         return true;
     }
 

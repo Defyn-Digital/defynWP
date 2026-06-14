@@ -9,6 +9,7 @@ use Defyn\Dashboard\Rest\Middleware\RateLimit;
 use Defyn\Dashboard\Rest\Middleware\RequireAuth;
 use Defyn\Dashboard\Rest\MonitoringController;
 use Defyn\Dashboard\Rest\SettingsController;
+use Defyn\Dashboard\Rest\SitesAlertsMuteController;
 use Defyn\Dashboard\Rest\SitesCoreAllowMajorController;
 use Defyn\Dashboard\Rest\SitesIncidentsController;
 use Defyn\Dashboard\Rest\SitesCoreRefreshController;
@@ -210,6 +211,16 @@ final class RestRouter
             'methods'             => 'POST',
             'callback'            => [new SitesCoreAllowMajorController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'coreAllowMajor'],
+        ]);
+
+        // P3.3 — toggle per-site alerts_muted flag. RateLimit::alertsMute chains
+        // RequireAuth::check internally and adds a per-(user, site) 10/HOUR throttle —
+        // same weight class as coreAllowMajor (cheap metadata write, not an upgrade).
+        // Separate bucket from coreAllowMajor per resource orthogonality.
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/alerts/mute', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesAlertsMuteController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'alertsMute'],
         ]);
 
         // P2.5 — read-only operator overview. RateLimit::overview chains
