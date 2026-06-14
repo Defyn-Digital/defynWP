@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Defyn\Dashboard\Tests\Integration\Rest;
 
 use Defyn\Dashboard\Activation;
+use Defyn\Dashboard\Auth\TokenService;
 use WP_REST_Request;
 use WP_UnitTestCase;
 
@@ -28,8 +29,10 @@ final class RateLimitTest extends WP_UnitTestCase
 
     public function tearDown(): void
     {
-        // Wipe the rate-limit transient so the next test starts fresh.
+        // Wipe the rate-limit transients so the next test starts fresh.
         delete_transient('defyn_rl_login_203.0.113.42');
+        // Wipe monitoring bucket for user 1 (used in the monitoring rate-limit test).
+        delete_transient('defyn_rl_monitoring_1');
         unset($_SERVER['REMOTE_ADDR']);
         parent::tearDown();
     }
@@ -53,5 +56,33 @@ final class RateLimitTest extends WP_UnitTestCase
         $data = $response->get_data();
         // Spec envelope shape (rest_request_after_callbacks filter normalizes WP_Error to this shape).
         self::assertSame('auth.rate_limited', $data['error']['code']);
+    }
+
+    /**
+     * RateLimit::monitoring must allow 30 calls then trip on the 31st.
+     *
+     * Mirrors OverviewControllerTest::testRateLimit429AfterThirtyFirstCall but
+     * exercises the method directly (not via rest_do_request) to keep the test
+     * fast and isolated. RequireAuth::check reads the Authorization header, so
+     * we supply a real JWT for user 1 instead of relying on a pre-set param.
+     */
+    public function testMonitoringRateLimitTripsAfterThirtyFirstCall(): void
+    {
+        $token = (new TokenService(DEFYN_JWT_SECRET))->issueAccess(1);
+
+        for ($i = 0; $i < 30; $i++) {
+            $request = new WP_REST_Request('GET', '/defyn/v1/monitoring');
+            $request->set_header('Authorization', 'Bearer ' . $token);
+            $result = \Defyn\Dashboard\Rest\Middleware\RateLimit::monitoring($request);
+            self::assertSame(true, $result, "call #" . ($i + 1) . " should be allowed");
+        }
+
+        $request = new WP_REST_Request('GET', '/defyn/v1/monitoring');
+        $request->set_header('Authorization', 'Bearer ' . $token);
+        $result = \Defyn\Dashboard\Rest\Middleware\RateLimit::monitoring($request);
+
+        self::assertInstanceOf(\WP_Error::class, $result);
+        self::assertSame(429, $result->get_error_data()['status']);
+        self::assertSame('monitoring.rate_limited', $result->get_error_code());
     }
 }

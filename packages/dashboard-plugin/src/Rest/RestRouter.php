@@ -7,6 +7,7 @@ namespace Defyn\Dashboard\Rest;
 use Defyn\Dashboard\Rest\Middleware\Cors;
 use Defyn\Dashboard\Rest\Middleware\RateLimit;
 use Defyn\Dashboard\Rest\Middleware\RequireAuth;
+use Defyn\Dashboard\Rest\MonitoringController;
 use Defyn\Dashboard\Rest\SitesCoreAllowMajorController;
 use Defyn\Dashboard\Rest\SitesIncidentsController;
 use Defyn\Dashboard\Rest\SitesCoreRefreshController;
@@ -316,6 +317,17 @@ final class RestRouter
             'methods'             => 'GET',
             'callback'            => [new SitesIncidentsController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'sitesIncidents'],
+        ]);
+
+        // P3.2 — GET /monitoring. Fleet-wide uptime/latency read-only view.
+        // RateLimit::monitoring chains RequireAuth::check internally and adds
+        // a per-user 30/MINUTE throttle — same bucket shape as /overview.
+        // Ownership-scoped via MonitoringService::compose($userId) which
+        // delegates to SitesRepository::findAllForUser.
+        register_rest_route(self::NAMESPACE, '/monitoring', [
+            'methods'             => 'GET',
+            'callback'            => [new MonitoringController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'monitoring'],
         ]);
 
         register_rest_route(self::NAMESPACE, '/activity', [

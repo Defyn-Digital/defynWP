@@ -143,6 +143,13 @@ final class RateLimit
     public const SITES_INCIDENTS_LIMIT  = 30;
     public const SITES_INCIDENTS_WINDOW = MINUTE_IN_SECONDS;
 
+    // P3.2 — GET /monitoring. Fleet-wide uptime/latency view. Per-MINUTE bucket
+    // mirrors P2.5's overview() — the SPA polls this endpoint while the
+    // monitoring tab is active (same operator-driven cadence). Guardrail 7:
+    // read-only, 30/min, per-user.
+    public const MONITORING_LIMIT  = 30;
+    public const MONITORING_WINDOW = MINUTE_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -799,6 +806,40 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::SITES_INCIDENTS_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /monitoring.
+     *
+     * Per-MINUTE bucket (mirrors overview() — same operator-driven polling cadence).
+     * Plan-bug trap: do NOT copy HOUR_IN_SECONDS from the bulk-action buckets.
+     * Distinct transient prefix `defyn_rl_monitoring_%d` — no collision with
+     * `defyn_rl_overview_%d`.
+     *
+     * @return true|WP_Error
+     */
+    public static function monitoring(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_monitoring_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::MONITORING_LIMIT) {
+            return new \WP_Error(
+                'monitoring.rate_limited',
+                'Too many requests. The monitoring page polls every minute — try again shortly.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::MONITORING_WINDOW);
         return true;
     }
 
