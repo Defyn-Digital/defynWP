@@ -10,6 +10,7 @@ import { SiteActivityPanel } from '@/components/sites/SiteActivityPanel';
 import { SiteCoreCard } from '@/components/sites/SiteCoreCard';
 import { SitePluginsPanel } from '@/components/sites/SitePluginsPanel';
 import { SiteMajorUpdatesSettingsRow } from '@/components/sites/SiteMajorUpdatesSettingsRow';
+import { SiteMuteAlertsSettingsRow } from '@/components/sites/SiteMuteAlertsSettingsRow';
 import { useSiteThemes } from '@/lib/queries/useSiteThemes';
 import { SiteThemesPanel } from '@/components/sites/SiteThemesPanel';
 import { IncidentHistoryPanel } from '@/components/sites/IncidentHistoryPanel';
@@ -101,6 +102,8 @@ export default function SiteDetail() {
           {data.status !== 'pending' && <SiteCoreCard siteId={siteId} />}
 
           {data && <SiteMajorUpdatesSettingsRow site={data} />}
+
+          {data && <SiteMuteAlertsSettingsRow site={data} />}
 
           {data.status !== 'pending' && <SiteActivityPanel site={data} />}
 
