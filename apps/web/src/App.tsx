@@ -11,6 +11,7 @@ import SiteDetail from './routes/SiteDetail';
 import Activity from './routes/Activity';
 import Jobs from './routes/Jobs';
 import JobDetail from './routes/JobDetail';
+import { Monitoring } from './routes/Monitoring';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/activity" element={<Activity />} />
+        <Route path="/monitoring" element={<Monitoring />} />
       </Route>
     </Routes>
   );
