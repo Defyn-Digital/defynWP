@@ -61,4 +61,12 @@ final class UninstallTest extends AbstractSchemaTestCase
 
         self::assertFalse(get_option(Activation::SCHEMA_OPTION), 'Schema version option should be deleted');
     }
+
+    public function testUninstallDeletesSlackWebhookMeta(): void
+    {
+        $uid = self::factory()->user->create();
+        update_user_meta($uid, 'defyn_slack_webhook_url', 'https://hooks.slack.com/services/T/B/x');
+        \Defyn\Dashboard\Uninstaller::uninstall();
+        self::assertSame('', (string) get_user_meta($uid, 'defyn_slack_webhook_url', true));
+    }
 }

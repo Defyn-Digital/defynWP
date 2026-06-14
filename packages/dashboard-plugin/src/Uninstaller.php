@@ -24,5 +24,8 @@ final class Uninstaller
         }
 
         delete_option(Activation::SCHEMA_OPTION);
+
+        // P3.3 — clear every operator's Slack webhook (delete_metadata bulk form).
+        delete_metadata('user', 0, 'defyn_slack_webhook_url', '', true);
     }
 }
