@@ -36,6 +36,16 @@ final class EmailNotifier implements Notifier
         );
     }
 
+    public function notifySslExpiring(Site $site, string $expiresAtUtc, int $daysLeft): void
+    {
+        $this->send(
+            $site,
+            '⚠️ ' . $site->label . ' SSL expires in ' . $daysLeft . ' day' . ($daysLeft === 1 ? '' : 's'),
+            "The SSL certificate for {$site->label} ({$site->url}) expires on {$expiresAtUtc} UTC "
+            . "({$daysLeft} day" . ($daysLeft === 1 ? '' : 's') . " from now).\n\nRenew it before it lapses.\n"
+        );
+    }
+
     private function send(Site $site, string $subject, string $body): void
     {
         $to = $this->ownerEmail($site->userId);

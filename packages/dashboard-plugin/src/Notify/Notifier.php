@@ -10,4 +10,5 @@ interface Notifier
 {
     public function notifyDown(Site $site, Incident $incident): void;
     public function notifyRecovered(Site $site, Incident $incident): void;
+    public function notifySslExpiring(Site $site, string $expiresAtUtc, int $daysLeft): void;
 }

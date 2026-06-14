@@ -29,6 +29,11 @@ final class SpyNotifier implements Notifier
     {
         $this->upCount++;
     }
+
+    public function notifySslExpiring(Site $site, string $expiresAtUtc, int $daysLeft): void
+    {
+        // No-op spy — SSL alerting is not exercised by IncidentService tests.
+    }
 }
 
 /**

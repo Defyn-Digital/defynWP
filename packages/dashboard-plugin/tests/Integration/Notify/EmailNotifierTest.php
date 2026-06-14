@@ -127,4 +127,36 @@ final class EmailNotifierTest extends AbstractSchemaTestCase
         // If we reach here the notifier swallowed the failure as required.
         $this->assertTrue(true);
     }
+
+    public function test_notify_ssl_expiring_composes_subject_with_ssl_and_day_count(): void
+    {
+        reset_phpmailer_instance();
+
+        // Create a real WP user with a known email.
+        $userId = self::factory()->user->create(['user_email' => 'sslowner@example.com']);
+
+        // Seed a site row owned by that user.
+        $siteId = $this->makeSite($userId, 'SecureSite');
+
+        // Load Site via SitesRepository so we get a proper Site model.
+        $site = (new SitesRepository())->findById($siteId);
+        $this->assertNotNull($site, 'Site should be loadable from DB');
+
+        // Act: call with a future expiry date and 14 days remaining.
+        (new EmailNotifier())->notifySslExpiring($site, '2026-07-01 00:00:00', 14);
+
+        // Assert email was captured.
+        $mailer = tests_retrieve_phpmailer_instance();
+        $sent   = $mailer->get_sent(0);
+        $this->assertNotFalse($sent, 'Expected at least one email to be captured by MockPHPMailer');
+
+        // Recipient should be the owner's email.
+        $this->assertSame('sslowner@example.com', $sent->to[0][0]);
+
+        // Subject must mention 'SSL'.
+        $this->assertStringContainsString('SSL', $sent->subject);
+
+        // Subject must mention the day count.
+        $this->assertStringContainsString('14', $sent->subject);
+    }
 }
