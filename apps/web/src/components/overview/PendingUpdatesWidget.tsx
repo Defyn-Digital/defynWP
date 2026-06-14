@@ -29,13 +29,13 @@ export function PendingUpdatesWidget({ counts }: PendingUpdatesWidgetProps) {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
       <CountCard
-        to="/sites?filter=has-plugin-updates"
+        to="/overview/plugins"
         label="Plugin updates"
         num={counts.plugins}
         sub={`across ${counts.sites_with_any_update} site${counts.sites_with_any_update === 1 ? '' : 's'}`}
       />
       <CountCard
-        to="/sites?filter=has-theme-updates"
+        to="/overview/themes"
         label="Theme updates"
         num={counts.themes}
         sub="across all sites"

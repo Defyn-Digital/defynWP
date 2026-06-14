@@ -25,16 +25,16 @@ describe('PendingUpdatesWidget', () => {
     expect(screen.getByText('3')).toBeInTheDocument()
   })
 
-  it('plugin card links to /sites?filter=has-plugin-updates', () => {
+  it('plugin card links to /overview/plugins', () => {
     renderWithRouter()
     const pluginCard = screen.getByRole('link', { name: /plugin updates/i })
-    expect(pluginCard).toHaveAttribute('href', '/sites?filter=has-plugin-updates')
+    expect(pluginCard).toHaveAttribute('href', '/overview/plugins')
   })
 
-  it('theme card links to /sites?filter=has-theme-updates', () => {
+  it('theme card links to /overview/themes', () => {
     renderWithRouter()
     const themeCard = screen.getByRole('link', { name: /theme updates/i })
-    expect(themeCard).toHaveAttribute('href', '/sites?filter=has-theme-updates')
+    expect(themeCard).toHaveAttribute('href', '/overview/themes')
   })
 
   it('core card links to /sites?filter=has-core-update', () => {
