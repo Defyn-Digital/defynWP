@@ -7,6 +7,7 @@ import { JobsNavLink } from '@/components/nav/JobsNavLink'
 import { BulkUpdatePluginsButton } from '@/components/overview/BulkUpdatePluginsButton'
 import { BulkUpdateThemesButton } from '@/components/overview/BulkUpdateThemesButton'
 import { formatRelativeTime } from '@/lib/formatRelativeTime'
+import { OpenIncidentsWidget } from '@/components/overview/OpenIncidentsWidget'
 
 export default function Overview() {
   const { data, isLoading, isError, refetch } = useOverview()
@@ -59,6 +60,8 @@ export default function Overview() {
           <BulkUpdateThemesButton pendingCount={data.pending_updates.themes} />
         </div>
       </div>
+
+      <OpenIncidentsWidget openIncidents={data.open_incidents} />
 
       <PendingUpdatesWidget counts={data.pending_updates} />
 

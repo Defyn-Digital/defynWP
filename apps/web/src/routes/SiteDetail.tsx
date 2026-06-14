@@ -12,6 +12,7 @@ import { SitePluginsPanel } from '@/components/sites/SitePluginsPanel';
 import { SiteMajorUpdatesSettingsRow } from '@/components/sites/SiteMajorUpdatesSettingsRow';
 import { useSiteThemes } from '@/lib/queries/useSiteThemes';
 import { SiteThemesPanel } from '@/components/sites/SiteThemesPanel';
+import { IncidentHistoryPanel } from '@/components/sites/IncidentHistoryPanel';
 
 export default function SiteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -102,6 +103,8 @@ export default function SiteDetail() {
           {data && <SiteMajorUpdatesSettingsRow site={data} />}
 
           {data.status !== 'pending' && <SiteActivityPanel site={data} />}
+
+          {data.status !== 'pending' && <IncidentHistoryPanel siteId={siteId} />}
 
           {data.status !== 'pending' && <SitePluginsPanel siteId={siteId} />}
 
