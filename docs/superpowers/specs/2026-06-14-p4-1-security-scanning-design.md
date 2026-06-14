@@ -23,7 +23,7 @@ Detect known vulnerabilities across the fleet by matching each managed site's al
 ## 3. Scope
 
 **In scope (P4.1):**
-- Ingest + cache a vulnerability feed (the **Wordfence Intelligence scanner feed** — free, keyless, downloadable JSON) into a normalized global table; refresh daily, best-effort.
+- Ingest + cache a vulnerability feed (the **Wordfence Intelligence v3 production feed** — a downloadable JSON DB, authenticated with a free registered API key) into a normalized global table; refresh daily, best-effort. The key is read from a **`DEFYN_WORDFENCE_API_KEY` wp-config/env constant** (the established secret pattern — `DEFYN_VAULT_KEY`/`DEFYN_JWT_SECRET`/`DEFYN_SPA_ORIGIN`); **no key in the DB, no SPA settings field** in P4.1. If the constant is absent/empty, feed refresh cleanly no-ops (logged) and scans find nothing until it's configured.
 - A pure **version-range matcher**; a per-site **scan** that matches plugins + themes + core and stores findings.
 - A daily `SecurityScanAll`→`SecurityScan` fan-out + an on-demand "Scan now".
 - A per-site **Security panel** (severity-grouped) + a **`has_vulnerabilities`** Overview attention reason.
@@ -35,8 +35,8 @@ Detect known vulnerabilities across the fleet by matching each managed site's al
 
 ## 4. Vulnerability feed ingestion — `Services\VulnFeedService`
 
-- `refreshIfStale(): void` — if `get_option('defyn_vuln_feed_synced_at')` is older than ~24h (or absent), `wp_remote_get` the Wordfence Intelligence **scanner feed** (free, no API key), JSON-decode, and **upsert** normalized rows into `wp_defyn_vulnerabilities`; stamp the option. **Best-effort:** a transport/non-2xx/parse failure is logged and returns, leaving the last-good rows intact (never throws into the scan loop).
-- **Feed shape is a planning research item:** the exact Wordfence scanner-feed URL + JSON schema must be confirmed against the live feed in the plan's first task. The service maps each vulnerability's affected-software entries — `(type ∈ plugin|theme|core, slug, affected_versions[] { from_version, from_inclusive, to_version, to_inclusive }, patched/fixed version)` plus `title`, `severity`, `cve`, `cvss_score` — into `wp_defyn_vulnerabilities` rows (one row per affected range). If a field is absent in the feed, store null (severity defaults to `unknown`).
+- `refreshIfStale(): void` — read the API key from the `DEFYN_WORDFENCE_API_KEY` constant (`defined(...) ? constant : ''`). **If the key is empty, log once and return** (no fetch, last-good rows untouched). Otherwise, if `get_option('defyn_vuln_feed_synced_at')` is older than ~24h (or absent), `wp_remote_get` the Wordfence Intelligence **v3 production feed** with the key (per the v3 auth scheme confirmed in Task 1 — header or query param), JSON-decode, and **upsert** normalized rows into `wp_defyn_vulnerabilities`; stamp the option. **Best-effort:** a transport/non-2xx (incl. 401 bad-key)/parse failure is logged and returns, leaving the last-good rows intact (never throws into the scan loop). **The key is never logged.**
+- **Feed URL + auth + shape are a planning research item:** the exact Wordfence Intelligence **v3** feed URL, the auth mechanism (Authorization header vs query param), the free-tier terms, and the JSON schema must be confirmed against the live keyed feed in the plan's first task. The service maps each vulnerability's affected-software entries — `(type ∈ plugin|theme|core, slug, affected_versions[] { from_version, from_inclusive, to_version, to_inclusive }, patched/fixed version)` plus `title`, `severity`, `cve`, `cvss_score` — into `wp_defyn_vulnerabilities` rows (one row per affected range). If a field is absent in the feed, store null (severity defaults to `unknown`).
 
 ## 5. Data model — schema v10 → v11 (two new tables)
 
@@ -124,7 +124,8 @@ public static function isAffected(string $installed, ?string $from, bool $fromIn
 
 ## 11. Error handling & edge cases
 
-- **Feed fetch best-effort:** failure → log, keep last-good vuln rows; the scan still runs against cached data (never throws into the AS loop).
+- **No API key configured** (`DEFYN_WORDFENCE_API_KEY` absent/empty): feed refresh logs once and no-ops; scans run against whatever vuln rows are cached (initially none → zero findings, sites read as "scanned, clean"). The feature is inert-but-safe until the operator sets the constant. No error surfaced to the SPA.
+- **Feed fetch best-effort:** failure (incl. a 401 from a bad/expired key) → log, keep last-good vuln rows; the scan still runs against cached data (never throws into the AS loop).
 - **Never-scanned site:** panel shows "Not yet scanned" until the first daily scan or a "Scan now".
 - **Unparseable installed version** → matcher returns false (no false positive); logged.
 - **Feed is global** (public vuln data) — `wp_defyn_vulnerabilities` is not user-scoped; per-site findings are ownership-scoped via the site join.
@@ -151,13 +152,14 @@ public static function isAffected(string $installed, ?string $from, bool $fromIn
 - **Connector unchanged** (v0.1.7) — no zip rebuild, no re-handshake.
 - Schema v11 via self-heal; Uninstaller drops both new tables (TABLES-iteration).
 - Symfony-preserving zip (top-level `dashboard-plugin/` folder); SPA auto-deploys via Cloudflare.
+- **API key:** the operator registers a free Wordfence Intelligence key and sets `DEFYN_WORDFENCE_API_KEY` in wp-config/env on Kinsta (a manual user step, like `DEFYN_VAULT_KEY` — flag it; never enter it for them). Prod smoke covers the **no-key-configured path** (refresh no-ops cleanly, endpoints still 200 with empty findings); the keyed happy-path feed download is verified by the operator once the key is set (foreclosed for us by the zero-sites prod state regardless).
 - Production smoke (API curl only; login JWT field is **`access_token`**): schema v11 (`GET /sites/{id}/vulnerabilities` 200 envelope + 401 + 404), `POST .../security/scan` 202/404, `/overview` reason enum carries `has_vulnerabilities`, `/sites/:id` SPA route + deployed bundle has the new "Security"/"vulnerabilities" strings.
 - Tag `p4-1-security-scanning-complete`. (Next: **P4.2** dedicated `/security` fleet page; then **P4.3** alerting + ignore/dismiss config.)
 
 ## 14. Guardrails (plan-bug traps to surface in the plan)
 
 1. **No connector change** — the matcher runs entirely dashboard-side against the already-collected inventory.
-2. Feed source = **Wordfence Intelligence scanner feed** (free, **keyless**) — design keyless-first; **verify the live feed URL + JSON shape in the plan's first task** before relying on field names.
+2. Feed source = **Wordfence Intelligence v3 production feed**, authenticated with a **free per-operator API key** read from the **`DEFYN_WORDFENCE_API_KEY`** wp-config/env constant (mirrors `DEFYN_VAULT_KEY`/`DEFYN_JWT_SECRET`) — **no key in the DB, no SPA field, never logged**. Empty key → refresh no-ops. **Task 1 must verify the live v3 feed URL + auth scheme + free-tier terms + JSON shape** (with a registered key) before relying on field names; if the v3 schema diverges from v2, `VulnFeedService`'s mapping is the only thing that changes.
 3. `VulnFeedService` is **best-effort** — never throws into the scan/AS loop; keeps last-good data on failure.
 4. `VulnerabilityMatcher` is a **pure** function (version_compare-based, no DB); unparseable installed version → **false** (no false positive); inclusivity flags drive `>`/`>=` and `<`/`<=`.
 5. Scan covers **plugins + themes + core** (core slug = `wordpress`, version = `site.wpVersion`).
