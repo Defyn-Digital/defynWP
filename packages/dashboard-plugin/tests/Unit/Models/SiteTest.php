@@ -41,6 +41,25 @@ final class SiteTest extends TestCase
         self::assertSame('2026-05-11 00:00:00', $site->createdAt);
     }
 
+    public function testFromRowMapsLastResponseTimeMs(): void
+    {
+        $site = \Defyn\Dashboard\Models\Site::fromRow([
+            'id' => 1, 'user_id' => 1, 'url' => 'https://a.test', 'label' => 'A',
+            'status' => 'active', 'created_at' => '2026-06-14 00:00:00',
+            'last_response_time_ms' => '247',
+        ]);
+        self::assertSame(247, $site->lastResponseTimeMs);
+    }
+
+    public function testFromRowDefaultsLastResponseTimeMsToNull(): void
+    {
+        $site = \Defyn\Dashboard\Models\Site::fromRow([
+            'id' => 1, 'user_id' => 1, 'url' => 'https://a.test', 'label' => 'A',
+            'status' => 'active', 'created_at' => '2026-06-14 00:00:00',
+        ]);
+        self::assertNull($site->lastResponseTimeMs);
+    }
+
     public function testToJsonProducesSpaShape(): void
     {
         $site = Site::fromRow([

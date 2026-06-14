@@ -60,6 +60,8 @@ final class Site
         public readonly bool    $coreAllowMajor = false,
         // P3.1 additions — consecutive health-check failure counter (internal; not surfaced to SPA).
         public readonly int     $consecutiveFailures = 0,
+        // P3.2 — last measured heartbeat round-trip (ms); null when last ping failed / never pinged.
+        public readonly ?int    $lastResponseTimeMs = null,
     ) {}
 
     /** @param array<string, mixed> $row wpdb result row (all values come back as strings) */
@@ -92,6 +94,7 @@ final class Site
             lastCoreUpdateAttemptAt: isset($row['last_core_update_attempt_at']) ? (string) $row['last_core_update_attempt_at'] : null,
             coreAllowMajor:          (bool) (int) ($row['core_allow_major'] ?? 0),
             consecutiveFailures:     isset($row['consecutive_failures']) ? (int) $row['consecutive_failures'] : 0,
+            lastResponseTimeMs:      isset($row['last_response_time_ms']) ? (int) $row['last_response_time_ms'] : null,
         );
     }
 
