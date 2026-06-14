@@ -197,4 +197,25 @@ final class IncidentServiceTest extends AbstractSchemaTestCase
         // Guardrail 4 — counter reset even though no incident existed
         $this->assertSame(0, $this->reload($site)->consecutiveFailures);
     }
+
+    /**
+     * P3.3 Task 7 — mute gate: a MUTED site still records the incident and its
+     * audit events, but the down notification is suppressed (downCount stays 0).
+     */
+    public function test_muted_site_records_incident_but_does_not_notify(): void
+    {
+        $site = $this->seedSite(1);
+        (new SitesRepository())->setAlertsMuted($site->id, true);
+        $muted = $this->reload($site);   // re-hydrate so $muted->alertsMuted === true
+
+        $notifier = new SpyNotifier();
+        $svc      = $this->service($notifier);
+
+        $svc->recordFailure($muted, 'boom');                 // 1st — below threshold
+        $svc->recordFailure($this->reload($muted), 'boom');  // 2nd — opens incident
+
+        // Incident WAS opened (history kept) but NO down-email fired (muted).
+        $this->assertNotNull((new IncidentsRepository())->findOpenForSite($site->id));
+        $this->assertSame(0, $notifier->downCount);
+    }
 }

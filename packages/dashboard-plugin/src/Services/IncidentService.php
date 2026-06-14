@@ -6,7 +6,7 @@ namespace Defyn\Dashboard\Services;
 
 use Defyn\Dashboard\Models\Incident;
 use Defyn\Dashboard\Models\Site;
-use Defyn\Dashboard\Notify\EmailNotifier;
+use Defyn\Dashboard\Notify\MultiNotifier;
 use Defyn\Dashboard\Notify\Notifier;
 use Throwable;
 
@@ -41,7 +41,7 @@ final class IncidentService
         $incidents = $this->incidents ?? new IncidentsRepository();
         $sites     = $this->sites     ?? new SitesRepository();
         $logger    = $this->logger    ?? new ActivityLogger();
-        $notifier  = $this->notifier  ?? new EmailNotifier();
+        $notifier  = $this->notifier  ?? new MultiNotifier();
 
         $count = $sites->incrementConsecutiveFailures($site->id);
         if ($count < self::CONFIRM_THRESHOLD) {
@@ -55,7 +55,7 @@ final class IncidentService
         $id  = $incidents->open($site->id, $now, $message);
         $incident = new Incident($id, $site->id, $now, null, null, $message, null, null, $now);
 
-        if ($this->safeNotify(static fn () => $notifier->notifyDown($site, $incident))) {  // guardrail 6
+        if (!$site->alertsMuted && $this->safeNotify(static fn () => $notifier->notifyDown($site, $incident))) {  // guardrail 6 + P3.3 mute gate
             $incidents->markDownAlertSent($id, gmdate('Y-m-d H:i:s'));                    // guardrail 2
         }
         $logger->log($site->userId, $site->id, 'site.incident_opened', [
@@ -68,7 +68,7 @@ final class IncidentService
         $incidents = $this->incidents ?? new IncidentsRepository();
         $sites     = $this->sites     ?? new SitesRepository();
         $logger    = $this->logger    ?? new ActivityLogger();
-        $notifier  = $this->notifier  ?? new EmailNotifier();
+        $notifier  = $this->notifier  ?? new MultiNotifier();
 
         $open = $incidents->findOpenForSite($site->id);
         if ($open !== null) {
@@ -86,7 +86,7 @@ final class IncidentService
                 null,
                 $open->createdAt
             );
-            if ($this->safeNotify(static fn () => $notifier->notifyRecovered($site, $closed))) {  // guardrail 6
+            if (!$site->alertsMuted && $this->safeNotify(static fn () => $notifier->notifyRecovered($site, $closed))) {  // guardrail 6 + P3.3 mute gate
                 $incidents->markUpAlertSent($open->id, gmdate('Y-m-d H:i:s'));                    // guardrail 2
             }
             $logger->log($site->userId, $site->id, 'site.incident_closed', [
