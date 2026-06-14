@@ -34,6 +34,7 @@ final class UninstallTest extends AbstractSchemaTestCase
             $wpdb->prefix . 'defyn_activity_log',
             $wpdb->prefix . 'defyn_site_plugins',
             $wpdb->prefix . 'defyn_site_themes',
+            $wpdb->prefix . 'defyn_incidents',
         ];
 
         foreach ($tables as $t) {

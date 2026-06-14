@@ -8,6 +8,7 @@ use Defyn\Dashboard\Jobs\Scheduler;
 use Defyn\Dashboard\Schema\ActivityLogTable;
 use Defyn\Dashboard\Schema\BulkJobItemsTable;
 use Defyn\Dashboard\Schema\BulkJobsTable;
+use Defyn\Dashboard\Schema\IncidentsTable;
 use Defyn\Dashboard\Schema\ConnectionCodesTable;
 use Defyn\Dashboard\Schema\SchemaTable;
 use Defyn\Dashboard\Schema\SchemaVersion;
@@ -23,7 +24,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 7;
+    public const SCHEMA_VERSION = 8;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -39,6 +40,7 @@ final class Activation
         SiteThemesTable::class,
         BulkJobsTable::class,
         BulkJobItemsTable::class,
+        IncidentsTable::class,
     ];
 
     /** Throttle key for {@see maybeRunSelfHeal} — checked at most once per hour. */
@@ -85,6 +87,9 @@ final class Activation
         self::addCoreAllowMajorColumn($wpdb);
         self::addPluginsTestedUpToColumn($wpdb);
         self::addThemesTestedUpToColumn($wpdb);
+
+        // P3.1 — add consecutive_failures to wp_defyn_sites. Guarded ALTER.
+        self::addConsecutiveFailuresColumn($wpdb);
 
         // P2.1: SchemaVersion is the canonical migration cursor; we coalesce
         // with any in-DB value via max() so a future install starting at v3
@@ -216,5 +221,19 @@ final class Activation
         }
         // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
         $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN tested_up_to VARCHAR(20) NULL AFTER update_version");
+    }
+
+    private static function addConsecutiveFailuresColumn(\wpdb $wpdb): void
+    {
+        $table  = SitesTable::tableName();
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SHOW COLUMNS FROM `{$table}` LIKE %s",
+            'consecutive_failures'
+        ));
+        if ($exists !== null) {
+            return;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+        $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN consecutive_failures INT NOT NULL DEFAULT 0");
     }
 }
