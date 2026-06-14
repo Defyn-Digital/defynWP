@@ -6,6 +6,7 @@ import { ConfirmBulkUpdateGateDialog } from '@/components/overview/ConfirmBulkUp
 import { usePendingThemeUpdates } from '@/lib/queries/usePendingThemeUpdates';
 import { useBulkUpdateThemes } from '@/lib/mutations/useBulkUpdateThemes';
 import { usePendingUpdatesSelection } from '@/lib/usePendingUpdatesSelection';
+import type { PendingThemeUpdateRow } from '@/types/api';
 
 /**
  * P2.10 — /overview/themes drill-in page. Theme mirror of OverviewPlugins:
@@ -97,7 +98,10 @@ export default function OverviewThemes() {
                 <PendingThemeUpdatesGroup
                   key={label}
                   siteLabel={label}
-                  rows={groupRows}
+                  // The shared selection hook's interface widens rows to the
+                  // base SelectionRow shape; at runtime these are the original
+                  // PendingThemeUpdateRow objects (theme_name preserved).
+                  rows={groupRows as PendingThemeUpdateRow[]}
                   checkedKeys={selection.checkedKeys}
                   onToggleRow={selection.toggleRow}
                   onToggleGroup={selection.toggleGroup}
