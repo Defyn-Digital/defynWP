@@ -304,3 +304,30 @@ export const retryFailedResponseSchema = z.object({
   scheduled_at: z.string(),
 });
 export type RetryFailedResponse = z.infer<typeof retryFailedResponseSchema>;
+
+// P3.2 — Monitoring fleet page.
+export const monitoringSiteSchema = z.object({
+  site_id: z.number().int(),
+  label: z.string(),
+  url: z.string(),
+  status: siteStatusSchema,
+  last_response_time_ms: z.number().int().nullable(),
+  last_contact_at: z.string().nullable(),
+  uptime_7d: z.number(),
+  uptime_30d: z.number(),
+  open_incident_started_at: z.string().nullable(),
+});
+export type MonitoringSite = z.infer<typeof monitoringSiteSchema>;
+
+export const monitoringSchema = z.object({
+  summary: z.object({
+    total: z.number().int().nonnegative(),
+    up: z.number().int().nonnegative(),
+    down: z.number().int().nonnegative(),
+    fleet_uptime_30d: z.number().nullable(),
+    slowest_ms: z.number().int().nullable(),
+  }),
+  sites: z.array(monitoringSiteSchema),
+  generated_at: z.string(),
+});
+export type Monitoring = z.infer<typeof monitoringSchema>;

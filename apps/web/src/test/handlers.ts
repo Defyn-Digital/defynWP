@@ -609,6 +609,15 @@ handlers.push(
     return HttpResponse.json({ data: { incidents: [] }, error: null });
   }),
 
+  // P3.2 — GET /monitoring — empty fleet by default; tests override via server.use().
+  http.get('*/wp-json/defyn/v1/monitoring', () => {
+    return HttpResponse.json({
+      summary: { total: 0, up: 0, down: 0, fleet_uptime_30d: null, slowest_ms: null },
+      sites: [],
+      generated_at: '2026-06-14 03:35:00',
+    });
+  }),
+
   // P2.6 — POST /overview/sync-all — default synthetic 200; tests override via server.use().
   http.post('*/wp-json/defyn/v1/overview/sync-all', () => {
     return HttpResponse.json(
