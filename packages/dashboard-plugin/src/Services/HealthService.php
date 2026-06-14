@@ -57,6 +57,7 @@ final class HealthService
             $repo->markOffline($siteId, $message);
             $logger->log($site->userId, $siteId, 'site.health_failed', ['error' => $message]);
             ($this->incidents ?? new IncidentService())->recordFailure($site, $message);
+            $repo->recordResponseTime($siteId, null);
             return;
         }
 
@@ -70,18 +71,22 @@ final class HealthService
             $repo->markOffline($siteId, $message);
             $logger->log($site->userId, $siteId, 'site.health_failed', ['error' => $message]);
             ($this->incidents ?? new IncidentService())->recordFailure($site, $message);
+            $repo->recordResponseTime($siteId, null);
             return;
         }
 
         $url           = rtrim($site->url, '/') . '/wp-json/defyn-connector/v1/heartbeat';
         $canonicalPath = '/defyn-connector/v1/heartbeat';
 
-        $response = $this->httpClient->signedGet($url, $privateKey, $canonicalPath);
+        $startedAt = microtime(true);
+        $response  = $this->httpClient->signedGet($url, $privateKey, $canonicalPath);
+        $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
 
         if ($response['error'] !== '') {
             $repo->markOffline($siteId, $response['error']);
             $logger->log($site->userId, $siteId, 'site.health_failed', ['error' => $response['error']]);
             ($this->incidents ?? new IncidentService())->recordFailure($site, $response['error']);
+            $repo->recordResponseTime($siteId, null);
             return;
         }
         if ($response['status'] < 200 || $response['status'] >= 300) {
@@ -89,6 +94,7 @@ final class HealthService
             $repo->markOffline($siteId, $message);
             $logger->log($site->userId, $siteId, 'site.health_failed', ['error' => $message]);
             ($this->incidents ?? new IncidentService())->recordFailure($site, $message);
+            $repo->recordResponseTime($siteId, null);
             return;
         }
 
@@ -96,10 +102,12 @@ final class HealthService
             $repo->markRecovered($siteId);
             $logger->log($site->userId, $siteId, 'site.recovered');
             ($this->incidents ?? new IncidentService())->recordSuccess($site);
+            $repo->recordResponseTime($siteId, $elapsedMs);
         } else {
             $repo->markContactAt($siteId);
             $logger->log($site->userId, $siteId, 'site.health_ok');
             ($this->incidents ?? new IncidentService())->recordSuccess($site);
+            $repo->recordResponseTime($siteId, $elapsedMs);
         }
     }
 }

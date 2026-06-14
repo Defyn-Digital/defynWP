@@ -106,4 +106,35 @@ final class HealthServiceTest extends AbstractSchemaTestCase
         self::assertSame('active', $site->status);
         self::assertSame('', (string) $site->lastError);
     }
+
+    public function testSuccessfulPingRecordsResponseTime(): void
+    {
+        $siteId = $this->makeActiveSite();
+
+        $mock = new MockHttpClient(fn () => new MockResponse(
+            json_encode(['ok' => true, 'server_time' => time()]),
+            ['http_code' => 200],
+        ));
+
+        (new HealthService(new SignedHttpClient($mock)))->ping($siteId);
+
+        $site = (new SitesRepository())->findById($siteId);
+        self::assertNotNull($site->lastResponseTimeMs);
+        self::assertGreaterThanOrEqual(0, $site->lastResponseTimeMs);
+    }
+
+    public function testFailedPingNullsResponseTime(): void
+    {
+        $siteId = $this->makeActiveSite();
+        (new SitesRepository())->recordResponseTime($siteId, 123); // prior value to prove it clears
+
+        $mock = new MockHttpClient(function () {
+            throw new TransportException('host unreachable');
+        });
+
+        (new HealthService(new SignedHttpClient($mock)))->ping($siteId);
+
+        $site = (new SitesRepository())->findById($siteId);
+        self::assertNull($site->lastResponseTimeMs);
+    }
 }
