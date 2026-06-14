@@ -64,6 +64,16 @@ if (!defined('DEFYN_VAULT_KEY')) {
     }
 }
 
+// Wordfence Intelligence API key (P4.1): authenticates the daily vulnerability-feed
+// download. Optional — when absent, VulnFeedService cleanly no-ops (no findings) so the
+// security-scanning feature stays inert-but-safe until the operator registers a free key.
+if (!defined('DEFYN_WORDFENCE_API_KEY')) {
+    $envWfKey = getenv('DEFYN_WORDFENCE_API_KEY');
+    if ($envWfKey !== false && $envWfKey !== '') {
+        define('DEFYN_WORDFENCE_API_KEY', $envWfKey);
+    }
+}
+
 // Action Scheduler: loaded before Plugin::boot() so as_schedule_single_action()
 // and the hook system are available when controllers / Plugin::boot() reference them.
 // Loading is idempotent — if another plugin loaded AS first (its own copy ships
