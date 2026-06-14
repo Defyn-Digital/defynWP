@@ -7,6 +7,7 @@ namespace Defyn\Dashboard\Tests\Integration\Jobs;
 use Defyn\Dashboard\Jobs\CleanupExpiredCodes;
 use Defyn\Dashboard\Jobs\HealthPingAll;
 use Defyn\Dashboard\Jobs\Scheduler;
+use Defyn\Dashboard\Jobs\SslCheckAll;
 use Defyn\Dashboard\Jobs\SyncAllSites;
 use Defyn\Dashboard\Tests\Integration\AbstractSchemaTestCase;
 
@@ -28,13 +29,14 @@ final class SchedulerTest extends AbstractSchemaTestCase
         Scheduler::uninstallRecurringSchedules();
     }
 
-    public function testInstallSchedulesAllThreeRecurringActions(): void
+    public function testInstallSchedulesAllFourRecurringActions(): void
     {
         Scheduler::installRecurringSchedules();
 
         $this->assertNotFalse(as_next_scheduled_action(SyncAllSites::HOOK,         [], 'defyn'));
         $this->assertNotFalse(as_next_scheduled_action(HealthPingAll::HOOK,        [], 'defyn'));
         $this->assertNotFalse(as_next_scheduled_action(CleanupExpiredCodes::HOOK,  [], 'defyn'));
+        $this->assertNotFalse(as_next_scheduled_action(SslCheckAll::HOOK,          [], 'defyn'));
     }
 
     public function testInstallIsIdempotent(): void
@@ -58,5 +60,6 @@ final class SchedulerTest extends AbstractSchemaTestCase
         $this->assertFalse(as_next_scheduled_action(SyncAllSites::HOOK,        [], 'defyn'));
         $this->assertFalse(as_next_scheduled_action(HealthPingAll::HOOK,       [], 'defyn'));
         $this->assertFalse(as_next_scheduled_action(CleanupExpiredCodes::HOOK, [], 'defyn'));
+        $this->assertFalse(as_next_scheduled_action(SslCheckAll::HOOK,         [], 'defyn'));
     }
 }

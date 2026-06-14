@@ -130,6 +130,16 @@ final class Activation
         if (SchemaVersion::current() < self::SCHEMA_VERSION || !self::canonicalTableExists()) {
             self::ensureSchema();
         }
+
+        // P3.3 — ensure the daily SSL schedule exists even on a silent upgrade.
+        // The AS recurring schedule normally installs only via the activation hook.
+        // On upgrade-without-reactivation the hook doesn't fire, so we guard here.
+        // Scheduler::installRecurringSchedules() is idempotent (unschedules+reschedules)
+        // so calling it only when the SSL hook is absent avoids resetting other cadences.
+        if (function_exists('as_next_scheduled_action')
+            && as_next_scheduled_action(\Defyn\Dashboard\Jobs\SslCheckAll::HOOK, [], 'defyn') === false) {
+            \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
+        }
     }
 
     private static function canonicalTableExists(): bool
