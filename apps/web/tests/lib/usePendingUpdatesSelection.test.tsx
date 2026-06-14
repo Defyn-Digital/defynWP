@@ -88,15 +88,37 @@ describe('usePendingUpdatesSelection', () => {
     expect(result.current.checkedKeys.has('1:akismet')).toBe(true);
   });
 
-  it('reSeedsWhenRowsIdentityChanges', () => {
+  it('preservesChecksWhenRefetchReturnsIdenticalContent', () => {
+    // A background refetch (staleTime, window focus) commonly yields a NEW array
+    // reference with the SAME rows. Re-seeding on mere reference identity — the
+    // original behavior — both wiped the operator's manual unchecks AND spun an
+    // infinite render loop when a caller passed `data ?? []` (a fresh [] every
+    // render). Identical content must be a no-op so selections survive.
     const { result, rerender } = renderHook(
       ({ rows }) => usePendingUpdatesSelection(rows),
       { initialProps: { rows: ROWS } },
     );
     act(() => result.current.toggleRow('1:akismet'));
     expect(result.current.checkedCount).toBe(2);
-    // A fresh fetch yields a new rows array → re-seed to all checked.
+    // New array reference, identical keys → checks preserved (no re-seed).
     rerender({ rows: [...ROWS] });
-    expect(result.current.checkedCount).toBe(3);
+    expect(result.current.checkedCount).toBe(2);
+    expect(result.current.checkedKeys.has('1:akismet')).toBe(false);
+  });
+
+  it('reSeedsWhenRowsContentChanges', () => {
+    // When a fresh fetch actually changes the visible key set (rows added or
+    // removed), re-seed to all-visible so newly-arrived updates are pre-checked.
+    const { result, rerender } = renderHook(
+      ({ rows }) => usePendingUpdatesSelection(rows),
+      { initialProps: { rows: ROWS } },
+    );
+    act(() => result.current.toggleRow('1:akismet'));
+    expect(result.current.checkedCount).toBe(2);
+    // Drop jetpack → different key set → re-seed to all visible rows.
+    rerender({ rows: ROWS.slice(0, 2) });
+    expect(result.current.totalCount).toBe(2);
+    expect(result.current.checkedCount).toBe(2);
+    expect(result.current.checkedKeys.has('1:akismet')).toBe(true); // uncheck discarded on re-seed
   });
 });

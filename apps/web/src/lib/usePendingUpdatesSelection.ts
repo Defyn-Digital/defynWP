@@ -60,13 +60,25 @@ export function usePendingUpdatesSelection<R extends SelectionRow>(
     [visibleRows],
   );
 
+  // Stable content signature of the visible key set. The re-seed effect below
+  // keys off this string, NOT the `allKeys` array reference, because callers
+  // routinely pass an unstable `rows` reference — e.g. `data?.pending_updates
+  // ?? []` allocates a fresh [] on every render while the query is loading or
+  // empty. Depending on the array reference would re-fire the effect every
+  // render and spin an infinite render loop (React: "Maximum update depth
+  // exceeded"). The signature changes only when the keys actually change.
+  const allKeysSignature = allKeys.join(' ');
+
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(() => new Set(allKeys));
 
-  // Re-seed to all-visible whenever the visible key set changes (toggle flip
-  // OR a fresh fetch produces a new rows array). Single effect — plan-bug #5.
+  // Re-seed to all-visible whenever the visible key set's CONTENT changes
+  // (toggle flip OR a fresh fetch with different rows). Single effect — plan-bug #5.
   useEffect(() => {
     setCheckedKeys(new Set(allKeys));
-  }, [allKeys]);
+    // allKeys is intentionally not in the deps: it is a fresh array each render
+    // under an unstable caller `rows`. Re-seed on content change via the signature.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allKeysSignature]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, R[]>();
