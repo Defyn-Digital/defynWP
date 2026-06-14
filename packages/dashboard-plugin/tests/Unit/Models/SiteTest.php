@@ -60,6 +60,37 @@ final class SiteTest extends TestCase
         self::assertNull($site->lastResponseTimeMs);
     }
 
+    public function testFromRowMapsAlertConfigFields(): void
+    {
+        $site = \Defyn\Dashboard\Models\Site::fromRow([
+            'id' => 1, 'user_id' => 1, 'url' => 'https://a.test', 'label' => 'A',
+            'status' => 'active', 'created_at' => '2026-06-14 00:00:00',
+            'alerts_muted' => '1', 'ssl_alert_sent_at' => '2026-06-14 02:00:00',
+        ]);
+        self::assertTrue($site->alertsMuted);
+        self::assertSame('2026-06-14 02:00:00', $site->sslAlertSentAt);
+    }
+
+    public function testFromRowDefaultsAlertConfig(): void
+    {
+        $site = \Defyn\Dashboard\Models\Site::fromRow([
+            'id' => 1, 'user_id' => 1, 'url' => 'https://a.test', 'label' => 'A',
+            'status' => 'active', 'created_at' => '2026-06-14 00:00:00',
+        ]);
+        self::assertFalse($site->alertsMuted);
+        self::assertNull($site->sslAlertSentAt);
+    }
+
+    public function testToJsonExposesAlertsMuted(): void
+    {
+        $site = \Defyn\Dashboard\Models\Site::fromRow([
+            'id' => 1, 'user_id' => 1, 'url' => 'https://a.test', 'label' => 'A',
+            'status' => 'active', 'created_at' => '2026-06-14 00:00:00', 'alerts_muted' => '1',
+        ]);
+        self::assertArrayHasKey('alerts_muted', $site->toJson());
+        self::assertTrue($site->toJson()['alerts_muted']);
+    }
+
     public function testToJsonProducesSpaShape(): void
     {
         $site = Site::fromRow([
@@ -100,6 +131,8 @@ final class SiteTest extends TestCase
             'last_core_update_attempt_at' => null,
             // P2.4.1: major version policy flag defaults to false.
             'core_allow_major'            => false,
+            // P3.3: per-site alert mute flag defaults to false.
+            'alerts_muted'                => false,
         ], $site->toJson());
     }
 }

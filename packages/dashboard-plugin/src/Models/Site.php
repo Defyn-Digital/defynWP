@@ -62,6 +62,9 @@ final class Site
         public readonly int     $consecutiveFailures = 0,
         // P3.2 — last measured heartbeat round-trip (ms); null when last ping failed / never pinged.
         public readonly ?int    $lastResponseTimeMs = null,
+        // P3.3 — per-site alert mute + SSL-expiry de-dup stamp (internal).
+        public readonly bool    $alertsMuted = false,
+        public readonly ?string $sslAlertSentAt = null,
     ) {}
 
     /** @param array<string, mixed> $row wpdb result row (all values come back as strings) */
@@ -95,6 +98,8 @@ final class Site
             coreAllowMajor:          (bool) (int) ($row['core_allow_major'] ?? 0),
             consecutiveFailures:     isset($row['consecutive_failures']) ? (int) $row['consecutive_failures'] : 0,
             lastResponseTimeMs:      isset($row['last_response_time_ms']) ? (int) $row['last_response_time_ms'] : null,
+            alertsMuted:             (bool) (int) ($row['alerts_muted'] ?? 0),
+            sslAlertSentAt:          isset($row['ssl_alert_sent_at']) ? (string) $row['ssl_alert_sent_at'] : null,
         );
     }
 
@@ -142,6 +147,7 @@ final class Site
             'last_core_update_error'      => $this->lastCoreUpdateError,
             'last_core_update_attempt_at' => $this->lastCoreUpdateAttemptAt,
             'core_allow_major'            => $this->coreAllowMajor,
+            'alerts_muted'                => $this->alertsMuted,
         ];
     }
 }
