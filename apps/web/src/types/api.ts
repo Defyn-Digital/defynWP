@@ -141,7 +141,11 @@ export const overviewSchema = z.object({
   })),
   total_sites: z.number().int().nonnegative(),
   generated_at: z.string(),
-  open_incidents: z.array(openIncidentSchema),
+  // Tolerant of an older dashboard that predates P3.1: if the backend omits
+  // open_incidents (e.g. during the SPA-deploy → manual-dashboard-install
+  // window), default to [] so /overview still parses and the Overview page
+  // doesn't break. Once the v0.10.0 dashboard is installed, real data flows.
+  open_incidents: z.array(openIncidentSchema).default([]),
 });
 export type Overview = z.infer<typeof overviewSchema>;
 
