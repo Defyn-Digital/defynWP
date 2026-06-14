@@ -4,6 +4,7 @@ import { SitesNeedingAttentionWidget } from '@/components/overview/SitesNeedingA
 import { RecentActivityWidget } from '@/components/overview/RecentActivityWidget'
 import { SyncAllSitesButton } from '@/components/overview/SyncAllSitesButton'
 import { JobsNavLink } from '@/components/nav/JobsNavLink'
+import { MonitoringNavLink } from '@/components/nav/MonitoringNavLink'
 import { BulkUpdatePluginsButton } from '@/components/overview/BulkUpdatePluginsButton'
 import { BulkUpdateThemesButton } from '@/components/overview/BulkUpdateThemesButton'
 import { formatRelativeTime } from '@/lib/formatRelativeTime'
@@ -50,6 +51,7 @@ export default function Overview() {
         <div className="flex items-baseline gap-3">
           <h1 className="text-xl font-semibold">Overview</h1>
           <JobsNavLink />
+          <MonitoringNavLink />
         </div>
         <div className="flex flex-col items-end gap-1">
           <p className="text-xs text-muted-foreground">
