@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 5.5
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.10.0
+Stable tag: 0.11.0
 License: Proprietary
 License URI: https://defyn.dev/license
 
@@ -39,6 +39,11 @@ No. It only signs and sends requests to the specific managed sites you connect t
 The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_refresh_tokens`, `wp_defyn_activity_log`, `wp_defyn_site_plugins`) and stored options are removed via `uninstall.php`.
 
 == Changelog ==
+
+= 0.11.0 =
+* Monitoring performance & uptime visibility (P3.2): schema v8 → v9 adds wp_defyn_sites.last_response_time_ms. HealthService now times the existing signed /heartbeat round-trip and persists per-site latency (NULL on a failed ping).
+* New GET /defyn/v1/monitoring (30/min) returns a fleet summary (up/down/fleet uptime 30d/slowest latency) + per-site rows (status, latency, 7d & 30d uptime derived from wp_defyn_incidents, open-incident start). Feeds the new SPA /monitoring page.
+* Uptime is derived (pure function over the incident history), never stored. Connector unchanged.
 
 = 0.10.0 =
 * Site monitoring (P3.1): schema v7 → v8 adds wp_defyn_site_incidents table (incident tracking with type, severity, opened_at/resolved_at).
