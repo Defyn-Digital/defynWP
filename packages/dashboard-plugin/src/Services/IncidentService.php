@@ -55,8 +55,9 @@ final class IncidentService
         $id  = $incidents->open($site->id, $now, $message);
         $incident = new Incident($id, $site->id, $now, null, null, $message, null, null, $now);
 
-        $this->safeNotify(static fn () => $notifier->notifyDown($site, $incident));  // guardrail 6
-        $incidents->markDownAlertSent($id, gmdate('Y-m-d H:i:s'));                   // guardrail 2
+        if ($this->safeNotify(static fn () => $notifier->notifyDown($site, $incident))) {  // guardrail 6
+            $incidents->markDownAlertSent($id, gmdate('Y-m-d H:i:s'));                    // guardrail 2
+        }
         $logger->log($site->userId, $site->id, 'site.incident_opened', [
             'incident_id' => $id, 'started_at' => $now, 'error' => $message,
         ]);
@@ -85,8 +86,9 @@ final class IncidentService
                 null,
                 $open->createdAt
             );
-            $this->safeNotify(static fn () => $notifier->notifyRecovered($site, $closed));  // guardrail 6
-            $incidents->markUpAlertSent($open->id, gmdate('Y-m-d H:i:s'));                  // guardrail 2
+            if ($this->safeNotify(static fn () => $notifier->notifyRecovered($site, $closed))) {  // guardrail 6
+                $incidents->markUpAlertSent($open->id, gmdate('Y-m-d H:i:s'));                    // guardrail 2
+            }
             $logger->log($site->userId, $site->id, 'site.incident_closed', [
                 'incident_id' => $open->id, 'duration_seconds' => $duration,
             ]);
@@ -95,12 +97,8 @@ final class IncidentService
         $sites->resetConsecutiveFailures($site->id);                                // guardrail 4 — always
     }
 
-    private function safeNotify(callable $fn): void
+    private function safeNotify(callable $fn): bool
     {
-        try {
-            $fn();
-        } catch (Throwable $e) {
-            error_log('[defyn] notify failed: ' . $e->getMessage());
-        }
+        try { $fn(); return true; } catch (Throwable $e) { error_log('[defyn] notify failed: ' . $e->getMessage()); return false; }
     }
 }

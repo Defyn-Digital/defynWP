@@ -135,6 +135,7 @@ final class IncidentServiceTest extends AbstractSchemaTestCase
         $open = (new IncidentsRepository())->findOpenForSite($site->id);
         $this->assertNotNull($open);
         $this->assertSame(1, $notifier->downCount);
+        $this->assertNotNull($open->downAlertSentAt);   // Fix 2: stamp persisted
 
         // 3rd failure — incident already open, must NOT re-alert (guardrails 2 + 5)
         $svc->recordFailure($this->reload($site), 'boom');
@@ -160,6 +161,16 @@ final class IncidentServiceTest extends AbstractSchemaTestCase
         $this->assertNull((new IncidentsRepository())->findOpenForSite($site->id));
         $this->assertSame(1, $notifier->upCount);
         $this->assertSame(0, $this->reload($site)->consecutiveFailures);
+
+        // Fix 2: up-alert stamp persisted
+        $closed = (new IncidentsRepository())->findForSite($site->id, 10, 0)[0];
+        $this->assertNotNull($closed->upAlertSentAt);
+
+        // Fix 3: duration + ended_at populated; no spurious second down-email
+        $this->assertNotNull($closed->endedAt);
+        $this->assertNotNull($closed->durationSeconds);
+        $this->assertGreaterThanOrEqual(0, $closed->durationSeconds);
+        $this->assertSame(1, $notifier->downCount);   // recovery must not fire a 2nd down-email
     }
 
     /**
