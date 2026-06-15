@@ -65,6 +65,8 @@ final class Site
         // P3.3 — per-site alert mute + SSL-expiry de-dup stamp (internal).
         public readonly bool    $alertsMuted = false,
         public readonly ?string $sslAlertSentAt = null,
+        // P4.1 — timestamp of the last completed security scan (internal; read by security-scan endpoints).
+        public readonly ?string $lastSecurityScanAt = null,
     ) {}
 
     /** @param array<string, mixed> $row wpdb result row (all values come back as strings) */
@@ -100,6 +102,7 @@ final class Site
             lastResponseTimeMs:      isset($row['last_response_time_ms']) ? (int) $row['last_response_time_ms'] : null,
             alertsMuted:             (bool) (int) ($row['alerts_muted'] ?? 0),
             sslAlertSentAt:          isset($row['ssl_alert_sent_at']) ? (string) $row['ssl_alert_sent_at'] : null,
+            lastSecurityScanAt:      isset($row['last_security_scan_at']) ? (string) $row['last_security_scan_at'] : null,
         );
     }
 

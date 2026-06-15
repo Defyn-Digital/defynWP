@@ -654,6 +654,22 @@ final class SitesRepository
     }
 
     /**
+     * P4.1 — Record the UTC timestamp at which the security scan last completed
+     * for a site. Called by the security-scan AS job on successful scan.
+     */
+    public function markSecurityScannedAt(int $siteId, string $now): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            SitesTable::tableName(),
+            ['last_security_scan_at' => $now],
+            ['id' => $siteId],
+            ['%s'],
+            ['%d'],
+        );
+    }
+
+    /**
      * P2.5 — sites owned by $userId that have at least one attention reason.
      * Capped at 50 rows. Hardcoded thresholds per spec § 3.4.
      *
