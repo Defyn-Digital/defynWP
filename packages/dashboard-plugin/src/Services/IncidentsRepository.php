@@ -109,6 +109,27 @@ final class IncidentsRepository
         ], $rows);
     }
 
+    /**
+     * P5.1 — incidents overlapping [fromUtc, toUtc] for a single site.
+     * Overlap predicate: started_at <= toUtc AND (ended_at IS NULL OR ended_at >= fromUtc).
+     *
+     * @return list<Incident> newest-started first
+     */
+    public function findForSiteInRange(int $siteId, string $fromUtc, string $toUtc): array
+    {
+        global $wpdb;
+        $table = IncidentsTable::tableName();
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM `{$table}`
+             WHERE site_id = %d AND started_at <= %s AND (ended_at IS NULL OR ended_at >= %s)
+             ORDER BY started_at DESC",
+            $siteId, $toUtc, $fromUtc
+        ), ARRAY_A) ?: [];
+
+        return array_map([Incident::class, 'fromRow'], $rows);
+    }
+
     /** @return array<int,array{site_id:int,site_label:string,started_at:string}> */
     public function findOpenForUser(int $userId): array
     {
