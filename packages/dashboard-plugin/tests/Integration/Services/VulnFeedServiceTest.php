@@ -87,6 +87,63 @@ final class VulnFeedServiceTest extends AbstractSchemaTestCase
         self::assertFalse(get_option('defyn_vuln_feed_synced_at'), 'synced stamp not set on failed download');
     }
 
+    public function testSeverityFallsBackToCvssScoreBandWhenRatingAbsent(): void
+    {
+        // No cvss.rating, but a score of 8.5 → should bucket as 'high' (feed note § 4 band).
+        $feed = [
+            'uuid-noscore' => [
+                'id' => 'uuid-noscore', 'title' => 'No rating', 'cve' => null,
+                'cvss' => ['score' => '8.5'], // rating omitted
+                'software' => [[
+                    'type' => 'plugin', 'slug' => 'jetpack', 'name' => 'Jetpack',
+                    'affected_versions' => ['* - 1.0' => [
+                        'from_version' => '*', 'from_inclusive' => true,
+                        'to_version' => '1.0', 'to_inclusive' => true,
+                    ]],
+                    'patched_versions' => ['1.1'],
+                ]],
+            ],
+        ];
+        $path = $this->fixtureFile($feed);
+        (new VulnFeedService(
+            keyProvider: static fn (): string => 'test-key',
+            downloader:  static fn (): ?string => $path,
+        ))->refreshIfStale();
+
+        $rows = (new VulnerabilitiesRepository())->findByTypeAndSlug('plugin', 'jetpack');
+        self::assertNotEmpty($rows);
+        self::assertSame('high', $rows[0]['severity'], 'score 8.5 with no rating → high');
+    }
+
+    public function testUnknownRatingIsClampedViaScoreBand(): void
+    {
+        // A rating outside the SPA enum ('informational') must NOT be stored verbatim;
+        // it falls back to the score band (here null score → 'unknown').
+        $feed = [
+            'uuid-weird' => [
+                'id' => 'uuid-weird', 'title' => 'Weird rating', 'cve' => null,
+                'cvss' => ['rating' => 'Informational'],
+                'software' => [[
+                    'type' => 'plugin', 'slug' => 'woocommerce', 'name' => 'WooCommerce',
+                    'affected_versions' => ['* - 1.0' => [
+                        'from_version' => '*', 'from_inclusive' => true,
+                        'to_version' => '1.0', 'to_inclusive' => true,
+                    ]],
+                    'patched_versions' => ['1.1'],
+                ]],
+            ],
+        ];
+        $path = $this->fixtureFile($feed);
+        (new VulnFeedService(
+            keyProvider: static fn (): string => 'test-key',
+            downloader:  static fn (): ?string => $path,
+        ))->refreshIfStale();
+
+        $rows = (new VulnerabilitiesRepository())->findByTypeAndSlug('plugin', 'woocommerce');
+        self::assertNotEmpty($rows);
+        self::assertSame('unknown', $rows[0]['severity'], 'unrecognized rating clamps to unknown');
+    }
+
     public function testStalenessSkipWhenRecentlySynced(): void
     {
         update_option('defyn_vuln_feed_synced_at', gmdate('Y-m-d H:i:s'));

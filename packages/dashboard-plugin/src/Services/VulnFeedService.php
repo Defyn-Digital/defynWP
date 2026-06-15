@@ -81,10 +81,11 @@ final class VulnFeedService
             return null;
         }
         $response = wp_remote_get($url, [
-            'timeout'  => 120,
-            'stream'   => true,
-            'filename' => $tmp,
-            'headers'  => ['Authorization' => 'Bearer ' . $key],
+            'timeout'     => 120,
+            'stream'      => true,
+            'filename'    => $tmp,
+            'redirection' => 0, // fail safe: never forward the Bearer key across a 3xx redirect to another host
+            'headers'     => ['Authorization' => 'Bearer ' . $key],
         ]);
         if (is_wp_error($response)) {
             @unlink($tmp);
@@ -113,7 +114,12 @@ final class VulnFeedService
         $cve      = isset($record['cve']) && $record['cve'] !== '' ? (string) $record['cve'] : null;
         $cvss     = is_array($record['cvss'] ?? null) ? $record['cvss'] : [];
         $score    = isset($cvss['score']) ? (float) $cvss['score'] : null;
-        $severity = isset($cvss['rating']) && $cvss['rating'] !== '' ? strtolower((string) $cvss['rating']) : 'unknown';
+        $rating   = isset($cvss['rating']) && $cvss['rating'] !== '' ? strtolower((string) $cvss['rating']) : '';
+        // Clamp to the known severity set (the SPA Zod enum is strict); fall back to the CVSS
+        // score band when the rating is absent/unrecognized (feed note § 4), else 'unknown'.
+        $severity = in_array($rating, ['critical', 'high', 'medium', 'low'], true)
+            ? $rating
+            : self::severityFromScore($score);
 
         $software = is_array($record['software'] ?? null) ? $record['software'] : [];
         $rows = [];
@@ -153,5 +159,26 @@ final class VulnFeedService
             }
         }
         return $rows;
+    }
+
+    /** Map a CVSS base score to a severity bucket (feed note § 4) when the feed omits a usable rating. */
+    private static function severityFromScore(?float $score): string
+    {
+        if ($score === null) {
+            return 'unknown';
+        }
+        if ($score >= 9.0) {
+            return 'critical';
+        }
+        if ($score >= 7.0) {
+            return 'high';
+        }
+        if ($score >= 4.0) {
+            return 'medium';
+        }
+        if ($score > 0.0) {
+            return 'low';
+        }
+        return 'unknown';
     }
 }

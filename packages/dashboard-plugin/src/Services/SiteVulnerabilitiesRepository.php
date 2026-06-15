@@ -4,7 +4,6 @@ namespace Defyn\Dashboard\Services;
 
 use Defyn\Dashboard\Models\SiteVulnerability;
 use Defyn\Dashboard\Schema\SiteVulnerabilitiesTable;
-use Defyn\Dashboard\Schema\SitesTable;
 
 final class SiteVulnerabilitiesRepository
 {
@@ -66,25 +65,5 @@ final class SiteVulnerabilitiesRepository
             ARRAY_A
         );
         return array_map([SiteVulnerability::class, 'fromRow'], $rows ?: []);
-    }
-
-    /**
-     * Return DISTINCT site_ids (owned by $userId) that currently have >=1 finding.
-     * Drives the Overview "sites with vulnerabilities" reason.
-     *
-     * @return list<int>
-     */
-    public function siteIdsWithFindingsForUser(int $userId): array
-    {
-        global $wpdb;
-        $sv    = SiteVulnerabilitiesTable::tableName();
-        $sites = SitesTable::tableName();
-        $rows  = $wpdb->get_col($wpdb->prepare(
-            "SELECT DISTINCT sv.site_id FROM {$sv} sv
-             INNER JOIN {$sites} s ON s.id = sv.site_id
-             WHERE s.user_id = %d",
-            $userId
-        ));
-        return array_map('intval', $rows ?: []);
     }
 }
