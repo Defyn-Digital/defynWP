@@ -9,6 +9,7 @@ use Defyn\Dashboard\Schema\ActivityLogTable;
 use Defyn\Dashboard\Schema\BulkJobItemsTable;
 use Defyn\Dashboard\Schema\BulkJobsTable;
 use Defyn\Dashboard\Schema\IncidentsTable;
+use Defyn\Dashboard\Schema\DismissedVulnerabilitiesTable;
 use Defyn\Dashboard\Schema\VulnerabilitiesTable;
 use Defyn\Dashboard\Schema\SiteVulnerabilitiesTable;
 use Defyn\Dashboard\Schema\ConnectionCodesTable;
@@ -26,7 +27,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 11;
+    public const SCHEMA_VERSION = 12;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -45,6 +46,7 @@ final class Activation
         IncidentsTable::class,
         VulnerabilitiesTable::class,
         SiteVulnerabilitiesTable::class,
+        DismissedVulnerabilitiesTable::class,
     ];
 
     /** Throttle key for {@see maybeRunSelfHeal} — checked at most once per hour. */

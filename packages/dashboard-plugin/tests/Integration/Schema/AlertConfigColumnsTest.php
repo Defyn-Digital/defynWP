@@ -13,7 +13,7 @@ final class AlertConfigColumnsTest extends AbstractSchemaTestCase
 {
     public function testSchemaVersionConstantIsTen(): void
     {
-        self::assertSame(11, Activation::SCHEMA_VERSION);
+        self::assertSame(12, Activation::SCHEMA_VERSION);
     }
 
     public function testAlertConfigColumnsExistAfterEnsureSchema(): void
