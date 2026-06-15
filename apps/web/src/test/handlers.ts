@@ -794,4 +794,18 @@ handlers.push(
   http.post('*/wp-json/defyn/v1/sites/:id/security/scan', ({ params }) => {
     return HttpResponse.json({ scheduled: true, site_id: Number(params.id) }, { status: 202 });
   }),
+
+  // P4.2 — GET /security — empty fleet by default; tests override via server.use().
+  http.get('*/wp-json/defyn/v1/security', () => {
+    return HttpResponse.json({
+      summary: { total_sites: 0, scanned_sites: 0, sites_at_risk: 0, critical: 0, high: 0, medium: 0, low: 0 },
+      sites: [],
+      generated_at: '2026-06-15 03:00:00',
+    });
+  }),
+
+  // P4.2 — POST /security/scan-all — default synthetic 200; tests override via server.use().
+  http.post('*/wp-json/defyn/v1/security/scan-all', () => {
+    return HttpResponse.json({ scheduled_count: 0, site_ids: [], scheduled_at: '2026-06-15 03:00:00' }, { status: 200 });
+  }),
 );

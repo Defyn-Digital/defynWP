@@ -358,3 +358,41 @@ export type Monitoring = z.infer<typeof monitoringSchema>;
 // P3.3 — operator notification settings.
 export const settingsSchema = z.object({ slack_webhook_url: z.string().nullable() });
 export type Settings = z.infer<typeof settingsSchema>;
+
+// P4.2 — Security fleet page schemas.
+export const fleetSiteSecuritySchema = z.object({
+  site_id: z.number().int().positive(),
+  label: z.string(),
+  url: z.string(),
+  last_security_scan_at: z.string().nullable(),
+  counts: z.object({
+    critical: z.number().int().nonnegative(),
+    high: z.number().int().nonnegative(),
+    medium: z.number().int().nonnegative(),
+    low: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative(),
+  }),
+});
+export type FleetSiteSecurity = z.infer<typeof fleetSiteSecuritySchema>;
+
+export const securitySchema = z.object({
+  summary: z.object({
+    total_sites: z.number().int().nonnegative(),
+    scanned_sites: z.number().int().nonnegative(),
+    sites_at_risk: z.number().int().nonnegative(),
+    critical: z.number().int().nonnegative(),
+    high: z.number().int().nonnegative(),
+    medium: z.number().int().nonnegative(),
+    low: z.number().int().nonnegative(),
+  }),
+  sites: z.array(fleetSiteSecuritySchema),
+  generated_at: z.string(),
+});
+export type Security = z.infer<typeof securitySchema>;
+
+export const scanAllSecurityResponseSchema = z.object({
+  scheduled_count: z.number().int().nonnegative(),
+  site_ids: z.array(z.number().int()),
+  scheduled_at: z.string(),
+});
+export type ScanAllSecurityResponse = z.infer<typeof scanAllSecurityResponseSchema>;
