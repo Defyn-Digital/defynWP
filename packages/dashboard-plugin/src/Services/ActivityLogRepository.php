@@ -132,6 +132,63 @@ final class ActivityLogRepository
     }
 
     /**
+     * P5.1 — all update-success events for a single site within a UTC date range.
+     * Returns only the three `.succeeded` event types — excludes no-op, started,
+     * failed, and retry variants. Details JSON is decoded by the repo (callers
+     * never re-decode).
+     *
+     * @return list<array{event_type:string, details:array, created_at:string}>
+     */
+    public function findUpdatesForSiteInRange(int $siteId, string $fromUtc, string $toUtc): array
+    {
+        global $wpdb;
+        $table = ActivityLogTable::tableName();
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT event_type, details, created_at FROM {$table}
+             WHERE site_id = %d
+               AND event_type IN ('plugin_update.succeeded','theme_update.succeeded','core_update.succeeded')
+               AND created_at BETWEEN %s AND %s
+             ORDER BY created_at DESC",
+            $siteId, $fromUtc, $toUtc
+        ), ARRAY_A) ?: [];
+
+        return array_map(static fn (array $r): array => [
+            'event_type' => (string) $r['event_type'],
+            'details'    => is_string($r['details']) ? (json_decode($r['details'], true) ?: []) : [],
+            'created_at' => (string) $r['created_at'],
+        ], $rows);
+    }
+
+    /**
+     * P5.1 — all vulnerability-detected scan events for a single site within a
+     * UTC date range. Filters ONLY `site.vulnerabilities_detected` (excludes
+     * `site.new_vulnerabilities` and any other site.* variants). Details JSON
+     * decoded by the repo.
+     *
+     * @return list<array{event_type:string, details:array, created_at:string}>
+     */
+    public function findSecurityScansForSiteInRange(int $siteId, string $fromUtc, string $toUtc): array
+    {
+        global $wpdb;
+        $table = ActivityLogTable::tableName();
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT event_type, details, created_at FROM {$table}
+             WHERE site_id = %d AND event_type = 'site.vulnerabilities_detected'
+               AND created_at BETWEEN %s AND %s
+             ORDER BY created_at DESC",
+            $siteId, $fromUtc, $toUtc
+        ), ARRAY_A) ?: [];
+
+        return array_map(static fn (array $r): array => [
+            'event_type' => (string) $r['event_type'],
+            'details'    => is_string($r['details']) ? (json_decode($r['details'], true) ?: []) : [],
+            'created_at' => (string) $r['created_at'],
+        ], $rows);
+    }
+
+    /**
      * Build the user-scoped WHERE clause + bound args list. Centralised so
      * paginate + count share exactly the same scoping (anti-drift).
      *
