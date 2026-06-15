@@ -11,6 +11,8 @@ const sites: FleetSiteSecurity[] = [
     counts: { critical: 0, high: 0, medium: 0, low: 0, total: 0 } },
   { site_id: 9, label: 'NeverScanned', url: 'https://never.test', last_security_scan_at: null,
     counts: { critical: 0, high: 0, medium: 0, low: 0, total: 0 } },
+  { site_id: 10, label: 'UnratedCo', url: 'https://unrated.test', last_security_scan_at: '2026-06-15 02:00:00',
+    counts: { critical: 0, high: 0, medium: 0, low: 0, total: 2 } },
 ];
 
 function renderTable() {
@@ -40,5 +42,11 @@ describe('SecurityFleetTable', () => {
   it('links each row to the site detail page', () => {
     renderTable();
     expect(screen.getByRole('link', { name: /AcmeBlog/ })).toHaveAttribute('href', '/sites/7');
+  });
+
+  it('renders an "unrated" count chip when findings exist but no named severity', () => {
+    renderTable();
+    expect(screen.getByText('UnratedCo')).toBeInTheDocument();
+    expect(screen.getByText(/2 unrated/i)).toBeInTheDocument();
   });
 });

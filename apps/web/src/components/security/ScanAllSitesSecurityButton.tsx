@@ -18,7 +18,7 @@ interface ScanAllSitesSecurityButtonProps {
  * → mutation.onSuccess invalidates ['security'] so the fleet table
  * reflects updated scan timestamps on the next refetch.
  *
- * Spec: docs/superpowers/specs/2026-06-15-p4-2-security-fleet-design.md § 3
+ * Spec: docs/superpowers/specs/2026-06-15-p4-2-security-fleet-page-design.md § 7
  */
 export function ScanAllSitesSecurityButton({ totalSites }: ScanAllSitesSecurityButtonProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);

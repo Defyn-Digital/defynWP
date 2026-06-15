@@ -46,6 +46,11 @@ function FindingsCell({ site }: { site: FleetSiteSecurity }) {
     );
   }
 
+  // total > 0 here. If every named-severity bucket is 0, the findings are all
+  // `unknown`-severity — render a neutral count chip so the Findings cell is never
+  // empty beside a non-zero Total.
+  const namedCount = counts.critical + counts.high + counts.medium + counts.low;
+
   return (
     <span className="flex flex-wrap gap-1">
       {counts.critical > 0 && (
@@ -59,6 +64,9 @@ function FindingsCell({ site }: { site: FleetSiteSecurity }) {
       )}
       {counts.low > 0 && (
         <Chip className="bg-slate-50 text-slate-500">{counts.low} low</Chip>
+      )}
+      {namedCount === 0 && (
+        <Chip className="bg-slate-50 text-slate-500">{counts.total} unrated</Chip>
       )}
     </span>
   );
