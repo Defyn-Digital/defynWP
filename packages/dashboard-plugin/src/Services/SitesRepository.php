@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Defyn\Dashboard\Services;
 
 use Defyn\Dashboard\Models\Site;
+use Defyn\Dashboard\Schema\SiteVulnerabilitiesTable;
 use Defyn\Dashboard\Schema\SitesTable;
 
 /**
@@ -680,6 +681,7 @@ final class SitesRepository
         $sitesTable   = $this->table;
         $pluginsTable = $this->wpdb->prefix . 'defyn_site_plugins';
         $themesTable  = $this->wpdb->prefix . 'defyn_site_themes';
+        $vulnTable    = SiteVulnerabilitiesTable::tableName();
 
         $rows = $this->wpdb->get_results($this->wpdb->prepare(
             "SELECT
@@ -694,10 +696,11 @@ final class SitesRepository
                 CASE WHEN s.core_update_state = 'failed'
                      OR EXISTS (SELECT 1 FROM {$pluginsTable} sp WHERE sp.site_id = s.id AND sp.update_state = 'failed')
                      OR EXISTS (SELECT 1 FROM {$themesTable} st WHERE st.site_id = s.id AND st.update_state = 'failed')
-                     THEN 1 ELSE 0 END AS has_failed_update
+                     THEN 1 ELSE 0 END AS has_failed_update,
+                CASE WHEN EXISTS (SELECT 1 FROM {$vulnTable} sv WHERE sv.site_id = s.id) THEN 1 ELSE 0 END AS has_vulnerabilities
              FROM {$sitesTable} s
              WHERE s.user_id = %d
-             HAVING is_offline = 1 OR is_ssl_expiring = 1 OR is_sync_stale = 1 OR has_failed_update = 1
+             HAVING is_offline = 1 OR is_ssl_expiring = 1 OR is_sync_stale = 1 OR has_failed_update = 1 OR has_vulnerabilities = 1
              ORDER BY s.last_contact_at ASC
              LIMIT 50",
             $userId
@@ -717,6 +720,9 @@ final class SitesRepository
             }
             if ((int) $row['is_sync_stale'] === 1) {
                 $reasons[] = 'sync_stale';
+            }
+            if ((int) $row['has_vulnerabilities'] === 1) {
+                $reasons[] = 'has_vulnerabilities';
             }
             $out[] = [
                 'site_id'         => (int) $row['id'],
