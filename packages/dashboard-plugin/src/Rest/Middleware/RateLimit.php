@@ -176,6 +176,13 @@ final class RateLimit
     public const SITE_VULNERABILITIES_LIMIT  = 30;
     public const SITE_VULNERABILITIES_WINDOW = MINUTE_IN_SECONDS;
 
+    // P4.1 — POST /sites/{id}/security/scan. Write action; 6/HOUR — same weight
+    // class as pluginsRefresh/sitesThemesRefresh/sitesCoreRefresh (operator-triggered
+    // AS job schedule). Bucket is per (userId, siteId).
+    // Key: defyn_rl_securityScan_%d_%d.
+    public const SECURITY_SCAN_LIMIT  = 6;
+    public const SECURITY_SCAN_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -1001,6 +1008,41 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::SITE_VULNERABILITIES_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /sites/{id}/security/scan.
+     *
+     * Per-(user, site), 6/HOUR — same weight class as sitesCoreRefresh and
+     * sitesThemesRefresh (operator-triggered AS job schedule, not a heavy
+     * fan-out). Separate bucket (defyn_rl_securityScan_%d_%d) from every other
+     * resource so scanning can't exhaust refresh or update buckets and vice versa.
+     *
+     * @return true|WP_Error
+     */
+    public static function securityScan(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_securityScan_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::SECURITY_SCAN_LIMIT) {
+            return new \WP_Error(
+                'security.rate_limited',
+                'Scan requested too often. Try again later.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::SECURITY_SCAN_WINDOW);
         return true;
     }
 
