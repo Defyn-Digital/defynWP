@@ -34,6 +34,11 @@ final class SpyNotifier implements Notifier
     {
         // No-op spy — SSL alerting is not exercised by IncidentService tests.
     }
+
+    public function notifyNewVulnerabilities(Site $site, array $newVulnerabilities, array $severityCounts): void
+    {
+        // No-op spy — vulnerability alerting is not exercised by IncidentService tests.
+    }
 }
 
 /**

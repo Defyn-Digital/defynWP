@@ -46,6 +46,38 @@ final class EmailNotifier implements Notifier
         );
     }
 
+    public function notifyNewVulnerabilities(Site $site, array $newVulnerabilities, array $severityCounts): void
+    {
+        $count   = count($newVulnerabilities);
+        $noun    = $count === 1 ? 'vulnerability' : 'vulnerabilities';
+        $subject = '🔒 ' . $count . ' new ' . $noun . ' on ' . $site->label;
+
+        $summary = [];
+        foreach (['critical' => 'Critical', 'high' => 'High', 'medium' => 'Medium', 'low' => 'Low'] as $k => $label) {
+            if (($severityCounts[$k] ?? 0) > 0) {
+                $summary[] = $label . ': ' . (int) $severityCounts[$k];
+            }
+        }
+
+        $body = $count . ' new security ' . ($count === 1 ? 'finding' : 'findings')
+              . " on {$site->label} ({$site->url}).\n\n";
+        if ($summary !== []) {
+            $body .= implode(' · ', $summary) . "\n\n";
+        }
+        foreach ($newVulnerabilities as $v) {
+            $line = '[' . $v['severity'] . '] ' . $v['component_name'] . ' (' . $v['type'] . ') ' . $v['installed_version'];
+            if (!empty($v['fixed_in'])) {
+                $line .= ' → fix ' . $v['fixed_in'];
+            }
+            if (!empty($v['cve'])) {
+                $line .= ' · ' . $v['cve'];
+            }
+            $body .= $line . "\n";
+        }
+
+        $this->send($site, $subject, $body);
+    }
+
     private function send(Site $site, string $subject, string $body): void
     {
         $to = $this->ownerEmail($site->userId);

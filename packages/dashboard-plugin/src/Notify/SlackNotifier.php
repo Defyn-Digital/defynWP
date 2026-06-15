@@ -34,6 +34,24 @@ final class SlackNotifier implements Notifier
             . ($daysLeft === 1 ? '' : 's') . ' — ' . $site->url . "\nExpires {$expiresAtUtc} UTC.");
     }
 
+    public function notifyNewVulnerabilities(Site $site, array $newVulnerabilities, array $severityCounts): void
+    {
+        $count = count($newVulnerabilities);
+        $noun  = $count === 1 ? 'vulnerability' : 'vulnerabilities';
+        $text  = '🔒 *' . $count . ' new ' . $noun . '* on *' . $site->label . '* — ' . $site->url;
+        foreach ($newVulnerabilities as $v) {
+            $line = "\n• [" . $v['severity'] . '] ' . $v['component_name'] . ' (' . $v['type'] . ') ' . $v['installed_version'];
+            if (!empty($v['fixed_in'])) {
+                $line .= ' → fix ' . $v['fixed_in'];
+            }
+            if (!empty($v['cve'])) {
+                $line .= ' · ' . $v['cve'];
+            }
+            $text .= $line;
+        }
+        $this->post($site, $text);
+    }
+
     private function post(Site $site, string $text): void
     {
         $webhook = (string) get_user_meta($site->userId, 'defyn_slack_webhook_url', true);

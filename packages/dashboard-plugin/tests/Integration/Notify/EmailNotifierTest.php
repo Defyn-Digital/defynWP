@@ -128,6 +128,35 @@ final class EmailNotifierTest extends AbstractSchemaTestCase
         $this->assertTrue(true);
     }
 
+    public function testNotifyNewVulnerabilitiesEmailSubjectAndBody(): void
+    {
+        reset_phpmailer_instance();
+
+        $userId = self::factory()->user->create(['user_email' => 'vulnowner@example.com']);
+        $siteId = $this->makeSite($userId, 'VulnSite');
+        $site   = (new SitesRepository())->findById($siteId);
+        $this->assertNotNull($site, 'Site should be loadable from DB');
+
+        $new = [
+            ['type' => 'plugin', 'slug' => 'wp-file-manager', 'component_name' => 'WP File Manager', 'installed_version' => '6.0', 'severity' => 'critical', 'cve' => 'CVE-2024-1234', 'fixed_in' => '6.9'],
+            ['type' => 'plugin', 'slug' => 'elementor', 'component_name' => 'Elementor', 'installed_version' => '3.18.2', 'severity' => 'high', 'cve' => null, 'fixed_in' => '3.18.3'],
+        ];
+
+        (new EmailNotifier())->notifyNewVulnerabilities($site, $new, ['critical' => 1, 'high' => 1, 'medium' => 0, 'low' => 0]);
+
+        $mailer = tests_retrieve_phpmailer_instance();
+        $sent   = $mailer->get_sent(0);
+        $this->assertNotFalse($sent, 'Expected at least one email to be captured by MockPHPMailer');
+
+        $this->assertSame('vulnowner@example.com', $sent->to[0][0]);
+        $this->assertStringContainsString('2 new vulnerabilities on', $sent->subject);
+        $this->assertStringContainsString('VulnSite', $sent->subject);
+        $this->assertStringContainsString('WP File Manager', $sent->body);
+        $this->assertStringContainsString('Elementor', $sent->body);
+        $this->assertStringContainsString('CVE-2024-1234', $sent->body);
+        $this->assertStringContainsString('Critical: 1', $sent->body);
+    }
+
     public function test_notify_ssl_expiring_composes_subject_with_ssl_and_day_count(): void
     {
         reset_phpmailer_instance();

@@ -36,6 +36,7 @@ final class SslAlertServiceTest extends AbstractSchemaTestCase
             public function notifyDown($s, $i): void {}
             public function notifyRecovered($s, $i): void {}
             public function notifySslExpiring($s, $e, $d): void { $this->sent[] = $d; }
+            public function notifyNewVulnerabilities($s, $vs, $sc): void {}
         };
     }
 

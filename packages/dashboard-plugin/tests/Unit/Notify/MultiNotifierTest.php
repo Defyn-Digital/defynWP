@@ -28,12 +28,14 @@ final class MultiNotifierTest extends TestCase
             public function notifyDown(Site $s, Incident $i): void { throw new \RuntimeException('boom'); }
             public function notifyRecovered(Site $s, Incident $i): void { throw new \RuntimeException('boom'); }
             public function notifySslExpiring(Site $s, string $e, int $d): void { throw new \RuntimeException('boom'); }
+            public function notifyNewVulnerabilities(Site $s, array $vs, array $sc): void { throw new \RuntimeException('boom'); }
         };
         $recording = new class($calls) implements Notifier {
             public function __construct(public array &$calls) {}
             public function notifyDown(Site $s, Incident $i): void { $this->calls[] = 'down'; }
             public function notifyRecovered(Site $s, Incident $i): void { $this->calls[] = 'recovered'; }
             public function notifySslExpiring(Site $s, string $e, int $d): void { $this->calls[] = 'ssl'; }
+            public function notifyNewVulnerabilities(Site $s, array $vs, array $sc): void { $this->calls[] = 'vuln'; }
         };
 
         $multi = new MultiNotifier([$throwing, $recording]);
@@ -42,5 +44,51 @@ final class MultiNotifierTest extends TestCase
         $multi->notifySslExpiring($this->site(), '2026-07-01 00:00:00', 14);
 
         self::assertSame(['down', 'recovered', 'ssl'], $recording->calls);
+    }
+
+    public function testNotifyNewVulnerabilitiesFansOutToAll(): void
+    {
+        $calls = [];
+        $a = new class($calls) implements Notifier {
+            public function __construct(public array &$calls) {}
+            public function notifyDown(Site $s, Incident $i): void {}
+            public function notifyRecovered(Site $s, Incident $i): void {}
+            public function notifySslExpiring(Site $s, string $e, int $d): void {}
+            public function notifyNewVulnerabilities(Site $s, array $vs, array $sc): void { $this->calls[] = 'a'; }
+        };
+        $b = new class($calls) implements Notifier {
+            public function __construct(public array &$calls) {}
+            public function notifyDown(Site $s, Incident $i): void {}
+            public function notifyRecovered(Site $s, Incident $i): void {}
+            public function notifySslExpiring(Site $s, string $e, int $d): void {}
+            public function notifyNewVulnerabilities(Site $s, array $vs, array $sc): void { $this->calls[] = 'b'; }
+        };
+
+        (new MultiNotifier([$a, $b]))->notifyNewVulnerabilities($this->site(), [], ['critical' => 0, 'high' => 0, 'medium' => 0, 'low' => 0]);
+
+        self::assertSame(['a', 'b'], $calls);
+    }
+
+    public function testNotifyNewVulnerabilitiesIsolatesThrow(): void
+    {
+        $calls = [];
+        $throwing = new class implements Notifier {
+            public function notifyDown(Site $s, Incident $i): void {}
+            public function notifyRecovered(Site $s, Incident $i): void {}
+            public function notifySslExpiring(Site $s, string $e, int $d): void {}
+            public function notifyNewVulnerabilities(Site $s, array $vs, array $sc): void { throw new \RuntimeException('channel down'); }
+        };
+        $recording = new class($calls) implements Notifier {
+            public function __construct(public array &$calls) {}
+            public function notifyDown(Site $s, Incident $i): void {}
+            public function notifyRecovered(Site $s, Incident $i): void {}
+            public function notifySslExpiring(Site $s, string $e, int $d): void {}
+            public function notifyNewVulnerabilities(Site $s, array $vs, array $sc): void { $this->calls[] = 'ok'; }
+        };
+
+        // Throwing first — must not block the recording notifier.
+        (new MultiNotifier([$throwing, $recording]))->notifyNewVulnerabilities($this->site(), [], ['critical' => 0, 'high' => 0, 'medium' => 0, 'low' => 0]);
+
+        self::assertSame(['ok'], $calls);
     }
 }

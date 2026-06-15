@@ -39,6 +39,11 @@ final class MultiNotifier implements Notifier
         $this->each(static fn (Notifier $n) => $n->notifySslExpiring($site, $expiresAtUtc, $daysLeft));
     }
 
+    public function notifyNewVulnerabilities(Site $site, array $newVulnerabilities, array $severityCounts): void
+    {
+        $this->each(static fn (Notifier $n) => $n->notifyNewVulnerabilities($site, $newVulnerabilities, $severityCounts));
+    }
+
     private function each(callable $fn): void
     {
         foreach ($this->notifiers as $n) {
