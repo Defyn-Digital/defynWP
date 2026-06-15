@@ -2,8 +2,17 @@ import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { useSiteVulnerabilities } from '@/lib/queries/useSiteVulnerabilities';
 import { useScanSiteSecurity } from '@/lib/mutations/useScanSiteSecurity';
+import { useDismissVulnerability } from '@/lib/mutations/useDismissVulnerability';
 import type { Vulnerability } from '@/types/api';
 import { parseUtc } from '@/lib/monitoring';
+
+// --- helpers ---
+
+// Stable per-finding fingerprint. Includes source_id so two advisories for the
+// same component (same slug+type) don't collide on the React key.
+function vulnKey(v: Vulnerability): string {
+  return `${v.type}|${v.slug}|${v.source_id}`;
+}
 
 // --- types ---
 
@@ -54,7 +63,7 @@ function groupBySeverity(vulns: Vulnerability[]): Record<Severity, Vulnerability
 
 // --- sub-components ---
 
-function VulnerabilityRow({ vuln }: { vuln: Vulnerability }) {
+function VulnerabilityRow({ vuln, onDismiss }: { vuln: Vulnerability; onDismiss: () => void }) {
   return (
     <li className="py-2 text-sm border-b last:border-b-0 text-zinc-800">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -67,12 +76,28 @@ function VulnerabilityRow({ vuln }: { vuln: Vulnerability }) {
         {vuln.cve && (
           <span className="text-zinc-400 font-mono text-xs">{vuln.cve}</span>
         )}
+        <button
+          type="button"
+          className="ml-auto text-zinc-500 hover:text-zinc-700 text-xs"
+          onClick={onDismiss}
+          aria-label={`Dismiss ${vuln.component_name}`}
+        >
+          Dismiss
+        </button>
       </div>
     </li>
   );
 }
 
-function SeverityGroup({ severity, vulns }: { severity: Severity; vulns: Vulnerability[] }) {
+function SeverityGroup({
+  severity,
+  vulns,
+  onDismiss,
+}: {
+  severity: Severity;
+  vulns: Vulnerability[];
+  onDismiss: (vuln: Vulnerability) => void;
+}) {
   if (vulns.length === 0) return null;
   return (
     <div className="mb-3">
@@ -81,7 +106,7 @@ function SeverityGroup({ severity, vulns }: { severity: Severity; vulns: Vulnera
       </p>
       <ul className="w-full">
         {vulns.map((v) => (
-          <VulnerabilityRow key={`${v.slug}-${v.type}`} vuln={v} />
+          <VulnerabilityRow key={vulnKey(v)} vuln={v} onDismiss={() => onDismiss(v)} />
         ))}
       </ul>
     </div>
@@ -93,22 +118,35 @@ function SeverityGroup({ severity, vulns }: { severity: Severity; vulns: Vulnera
 export function SiteSecurityPanel({ siteId }: Props) {
   const { data, isLoading, isError } = useSiteVulnerabilities(siteId);
   const { scan, isPending, isPolling } = useScanSiteSecurity(siteId);
+  const { dismiss } = useDismissVulnerability(siteId);
 
   const isScanning = isPending || isPolling;
   const scannedAt = data?.scanned_at ?? null;
   const vulnerabilities = data?.vulnerabilities ?? [];
 
-  const grouped = useMemo(() => groupBySeverity(vulnerabilities), [vulnerabilities]);
+  // Split into active (shown in severity groups + counted) and dismissed
+  // (shown in the muted section below). `vulnerabilities` is a stable ref from
+  // the query — it only changes on refetch — so keying these memos on it is safe.
+  const active = useMemo(() => vulnerabilities.filter((v) => !v.dismissed), [vulnerabilities]);
+  const dismissed = useMemo(() => vulnerabilities.filter((v) => v.dismissed), [vulnerabilities]);
+  const grouped = useMemo(() => groupBySeverity(active), [active]);
 
   const metaLine = useMemo(() => {
     if (scannedAt === null) return 'Not yet scanned';
-    const count = vulnerabilities.length;
-    return `${count} ${count === 1 ? 'vulnerability' : 'vulnerabilities'} · scanned ${relativeTime(scannedAt)}`;
-  }, [scannedAt, vulnerabilities.length]);
+    const count = active.length;
+    const base = `${count} ${count === 1 ? 'vulnerability' : 'vulnerabilities'} · scanned ${relativeTime(scannedAt)}`;
+    return dismissed.length > 0 ? `${base} · ${dismissed.length} dismissed` : base;
+  }, [scannedAt, active.length, dismissed.length]);
 
   const isNotScanned = scannedAt === null;
-  const isClean = scannedAt !== null && vulnerabilities.length === 0;
-  const hasFindings = scannedAt !== null && vulnerabilities.length > 0;
+  const isClean = scannedAt !== null && active.length === 0;
+  const hasFindings = scannedAt !== null && active.length > 0;
+
+  const handleDismiss = (vuln: Vulnerability) =>
+    dismiss({ type: vuln.type, slug: vuln.slug, source_id: vuln.source_id, dismissed: true });
+
+  const handleRestore = (vuln: Vulnerability) =>
+    dismiss({ type: vuln.type, slug: vuln.slug, source_id: vuln.source_id, dismissed: false });
 
   return (
     <section className="space-y-3 border-t pt-4">
@@ -148,8 +186,39 @@ export function SiteSecurityPanel({ siteId }: Props) {
       {!isLoading && !isError && hasFindings && (
         <div>
           {SEVERITY_ORDER.map((sev) => (
-            <SeverityGroup key={sev} severity={sev} vulns={grouped[sev]} />
+            <SeverityGroup
+              key={sev}
+              severity={sev}
+              vulns={grouped[sev]}
+              onDismiss={handleDismiss}
+            />
           ))}
+        </div>
+      )}
+
+      {!isLoading && !isError && !isNotScanned && dismissed.length > 0 && (
+        <div className="mt-4 pt-3 border-t">
+          <p className="text-xs text-zinc-500 mb-2">Dismissed ({dismissed.length})</p>
+          <ul className="w-full">
+            {dismissed.map((v) => (
+              <li
+                key={vulnKey(v)}
+                className="py-2 text-sm flex items-baseline gap-2 text-zinc-400"
+              >
+                <span className="line-through">{v.component_name}</span>
+                <span className="text-xs">({v.type})</span>
+                <span>{v.installed_version}</span>
+                <button
+                  type="button"
+                  className="ml-auto text-blue-600 hover:text-blue-700 text-xs"
+                  onClick={() => handleRestore(v)}
+                  aria-label={`Restore ${v.component_name}`}
+                >
+                  Restore
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </section>
