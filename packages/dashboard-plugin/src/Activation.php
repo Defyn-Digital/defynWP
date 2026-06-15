@@ -147,6 +147,15 @@ final class Activation
             && as_next_scheduled_action(\Defyn\Dashboard\Jobs\SslCheckAll::HOOK, [], 'defyn') === false) {
             \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
         }
+
+        // P4.1 — ensure the daily security scan schedule exists even on a silent
+        // upgrade from a version that already has SslCheckAll scheduled (so the
+        // SSL guard above would NOT fire). installRecurringSchedules() is
+        // idempotent (unschedules+reschedules all), so this extra guard is safe.
+        if (function_exists('as_next_scheduled_action')
+            && as_next_scheduled_action(\Defyn\Dashboard\Jobs\SecurityScanAll::HOOK, [], 'defyn') === false) {
+            \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
+        }
     }
 
     private static function canonicalTableExists(): bool

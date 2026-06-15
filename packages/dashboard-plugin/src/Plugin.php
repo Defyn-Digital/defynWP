@@ -8,6 +8,8 @@ use Defyn\Dashboard\Jobs\CleanupExpiredCodes;
 use Defyn\Dashboard\Jobs\CompleteConnection;
 use Defyn\Dashboard\Jobs\HealthPing;
 use Defyn\Dashboard\Jobs\HealthPingAll;
+use Defyn\Dashboard\Jobs\SecurityScan;
+use Defyn\Dashboard\Jobs\SecurityScanAll;
 use Defyn\Dashboard\Jobs\SslCheck;
 use Defyn\Dashboard\Jobs\SslCheckAll;
 use Defyn\Dashboard\Jobs\RefreshSiteCore;
@@ -121,6 +123,15 @@ final class Plugin
 
         add_action(SslCheck::HOOK, static function (int $siteId): void {
             (new SslCheck())->handle($siteId);
+        }, 10, 1);
+
+        // P4.1 — daily security scan fan-out + per-site leaf job.
+        add_action(SecurityScanAll::HOOK, static function (): void {
+            (new SecurityScanAll())->handle();
+        }, 10, 0);
+
+        add_action(SecurityScan::HOOK, static function (int $siteId): void {
+            (new SecurityScan())->handle($siteId);
         }, 10, 1);
 
         add_action(CleanupExpiredCodes::HOOK, static function (): void {

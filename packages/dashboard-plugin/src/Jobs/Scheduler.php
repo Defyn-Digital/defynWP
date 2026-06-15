@@ -19,6 +19,7 @@ final class Scheduler
         HealthPingAll::HOOK        => 300,   // 5 minutes
         CleanupExpiredCodes::HOOK  => 3600,  // 1 hour
         SslCheckAll::HOOK          => 86400, // 24 hours
+        SecurityScanAll::HOOK      => 86400, // 24 hours
     ];
 
     public static function installRecurringSchedules(): void
