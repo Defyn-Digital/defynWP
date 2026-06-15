@@ -14,6 +14,7 @@ describe('security Zod schemas', () => {
           type: 'plugin', slug: 'elementor', component_name: 'Elementor',
           installed_version: '3.18.0', severity: 'high', cvss_score: 7.5,
           cve: 'CVE-2024-5678', fixed_in: '3.18.3', title: 'XSS',
+          source_id: 'src-ele', dismissed: false,
         },
       ],
     };
@@ -28,7 +29,7 @@ describe('security Zod schemas', () => {
       vulnerabilities: [
         { type: 'core', slug: 'wordpress', component_name: 'WordPress',
           installed_version: '6.4.1', severity: 'unknown', cvss_score: null,
-          cve: null, fixed_in: null, title: null },
+          cve: null, fixed_in: null, title: null, source_id: 'src-wp', dismissed: false },
       ],
     });
     expect(parsed.scanned_at).toBeNull();
@@ -43,6 +44,7 @@ describe('security Zod schemas', () => {
     expect(() => vulnerabilitySchema.parse({
       type: 'plugin', slug: 'x', component_name: 'X', installed_version: '1.0',
       severity: 'apocalyptic', cvss_score: null, cve: null, fixed_in: null, title: null,
+      source_id: 'src-x', dismissed: false,
     })).toThrow();
   });
 });

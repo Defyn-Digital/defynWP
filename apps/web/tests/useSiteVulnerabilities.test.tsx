@@ -23,7 +23,8 @@ describe('useSiteVulnerabilities', () => {
             vulnerabilities: [
               { type: 'plugin', slug: 'elementor', component_name: 'Elementor',
                 installed_version: '3.18.0', severity: 'high', cvss_score: 7.5,
-                cve: 'CVE-2024-5678', fixed_in: '3.18.3', title: 'XSS' },
+                cve: 'CVE-2024-5678', fixed_in: '3.18.3', title: 'XSS',
+                source_id: 'src-ele', dismissed: false },
             ],
           },
           error: null,

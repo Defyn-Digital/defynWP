@@ -119,6 +119,8 @@ export const vulnerabilitySchema = z.object({
   cve: z.string().nullable(),
   fixed_in: z.string().nullable(),
   title: z.string().nullable(),
+  source_id: z.string(),
+  dismissed: z.boolean(),
 });
 export type Vulnerability = z.infer<typeof vulnerabilitySchema>;
 

@@ -30,7 +30,8 @@ describe('SiteSecurityPanel', () => {
       findingsResponse('2026-06-15 03:00:00', [
         { type: 'plugin', slug: 'wp-file-manager', component_name: 'WP File Manager',
           installed_version: '6.0', severity: 'critical', cvss_score: 9.8,
-          cve: 'CVE-2024-1234', fixed_in: '6.9', title: 'RCE' },
+          cve: 'CVE-2024-1234', fixed_in: '6.9', title: 'RCE',
+          source_id: 'src-wfm', dismissed: false },
       ])));
     renderPanel();
     expect(await screen.findByText('WP File Manager')).toBeInTheDocument();
