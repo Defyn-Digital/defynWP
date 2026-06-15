@@ -108,12 +108,33 @@ export const openIncidentSchema = z.object({
 });
 export type OpenIncident = z.infer<typeof openIncidentSchema>;
 
+// P4.1 — Security scanning schemas.
+export const vulnerabilitySchema = z.object({
+  type: z.enum(['plugin', 'theme', 'core']),
+  slug: z.string(),
+  component_name: z.string(),
+  installed_version: z.string(),
+  severity: z.enum(['critical', 'high', 'medium', 'low', 'unknown']),
+  cvss_score: z.number().nullable(),
+  cve: z.string().nullable(),
+  fixed_in: z.string().nullable(),
+  title: z.string().nullable(),
+});
+export type Vulnerability = z.infer<typeof vulnerabilitySchema>;
+
+export const siteVulnerabilitiesSchema = z.object({
+  scanned_at: z.string().nullable(),
+  vulnerabilities: z.array(vulnerabilitySchema),
+});
+export type SiteVulnerabilities = z.infer<typeof siteVulnerabilitiesSchema>;
+
 // P2.5 — Overview dashboard schema.
 export const overviewAttentionReasonSchema = z.enum([
   'offline',
   'failed_update',
   'ssl_expiring',
   'sync_stale',
+  'has_vulnerabilities',
 ]);
 export type OverviewAttentionReason = z.infer<typeof overviewAttentionReasonSchema>;
 

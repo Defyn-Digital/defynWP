@@ -784,4 +784,14 @@ handlers.push(
   http.post('*/wp-json/defyn/v1/sites/:id/alerts/mute', ({ params }) => {
     return HttpResponse.json({ site_id: Number(params.id), alerts_muted: true });
   }),
+
+  // P4.1 — GET /sites/:id/vulnerabilities — empty, never-scanned by default.
+  http.get('*/wp-json/defyn/v1/sites/:id/vulnerabilities', () => {
+    return HttpResponse.json({ data: { scanned_at: null, vulnerabilities: [] }, error: null });
+  }),
+
+  // P4.1 — POST /sites/:id/security/scan — 202 scheduled.
+  http.post('*/wp-json/defyn/v1/sites/:id/security/scan', ({ params }) => {
+    return HttpResponse.json({ scheduled: true, site_id: Number(params.id) }, { status: 202 });
+  }),
 );
