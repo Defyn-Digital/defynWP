@@ -13,6 +13,7 @@ use Defyn\Dashboard\Rest\SettingsController;
 use Defyn\Dashboard\Rest\SitesAlertsMuteController;
 use Defyn\Dashboard\Rest\SitesCoreAllowMajorController;
 use Defyn\Dashboard\Rest\SitesIncidentsController;
+use Defyn\Dashboard\Rest\SitesReportController;
 use Defyn\Dashboard\Rest\SecurityScanAllController;
 use Defyn\Dashboard\Rest\SecurityScanController;
 use Defyn\Dashboard\Rest\SitesVulnerabilitiesController;
@@ -344,6 +345,13 @@ final class RestRouter
             'methods'             => 'GET',
             'callback'            => [new SitesVulnerabilitiesController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'siteVulnerabilities'],
+        ]);
+
+        // P5.1 — GET /sites/{id}/report. Read-only maintenance report over a date range.
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/report', [
+            'methods'             => 'GET',
+            'callback'            => [new SitesReportController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'siteReport'],
         ]);
 
         // P4.3b — POST /sites/{id}/vulnerabilities/dismiss. Toggles a per-site finding

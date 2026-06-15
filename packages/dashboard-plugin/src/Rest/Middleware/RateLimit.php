@@ -207,6 +207,14 @@ final class RateLimit
     public const VULNERABILITIES_DISMISS_LIMIT  = 30;
     public const VULNERABILITIES_DISMISS_WINDOW = HOUR_IN_SECONDS;
 
+    // P5.1 — GET /sites/{id}/report. Per-(user, site), 30/MINUTE. Read-only
+    // maintenance-report aggregation over a date range; per-MINUTE bucket mirrors
+    // siteVulnerabilities/sitesIncidents (same operator-driven cadence). Distinct
+    // prefix `defyn_rl_siteReport_%d_%d` so it never exhausts the siteVulnerabilities
+    // or sitesIncidents buckets and vice versa.
+    public const SITE_REPORT_LIMIT  = 30;
+    public const SITE_REPORT_WINDOW = MINUTE_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -1032,6 +1040,41 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::SITE_VULNERABILITIES_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /sites/{id}/report.
+     *
+     * Per-(user, site), 30/MINUTE. Chains RequireAuth::check first (same pattern as
+     * every post-P2.1 bucket). Distinct prefix `defyn_rl_siteReport_%d_%d` keyed on
+     * (userId, siteId) so rate-limit counts are per-site, not fleet-wide. Mirrors
+     * siteVulnerabilities exactly — same limit, same window, same bucket shape.
+     *
+     * @return true|WP_Error
+     */
+    public static function siteReport(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_siteReport_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::SITE_REPORT_LIMIT) {
+            return new \WP_Error(
+                'report.rate_limited',
+                'Too many requests. Try again shortly.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::SITE_REPORT_WINDOW);
         return true;
     }
 
