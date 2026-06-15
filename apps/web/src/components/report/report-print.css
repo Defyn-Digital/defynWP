@@ -1,0 +1,39 @@
+/* P5.1 — print stylesheet for the client maintenance report.
+ *
+ * The SPA has no persistent app shell (each route renders its own container and
+ * the nav links live inline in the Overview header), so there is no shell to
+ * hide here. We instead:
+ *   1. Hide the report's own on-screen controls (.report-controls).
+ *   2. Keep each section together across page breaks (.report-section).
+ *   3. Isolate the report root so anything else that might ever wrap the page
+ *      (a future shell, a banner) is visually removed from the print output.
+ */
+@media print {
+  /* Hide the date pickers / preset / print button so only the report prints. */
+  .report-controls {
+    display: none !important;
+  }
+
+  /* Avoid splitting a section across two printed pages. */
+  .report-section {
+    break-inside: avoid;
+  }
+
+  /* Print-root isolation: only the report subtree is visible. Cheap insurance
+   * against any wrapping chrome the report is ever embedded inside. */
+  body * {
+    visibility: hidden;
+  }
+
+  .report-print-root,
+  .report-print-root * {
+    visibility: visible;
+  }
+
+  .report-print-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}

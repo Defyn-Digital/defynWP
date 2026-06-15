@@ -79,6 +79,9 @@ export default function SiteDetail() {
           <div className="flex items-center">
             <CardTitle>{data.label || data.url}</CardTitle>
             {headerChip}
+            <Button asChild variant="outline" size="sm" className="ml-auto">
+              <Link to={`/sites/${id}/report`}>Report</Link>
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
