@@ -12,6 +12,7 @@ use Defyn\Dashboard\Rest\SettingsController;
 use Defyn\Dashboard\Rest\SitesAlertsMuteController;
 use Defyn\Dashboard\Rest\SitesCoreAllowMajorController;
 use Defyn\Dashboard\Rest\SitesIncidentsController;
+use Defyn\Dashboard\Rest\SitesVulnerabilitiesController;
 use Defyn\Dashboard\Rest\SitesCoreRefreshController;
 use Defyn\Dashboard\Rest\SitesCoreUpdateController;
 use Defyn\Dashboard\Rest\SitesThemesController;
@@ -329,6 +330,16 @@ final class RestRouter
             'methods'             => 'GET',
             'callback'            => [new SitesIncidentsController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'sitesIncidents'],
+        ]);
+
+        // P4.1 — GET /sites/{id}/vulnerabilities. Returns the latest security-scan
+        // snapshot (scanned_at + findings array) for the given site. RateLimit::siteVulnerabilities
+        // chains RequireAuth::check internally and adds a per-(user, site) 30/MINUTE
+        // throttle. Ownership-gated: 404 when the site is not owned by the authenticated user.
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/vulnerabilities', [
+            'methods'             => 'GET',
+            'callback'            => [new SitesVulnerabilitiesController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'siteVulnerabilities'],
         ]);
 
         // P3.2 — GET /monitoring. Fleet-wide uptime/latency read-only view.
