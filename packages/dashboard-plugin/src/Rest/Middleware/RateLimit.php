@@ -183,6 +183,12 @@ final class RateLimit
     public const SECURITY_SCAN_LIMIT  = 6;
     public const SECURITY_SCAN_WINDOW = HOUR_IN_SECONDS;
 
+    // P4.2 — GET /security. Fleet-wide vulnerability view. Per-MINUTE bucket
+    // mirrors P3.2's monitoring() — same operator-driven polling cadence.
+    // Per-user only (keyed defyn_rl_security_%d — no site dimension).
+    public const SECURITY_LIMIT  = 30;
+    public const SECURITY_WINDOW = MINUTE_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -1043,6 +1049,40 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::SECURITY_SCAN_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /security.
+     *
+     * Per-MINUTE bucket (mirrors monitoring() — same operator-driven polling
+     * cadence). Plan-bug trap: do NOT copy HOUR_IN_SECONDS from the bulk-action
+     * buckets. Distinct transient prefix `defyn_rl_security_%d` — no collision
+     * with `defyn_rl_securityScan_%d_%d` (which is per-(user, site)).
+     *
+     * @return true|\WP_Error
+     */
+    public static function security(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_security_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::SECURITY_LIMIT) {
+            return new \WP_Error(
+                'security.rate_limited',
+                'Too many requests. Try again shortly.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::SECURITY_WINDOW);
         return true;
     }
 

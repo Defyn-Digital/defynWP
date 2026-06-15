@@ -8,6 +8,7 @@ use Defyn\Dashboard\Rest\Middleware\Cors;
 use Defyn\Dashboard\Rest\Middleware\RateLimit;
 use Defyn\Dashboard\Rest\Middleware\RequireAuth;
 use Defyn\Dashboard\Rest\MonitoringController;
+use Defyn\Dashboard\Rest\SecurityController;
 use Defyn\Dashboard\Rest\SettingsController;
 use Defyn\Dashboard\Rest\SitesAlertsMuteController;
 use Defyn\Dashboard\Rest\SitesCoreAllowMajorController;
@@ -364,6 +365,16 @@ final class RestRouter
             'methods'             => 'GET',
             'callback'            => [new MonitoringController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'monitoring'],
+        ]);
+
+        // P4.2 — GET /security. Fleet-wide vulnerability read-only view.
+        // RateLimit::security chains RequireAuth::check internally and adds
+        // a per-user 30/MINUTE throttle — same bucket shape as /monitoring.
+        // Ownership-scoped via SecurityService::compose($userId).
+        register_rest_route(self::NAMESPACE, '/security', [
+            'methods'             => 'GET',
+            'callback'            => [new SecurityController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'security'],
         ]);
 
         // P3.3 — GET /settings. Returns the authenticated operator's per-user
