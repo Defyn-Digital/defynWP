@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace Defyn\Dashboard\Services;
 
 use Defyn\Dashboard\Models\SiteVulnerability;
+use Defyn\Dashboard\Schema\DismissedVulnerabilitiesTable;
 use Defyn\Dashboard\Schema\SiteVulnerabilitiesTable;
 use Defyn\Dashboard\Schema\SitesTable;
 
@@ -90,8 +91,9 @@ final class SiteVulnerabilitiesRepository
     public function findFleetSummariesForUser(int $userId): array
     {
         global $wpdb;
-        $sv    = SiteVulnerabilitiesTable::tableName();
-        $sites = SitesTable::tableName();
+        $sv        = SiteVulnerabilitiesTable::tableName();
+        $sites     = SitesTable::tableName();
+        $dismissed = DismissedVulnerabilitiesTable::tableName();
 
         $rows = $wpdb->get_results(
             $wpdb->prepare(
@@ -104,6 +106,11 @@ final class SiteVulnerabilitiesRepository
                         COUNT(sv.id) AS total
                  FROM {$sites} s
                  LEFT JOIN {$sv} sv ON sv.site_id = s.id
+                     AND NOT EXISTS (
+                         SELECT 1 FROM {$dismissed} d
+                         WHERE d.site_id = sv.site_id AND d.type = sv.type
+                           AND d.slug = sv.slug AND d.source_id = sv.source_id
+                     )
                  WHERE s.user_id = %d
                  GROUP BY s.id, s.label, s.url, s.last_security_scan_at
                  ORDER BY s.id ASC",

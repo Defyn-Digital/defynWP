@@ -41,6 +41,34 @@ final class SiteVulnerabilitiesRepositoryDismissTest extends AbstractSchemaTestC
         self::assertFalse($byslug['wp-file-manager']->dismissed, 'non-dismissed finding flagged false');
     }
 
+    public function testFleetSummaryExcludesDismissedFromCounts(): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix.'defyn_sites', [
+            'user_id'=>1,'url'=>'https://f.test','label'=>'Fleet','status'=>'active',
+            'last_security_scan_at'=>'2026-06-15 00:00:00',
+            'created_at'=>gmdate('Y-m-d H:i:s'),'updated_at'=>gmdate('Y-m-d H:i:s'),
+        ]);
+        $siteId = (int) $wpdb->insert_id;
+
+        $repo = new SiteVulnerabilitiesRepository();
+        $repo->replaceForSite($siteId, [
+            $this->finding('plugin', 'elementor', 'src-ele', 'high'),
+            $this->finding('plugin', 'wp-file-manager', 'src-wfm', 'critical'),
+        ], '2026-06-15 00:00:00');
+        (new DismissedVulnerabilitiesRepository())->dismiss($siteId, 'plugin', 'wp-file-manager', 'src-wfm', 1, '2026-06-15 00:00:00');
+
+        $rows = $repo->findFleetSummariesForUser(1);
+        $row = null;
+        foreach ($rows as $r) { if ((int) $r['site_id'] === $siteId) { $row = $r; } }
+
+        self::assertNotNull($row);
+        self::assertSame(0, (int) $row['critical'], 'dismissed critical excluded');
+        self::assertSame(1, (int) $row['high'], 'non-dismissed high still counted');
+        self::assertSame(1, (int) $row['total'], 'total counts only non-dismissed');
+        self::assertNotNull($row['last_security_scan_at'], 'site still reads scanned (clean), not never-scanned');
+    }
+
     private function finding(string $type, string $slug, string $sourceId, string $severity): array
     {
         return ['type'=>$type,'slug'=>$slug,'component_name'=>ucfirst($slug),'installed_version'=>'6.0',
