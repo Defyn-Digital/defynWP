@@ -130,6 +130,56 @@ export const siteVulnerabilitiesSchema = z.object({
 });
 export type SiteVulnerabilities = z.infer<typeof siteVulnerabilitiesSchema>;
 
+// P5.1 — Client maintenance report schemas.
+export const reportUpdateSchema = z.object({
+  type: z.enum(['plugin', 'theme', 'core']),
+  slug: z.string(),
+  component_name: z.string(),
+  previous_version: z.string(),
+  new_version: z.string(),
+  applied_at: z.string(),
+});
+export const reportIncidentSchema = z.object({
+  started_at: z.string(),
+  ended_at: z.string().nullable(),
+  duration_seconds: z.number().nullable(),
+  reason: z.string().nullable(),
+  ongoing: z.boolean(),
+});
+export const reportScanSchema = z.object({
+  scanned_at: z.string(),
+  total: z.number(),
+  critical: z.number(),
+  high: z.number(),
+  medium: z.number(),
+  low: z.number(),
+});
+export const reportSchema = z.object({
+  site: z.object({ id: z.number(), label: z.string(), url: z.string(), wp_version: z.string() }),
+  period: z.object({ from: z.string(), to: z.string() }),
+  overview: z.object({
+    updates_applied: z.number(),
+    uptime_range_percent: z.number(),
+    open_findings: z.number(),
+    wp_version: z.string(),
+  }),
+  updates: z.array(reportUpdateSchema),
+  uptime: z.object({
+    range_percent: z.number(),
+    last_24h_percent: z.number(),
+    last_7d_percent: z.number(),
+    last_30d_percent: z.number(),
+    incidents: z.array(reportIncidentSchema),
+  }),
+  security: z.object({
+    last_scan_at: z.string().nullable(),
+    open_findings: z.array(vulnerabilitySchema),
+    severity_counts: z.object({ critical: z.number(), high: z.number(), medium: z.number(), low: z.number() }),
+    scans: z.array(reportScanSchema),
+  }),
+});
+export type Report = z.infer<typeof reportSchema>;
+
 // P2.5 — Overview dashboard schema.
 export const overviewAttentionReasonSchema = z.enum([
   'offline',

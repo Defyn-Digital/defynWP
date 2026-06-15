@@ -808,4 +808,69 @@ handlers.push(
   http.post('*/wp-json/defyn/v1/security/scan-all', () => {
     return HttpResponse.json({ scheduled_count: 0, site_ids: [], scheduled_at: '2026-06-15 03:00:00' }, { status: 200 });
   }),
+
+  // P5.1 — GET /sites/:id/report — default synthetic report; tests override via server.use().
+  http.get('*/wp-json/defyn/v1/sites/:id/report', ({ params }) => {
+    const siteId = Number(params.id);
+    return HttpResponse.json({
+      data: {
+        site: { id: siteId, label: 'SmartCoding', url: 'https://smartcoding.test', wp_version: '6.9.4' },
+        period: { from: '2026-05-01', to: '2026-05-31' },
+        overview: {
+          updates_applied: 1,
+          uptime_range_percent: 99.95,
+          open_findings: 1,
+          wp_version: '6.9.4',
+        },
+        updates: [
+          {
+            type: 'plugin',
+            slug: 'elementor',
+            component_name: 'Elementor',
+            previous_version: '3.18.0',
+            new_version: '3.18.3',
+            applied_at: '2026-05-12 04:00:00',
+          },
+        ],
+        uptime: {
+          range_percent: 99.95,
+          last_24h_percent: 100,
+          last_7d_percent: 99.9,
+          last_30d_percent: 99.95,
+          incidents: [
+            {
+              started_at: '2026-05-10 02:00:00',
+              ended_at: '2026-05-10 02:15:00',
+              duration_seconds: 900,
+              reason: 'host unreachable',
+              ongoing: false,
+            },
+          ],
+        },
+        security: {
+          last_scan_at: '2026-05-30 03:00:00',
+          open_findings: [
+            {
+              type: 'plugin',
+              slug: 'elementor',
+              component_name: 'Elementor',
+              installed_version: '3.18.0',
+              severity: 'high',
+              cvss_score: 7.5,
+              cve: 'CVE-2024-5678',
+              fixed_in: '3.18.3',
+              title: 'XSS',
+              source_id: 'src-ele',
+              dismissed: false,
+            },
+          ],
+          severity_counts: { critical: 0, high: 1, medium: 0, low: 0 },
+          scans: [
+            { scanned_at: '2026-05-30 03:00:00', total: 1, critical: 0, high: 1, medium: 0, low: 0 },
+          ],
+        },
+      },
+      error: null,
+    });
+  }),
 );
