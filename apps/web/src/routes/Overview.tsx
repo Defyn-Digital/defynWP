@@ -5,6 +5,7 @@ import { RecentActivityWidget } from '@/components/overview/RecentActivityWidget
 import { SyncAllSitesButton } from '@/components/overview/SyncAllSitesButton'
 import { JobsNavLink } from '@/components/nav/JobsNavLink'
 import { MonitoringNavLink } from '@/components/nav/MonitoringNavLink'
+import { SecurityNavLink } from '@/components/nav/SecurityNavLink'
 import { SettingsNavLink } from '@/components/nav/SettingsNavLink'
 import { BulkUpdatePluginsButton } from '@/components/overview/BulkUpdatePluginsButton'
 import { BulkUpdateThemesButton } from '@/components/overview/BulkUpdateThemesButton'
@@ -53,6 +54,7 @@ export default function Overview() {
           <h1 className="text-xl font-semibold">Overview</h1>
           <JobsNavLink />
           <MonitoringNavLink />
+          <SecurityNavLink />
           <SettingsNavLink />
         </div>
         <div className="flex flex-col items-end gap-1">
