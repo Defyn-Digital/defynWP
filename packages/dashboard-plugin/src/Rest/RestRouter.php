@@ -16,6 +16,7 @@ use Defyn\Dashboard\Rest\SitesIncidentsController;
 use Defyn\Dashboard\Rest\SecurityScanAllController;
 use Defyn\Dashboard\Rest\SecurityScanController;
 use Defyn\Dashboard\Rest\SitesVulnerabilitiesController;
+use Defyn\Dashboard\Rest\SitesVulnerabilitiesDismissController;
 use Defyn\Dashboard\Rest\SitesCoreRefreshController;
 use Defyn\Dashboard\Rest\SitesCoreUpdateController;
 use Defyn\Dashboard\Rest\SitesThemesController;
@@ -343,6 +344,17 @@ final class RestRouter
             'methods'             => 'GET',
             'callback'            => [new SitesVulnerabilitiesController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'siteVulnerabilities'],
+        ]);
+
+        // P4.3b — POST /sites/{id}/vulnerabilities/dismiss. Toggles a per-site finding
+        // dismissal: dismissed=true inserts (validated against the current scan snapshot),
+        // dismissed=false restores. RateLimit::vulnerabilitiesDismiss chains RequireAuth::check
+        // internally and adds a per-(user, site) 30/HOUR throttle. Ownership-gated: 404 when
+        // the site is not owned by the authenticated user.
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/vulnerabilities/dismiss', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesVulnerabilitiesDismissController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'vulnerabilitiesDismiss'],
         ]);
 
         // P4.1 — POST /sites/{id}/security/scan. Schedules an on-demand

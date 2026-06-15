@@ -197,6 +197,16 @@ final class RateLimit
     public const SECURITY_SCAN_ALL_LIMIT  = 5;
     public const SECURITY_SCAN_ALL_WINDOW = HOUR_IN_SECONDS;
 
+    // P4.3b — POST /sites/{id}/vulnerabilities/dismiss. Toggles a per-site finding
+    // dismissal — a cheap metadata write (single INSERT or DELETE), not a fan-out.
+    // 30/HOUR is looser than the per-site securityScan (6/HOUR) because an operator
+    // may legitimately dismiss/restore many findings in one sitting while triaging a
+    // single site's scan. Per-(user, site) bucket, distinct prefix
+    // `defyn_rl_vulnerabilitiesDismiss_%d_%d` so it can't exhaust securityScan or
+    // siteVulnerabilities and vice versa.
+    public const VULNERABILITIES_DISMISS_LIMIT  = 30;
+    public const VULNERABILITIES_DISMISS_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -1125,6 +1135,42 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::SECURITY_SCAN_ALL_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /sites/{id}/vulnerabilities/dismiss.
+     *
+     * Per-(user, site), 30/HOUR — same bucket shape as securityScan (chains
+     * RequireAuth::check first so the key has a real userId) but a looser limit
+     * since toggling a dismissal is a cheap metadata write, not an AS-job schedule.
+     * Distinct prefix `defyn_rl_vulnerabilitiesDismiss_%d_%d` so it never exhausts
+     * the per-site securityScan or siteVulnerabilities buckets and vice versa.
+     *
+     * @return true|WP_Error
+     */
+    public static function vulnerabilitiesDismiss(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_vulnerabilitiesDismiss_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::VULNERABILITIES_DISMISS_LIMIT) {
+            return new \WP_Error(
+                'vulnerabilities.rate_limited',
+                'Too many dismiss requests. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::VULNERABILITIES_DISMISS_WINDOW);
         return true;
     }
 
