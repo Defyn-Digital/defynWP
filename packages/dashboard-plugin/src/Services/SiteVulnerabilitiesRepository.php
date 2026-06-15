@@ -10,6 +10,10 @@ final class SiteVulnerabilitiesRepository
 {
     private const SEVERITY_RANK = "CASE severity WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END";
 
+    public function __construct(
+        private readonly ?DismissedVulnerabilitiesRepository $dismissals = null,
+    ) {}
+
     /**
      * Replace all findings for a site with the new snapshot, inside a transaction.
      *
@@ -65,7 +69,14 @@ final class SiteVulnerabilitiesRepository
             ),
             ARRAY_A
         );
-        return array_map([SiteVulnerability::class, 'fromRow'], $rows ?: []);
+        $dismissed = ($this->dismissals ?? new DismissedVulnerabilitiesRepository())
+            ->findFingerprintsForSite($siteId);
+
+        return array_map(static function (array $row) use ($dismissed): SiteVulnerability {
+            $v  = SiteVulnerability::fromRow($row);
+            $fp = $v->type . '|' . $v->slug . '|' . $v->sourceId;
+            return $v->withDismissed(isset($dismissed[$fp]));
+        }, $rows ?: []);
     }
 
     /**
