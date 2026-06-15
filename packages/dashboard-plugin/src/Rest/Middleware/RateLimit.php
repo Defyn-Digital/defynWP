@@ -189,6 +189,14 @@ final class RateLimit
     public const SECURITY_LIMIT  = 30;
     public const SECURITY_WINDOW = MINUTE_IN_SECONDS;
 
+    // P4.2 — POST /security/scan-all. Bulk fan-out: schedules a `defyn_security_scan`
+    // AS job per owned site. Per-user, 5/HOUR — same weight class as bulkPluginUpdate
+    // and bulkThemeUpdate (N write fan-outs; distinct bucket from the per-site
+    // securityScan 6/HOUR so a per-site scan doesn't exhaust the fleet scan).
+    // Key: defyn_rl_securityScanAll_%d.
+    public const SECURITY_SCAN_ALL_LIMIT  = 5;
+    public const SECURITY_SCAN_ALL_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -1083,6 +1091,40 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::SECURITY_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /security/scan-all.
+     *
+     * Per-user, 5/HOUR — same weight class as bulkPluginUpdate / bulkThemeUpdate
+     * (N write fan-outs). Distinct prefix `defyn_rl_securityScanAll_%d` — no
+     * collision with the per-site `defyn_rl_securityScan_%d_%d` bucket.
+     * Plan-bug trap: window is HOUR_IN_SECONDS, NOT MINUTE.
+     *
+     * @return true|\WP_Error
+     */
+    public static function securityScanAll(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_securityScanAll_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::SECURITY_SCAN_ALL_LIMIT) {
+            return new \WP_Error(
+                'security.rate_limited',
+                'Too many fleet scan requests. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::SECURITY_SCAN_ALL_WINDOW);
         return true;
     }
 

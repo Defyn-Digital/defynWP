@@ -13,6 +13,7 @@ use Defyn\Dashboard\Rest\SettingsController;
 use Defyn\Dashboard\Rest\SitesAlertsMuteController;
 use Defyn\Dashboard\Rest\SitesCoreAllowMajorController;
 use Defyn\Dashboard\Rest\SitesIncidentsController;
+use Defyn\Dashboard\Rest\SecurityScanAllController;
 use Defyn\Dashboard\Rest\SecurityScanController;
 use Defyn\Dashboard\Rest\SitesVulnerabilitiesController;
 use Defyn\Dashboard\Rest\SitesCoreRefreshController;
@@ -375,6 +376,16 @@ final class RestRouter
             'methods'             => 'GET',
             'callback'            => [new SecurityController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'security'],
+        ]);
+
+        // P4.2 — POST /security/scan-all. Refreshes the vuln feed once then
+        // fan-outs the P4.1 `defyn_security_scan` AS job per owned site. Emits
+        // ONE fleet-scoped `security.scan_all_requested` activity event only when
+        // scheduled_count > 0. RateLimit::securityScanAll is 5/HOUR.
+        register_rest_route(self::NAMESPACE, '/security/scan-all', [
+            'methods'             => 'POST',
+            'callback'            => [new SecurityScanAllController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'securityScanAll'],
         ]);
 
         // P3.3 — GET /settings. Returns the authenticated operator's per-user
