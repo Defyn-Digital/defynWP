@@ -13,6 +13,7 @@ import { SiteMajorUpdatesSettingsRow } from '@/components/sites/SiteMajorUpdates
 import { SiteMuteAlertsSettingsRow } from '@/components/sites/SiteMuteAlertsSettingsRow';
 import { useSiteThemes } from '@/lib/queries/useSiteThemes';
 import { SiteThemesPanel } from '@/components/sites/SiteThemesPanel';
+import { SiteSecurityPanel } from '@/components/sites/SiteSecurityPanel';
 import { IncidentHistoryPanel } from '@/components/sites/IncidentHistoryPanel';
 
 export default function SiteDetail() {
@@ -112,6 +113,8 @@ export default function SiteDetail() {
           {data.status !== 'pending' && <SitePluginsPanel siteId={siteId} />}
 
           {data.status !== 'pending' && <SiteThemesPanel siteId={siteId} />}
+
+          {data.status !== 'pending' && <SiteSecurityPanel siteId={siteId} />}
 
           <Button asChild variant="outline">
             <Link to="/sites">Back to sites</Link>

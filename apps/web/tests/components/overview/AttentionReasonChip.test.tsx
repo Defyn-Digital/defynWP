@@ -21,3 +21,10 @@ describe('AttentionReasonChip', () => {
     expect(screen.getByText(/sync stale/i).className).toMatch(/bg-amber-100/)
   })
 })
+
+describe('AttentionReasonChip — has_vulnerabilities', () => {
+  it('renders a vulnerable chip', () => {
+    render(<AttentionReasonChip reason="has_vulnerabilities" />)
+    expect(screen.getByText('vulnerable')).toBeInTheDocument()
+  })
+})
