@@ -4,6 +4,7 @@ namespace Defyn\Dashboard\Services;
 
 use Defyn\Dashboard\Models\SiteVulnerability;
 use Defyn\Dashboard\Schema\SiteVulnerabilitiesTable;
+use Defyn\Dashboard\Schema\SitesTable;
 
 final class SiteVulnerabilitiesRepository
 {
@@ -65,5 +66,51 @@ final class SiteVulnerabilitiesRepository
             ARRAY_A
         );
         return array_map([SiteVulnerability::class, 'fromRow'], $rows ?: []);
+    }
+
+    /**
+     * P4.2 — fleet rollup: every site owned by $userId LEFT JOIN its findings,
+     * one row per site with per-severity counts. Clean (scanned, no findings) and
+     * never-scanned sites both come back with zero counts; they are distinguished
+     * by `last_security_scan_at` (set vs null). One GROUP BY query — no N+1.
+     *
+     * @return list<array{site_id:int,label:string,url:string,last_security_scan_at:?string,critical:int,high:int,medium:int,low:int,total:int}>
+     */
+    public function findFleetSummariesForUser(int $userId): array
+    {
+        global $wpdb;
+        $sv    = SiteVulnerabilitiesTable::tableName();
+        $sites = SitesTable::tableName();
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT s.id AS site_id, s.label AS label, s.url AS url,
+                        s.last_security_scan_at AS last_security_scan_at,
+                        SUM(CASE WHEN sv.severity = 'critical' THEN 1 ELSE 0 END) AS critical,
+                        SUM(CASE WHEN sv.severity = 'high'     THEN 1 ELSE 0 END) AS high,
+                        SUM(CASE WHEN sv.severity = 'medium'   THEN 1 ELSE 0 END) AS medium,
+                        SUM(CASE WHEN sv.severity = 'low'      THEN 1 ELSE 0 END) AS low,
+                        COUNT(sv.id) AS total
+                 FROM {$sites} s
+                 LEFT JOIN {$sv} sv ON sv.site_id = s.id
+                 WHERE s.user_id = %d
+                 GROUP BY s.id, s.label, s.url, s.last_security_scan_at
+                 ORDER BY s.id ASC",
+                $userId
+            ),
+            ARRAY_A
+        );
+
+        return array_map(static fn (array $r): array => [
+            'site_id'               => (int) $r['site_id'],
+            'label'                 => (string) $r['label'],
+            'url'                   => (string) $r['url'],
+            'last_security_scan_at' => $r['last_security_scan_at'] !== null ? (string) $r['last_security_scan_at'] : null,
+            'critical'              => (int) $r['critical'],
+            'high'                  => (int) $r['high'],
+            'medium'                => (int) $r['medium'],
+            'low'                   => (int) $r['low'],
+            'total'                 => (int) $r['total'],
+        ], $rows ?: []);
     }
 }
