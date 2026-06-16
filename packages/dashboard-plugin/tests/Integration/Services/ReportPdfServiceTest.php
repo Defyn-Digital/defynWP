@@ -39,4 +39,26 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
         self::assertStringStartsWith('%PDF-', $pdf);
         self::assertGreaterThan(1000, strlen($pdf));
     }
+
+    public function testEscapesReportDerivedStrings(): void
+    {
+        $report = $this->sampleReport();
+        $report['updates'][0]['component_name'] = '<script>alert(1)</script>Evil';
+        $svc = new ReportPdfService(static fn (string $url): ?string => null);
+        $pdf = $svc->render($report, $this->branding());
+        self::assertStringStartsWith('%PDF-', $pdf);
+    }
+
+    public function testRendersAllFourSectionsInHtml(): void
+    {
+        $svc = new ReportPdfService(static fn (string $url): ?string => null);
+        $html = $svc->debugHtml($this->sampleReport(), $this->branding());
+        foreach (['Overview','Updates','Uptime','Security','Akismet','5.3','5.4','502 Bad Gateway','WP File Manager'] as $needle) {
+            self::assertStringContainsString($needle, $html);
+        }
+        // escaped, not raw:
+        $report = $this->sampleReport();
+        $report['updates'][0]['component_name'] = '<b>x</b>';
+        self::assertStringContainsString('&lt;b&gt;x&lt;/b&gt;', $svc->debugHtml($report, $this->branding()));
+    }
 }
