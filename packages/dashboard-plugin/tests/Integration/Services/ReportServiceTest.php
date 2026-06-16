@@ -26,8 +26,11 @@ final class ReportServiceTest extends AbstractSchemaTestCase
     public function testComposeAggregatesAllSections(): void
     {
         $siteId = $this->seedSite(1, 'https://acme.test', 'Acme', '6.9.4');
-        $from = '2026-05-16 00:00:00';
-        $to   = '2026-06-15 23:59:59';
+        // ActivityLogRepository::insert stamps created_at = now(UTC); the range must
+        // include "now" so the seeded update/scan events fall inside it regardless of
+        // the wall-clock date the suite runs on. (today-end is always >= now.)
+        $from = '2026-05-01 00:00:00';
+        $to   = gmdate('Y-m-d 23:59:59');
 
         $log = new ActivityLogRepository();
         $log->insert(null, $siteId, 'plugin_update.succeeded', ['slug'=>'akismet','previous_version'=>'5.3','new_version'=>'5.4'], null);
