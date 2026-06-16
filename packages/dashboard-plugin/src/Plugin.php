@@ -8,6 +8,8 @@ use Defyn\Dashboard\Jobs\CleanupExpiredCodes;
 use Defyn\Dashboard\Jobs\CompleteConnection;
 use Defyn\Dashboard\Jobs\HealthPing;
 use Defyn\Dashboard\Jobs\HealthPingAll;
+use Defyn\Dashboard\Jobs\GenerateMonthlyReportsAll;
+use Defyn\Dashboard\Jobs\GenerateReport;
 use Defyn\Dashboard\Jobs\SecurityScan;
 use Defyn\Dashboard\Jobs\SecurityScanAll;
 use Defyn\Dashboard\Jobs\SslCheck;
@@ -133,6 +135,14 @@ final class Plugin
         add_action(SecurityScan::HOOK, static function (int $siteId): void {
             (new SecurityScan())->handle($siteId);
         }, 10, 1);
+
+        // P5.3 — monthly client report fan-out + per-report leaf job.
+        add_action(GenerateMonthlyReportsAll::HOOK, static function (): void {
+            (new GenerateMonthlyReportsAll())->handle();
+        });
+        add_action(GenerateReport::HOOK, static function (int $reportId): void {
+            (new GenerateReport())->handle($reportId);
+        });
 
         add_action(CleanupExpiredCodes::HOOK, static function (): void {
             (new CleanupExpiredCodes())->handle();
