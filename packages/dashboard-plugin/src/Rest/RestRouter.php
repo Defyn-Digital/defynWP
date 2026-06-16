@@ -13,8 +13,13 @@ use Defyn\Dashboard\Rest\SettingsController;
 use Defyn\Dashboard\Rest\SitesAlertsMuteController;
 use Defyn\Dashboard\Rest\SitesCoreAllowMajorController;
 use Defyn\Dashboard\Rest\SitesIncidentsController;
+use Defyn\Dashboard\Rest\SitesClientEmailController;
 use Defyn\Dashboard\Rest\SitesReportController;
+use Defyn\Dashboard\Rest\SitesReportDeleteController;
+use Defyn\Dashboard\Rest\SitesReportDownloadController;
 use Defyn\Dashboard\Rest\SitesReportPdfController;
+use Defyn\Dashboard\Rest\SitesReportSendController;
+use Defyn\Dashboard\Rest\SitesReportsController;
 use Defyn\Dashboard\Rest\SecurityScanAllController;
 use Defyn\Dashboard\Rest\SecurityScanController;
 use Defyn\Dashboard\Rest\SitesVulnerabilitiesController;
@@ -361,6 +366,43 @@ final class RestRouter
             'methods'             => 'GET',
             'callback'            => [new SitesReportPdfController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'siteReportPdf'],
+        ]);
+
+        // P5.3 — client report queue. The /sites/{id}/reports path carries BOTH
+        // GET (list) and POST (create); they're registered as two separate
+        // register_rest_route calls on the same path (WP merges method-descriptors),
+        // mirroring the GET+POST /sites pair above. Each method has its own
+        // RateLimit bucket. All controllers ownership-gate the site first and
+        // return 404 sites.not_found when the caller does not own it.
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/reports', [
+            'methods'             => 'GET',
+            'callback'            => [new SitesReportsController(), 'handleList'],
+            'permission_callback' => [RateLimit::class, 'reportsList'],
+        ]);
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/reports', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesReportsController(), 'handleCreate'],
+            'permission_callback' => [RateLimit::class, 'reportsGenerate'],
+        ]);
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/reports/(?P<rid>\d+)/download', [
+            'methods'             => 'GET',
+            'callback'            => [new SitesReportDownloadController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'reportsDownload'],
+        ]);
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/reports/(?P<rid>\d+)/send', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesReportSendController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'reportsSend'],
+        ]);
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/reports/(?P<rid>\d+)', [
+            'methods'             => 'DELETE',
+            'callback'            => [new SitesReportDeleteController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'reportsDelete'],
+        ]);
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/client-email', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesClientEmailController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'clientEmail'],
         ]);
 
         // P4.3b — POST /sites/{id}/vulnerabilities/dismiss. Toggles a per-site finding
