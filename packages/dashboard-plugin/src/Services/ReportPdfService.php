@@ -10,7 +10,8 @@ use Dompdf\Options;
  * dompdf NEVER fetches remote resources (isRemoteEnabled=false); the logo is fetched
  * + validated by us and inlined as a data URI (see $logoFetcher / Task 3).
  */
-final class ReportPdfService
+// Not final — subclassed in GenerateReport's failure-seam test (mirrors SitesReportPdfController).
+class ReportPdfService
 {
     private const LOGO_MAX_BYTES = 512 * 1024;
     private const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/gif'];
