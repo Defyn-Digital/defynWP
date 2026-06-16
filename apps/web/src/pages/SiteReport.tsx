@@ -5,6 +5,7 @@ import { presetRange } from '@/lib/reportRange';
 import type { RangePreset } from '@/lib/reportRange';
 import { ReportHeader } from '@/components/report/ReportHeader';
 import { ReportOverview } from '@/components/report/ReportOverview';
+import { ReportPerformance } from '@/components/report/ReportPerformance';
 import { ReportUpdates } from '@/components/report/ReportUpdates';
 import { ReportUptime } from '@/components/report/ReportUptime';
 import { ReportSecurity } from '@/components/report/ReportSecurity';
@@ -115,6 +116,7 @@ export default function SiteReport() {
           <div className="space-y-6">
             <ReportHeader site={data.site} period={data.period} />
             <ReportOverview overview={data.overview} />
+            <ReportPerformance performance={data.performance} />
             <ReportUpdates updates={data.updates} />
             <ReportUptime uptime={data.uptime} />
             <ReportSecurity security={data.security} />

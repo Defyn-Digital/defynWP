@@ -975,6 +975,17 @@ handlers.push(
             { scanned_at: '2026-05-30 03:00:00', total: 1, critical: 0, high: 1, medium: 0, low: 0 },
           ],
         },
+        performance: {
+          latest: {
+            fetched_at: '2026-05-30 03:00:00',
+            mobile: { score: 82, lcp_ms: 2100, cls: 0.14, inp_ms: 180 },
+            desktop: { score: 96, lcp_ms: 1200, cls: 0.02, inp_ms: 90 },
+          },
+          history: [
+            { fetched_at: '2026-05-23 03:00:00', mobile_score: 78, desktop_score: 94 },
+            { fetched_at: '2026-05-30 03:00:00', mobile_score: 82, desktop_score: 96 },
+          ],
+        },
       },
       error: null,
     });

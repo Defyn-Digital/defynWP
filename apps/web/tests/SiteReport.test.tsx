@@ -69,6 +69,17 @@ function populatedReport(): Report {
         { scanned_at: '2026-06-15 03:00:00', total: 1, critical: 1, high: 0, medium: 0, low: 0 },
       ],
     },
+    performance: {
+      latest: {
+        fetched_at: '2026-06-15 03:00:00',
+        mobile: { score: 82, lcp_ms: 2100, cls: 0.14, inp_ms: 180 },
+        desktop: { score: 96, lcp_ms: 1200, cls: 0.02, inp_ms: 90 },
+      },
+      history: [
+        { fetched_at: '2026-06-08 03:00:00', mobile_score: 78, desktop_score: 94 },
+        { fetched_at: '2026-06-15 03:00:00', mobile_score: 82, desktop_score: 96 },
+      ],
+    },
   };
 }
 
@@ -80,6 +91,7 @@ function emptyReport(): Report {
     updates: [],
     uptime: { ...base.uptime, range_percent: 100, incidents: [] },
     security: { ...base.security, last_scan_at: null, open_findings: [], scans: [] },
+    performance: { latest: null, history: [] },
   };
 }
 

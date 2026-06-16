@@ -156,6 +156,35 @@ export const reportScanSchema = z.object({
   medium: z.number(),
   low: z.number(),
 });
+// P6.1 — PageSpeed/Core-Web-Vitals performance block on the maintenance report.
+export const reportPerformanceSchema = z.object({
+  latest: z
+    .object({
+      fetched_at: z.string(),
+      mobile: z.object({
+        score: z.number().nullable(),
+        lcp_ms: z.number().nullable(),
+        cls: z.number().nullable(),
+        inp_ms: z.number().nullable(),
+      }),
+      desktop: z.object({
+        score: z.number().nullable(),
+        lcp_ms: z.number().nullable(),
+        cls: z.number().nullable(),
+        inp_ms: z.number().nullable(),
+      }),
+    })
+    .nullable(),
+  history: z.array(
+    z.object({
+      fetched_at: z.string(),
+      mobile_score: z.number().nullable(),
+      desktop_score: z.number().nullable(),
+    }),
+  ),
+});
+export type ReportPerformanceData = z.infer<typeof reportPerformanceSchema>;
+
 export const siteReportSchema = z.object({
   site: z.object({ id: z.number(), label: z.string(), url: z.string(), wp_version: z.string() }),
   period: z.object({ from: z.string(), to: z.string() }),
@@ -179,6 +208,7 @@ export const siteReportSchema = z.object({
     severity_counts: z.object({ critical: z.number(), high: z.number(), medium: z.number(), low: z.number() }),
     scans: z.array(reportScanSchema),
   }),
+  performance: reportPerformanceSchema,
 });
 export type SiteReport = z.infer<typeof siteReportSchema>;
 
