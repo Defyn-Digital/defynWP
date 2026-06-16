@@ -15,7 +15,7 @@ final class SecurityScanningSchemaTest extends AbstractSchemaTestCase
         Activation::activate();
         $this->assertTableExists(VulnerabilitiesTable::tableName());
         $this->assertTableExists(SiteVulnerabilitiesTable::tableName());
-        self::assertSame(12, Activation::SCHEMA_VERSION);
+        self::assertSame(13, Activation::SCHEMA_VERSION);
         self::assertSame(Activation::SCHEMA_VERSION, SchemaVersion::current());
     }
 
