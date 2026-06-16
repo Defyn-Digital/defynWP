@@ -8,6 +8,7 @@ import { ReportOverview } from '@/components/report/ReportOverview';
 import { ReportUpdates } from '@/components/report/ReportUpdates';
 import { ReportUptime } from '@/components/report/ReportUptime';
 import { ReportSecurity } from '@/components/report/ReportSecurity';
+import { downloadReportPdf } from '@/lib/downloadReportPdf';
 import '@/components/report/report-print.css';
 
 interface PresetButton {
@@ -29,6 +30,7 @@ export default function SiteReport() {
   // the report itself is derived purely from the query data (no useEffect on
   // fresh arrays, so no render loop).
   const [range, setRange] = useState(() => presetRange('last30'));
+  const [downloadError, setDownloadError] = useState(false);
 
   const { data, isLoading, isError } = useSiteReport(siteId, range.from, range.to);
 
@@ -74,7 +76,18 @@ export default function SiteReport() {
 
           <button
             type="button"
-            className="ml-auto rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800"
+            className="ml-auto rounded-md border px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+            onClick={() => {
+              setDownloadError(false);
+              downloadReportPdf(siteId, range.from, range.to).catch(() => setDownloadError(true));
+            }}
+          >
+            Download PDF
+          </button>
+
+          <button
+            type="button"
+            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800"
             onClick={() => window.print()}
           >
             Print / Save as PDF
@@ -87,6 +100,10 @@ export default function SiteReport() {
             Back to site
           </Link>
         </div>
+
+        {downloadError && (
+          <p className="report-controls text-sm text-red-600">Couldn&apos;t generate the PDF.</p>
+        )}
 
         {isLoading && <p className="text-sm text-zinc-500">Loading report…</p>}
 

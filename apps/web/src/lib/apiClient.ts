@@ -99,4 +99,15 @@ export const apiClient = {
   get: <T>(path: string) => request<T>(path, { method: 'GET' }),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  /**
+   * Fetch a binary response (e.g. the branded report PDF) as a raw Blob.
+   * Mirrors `request`'s auth + credentials handling but skips the JSON parse.
+   */
+  async getBlob(path: string): Promise<Blob> {
+    const headers: Record<string, string> = {};
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+    const res = await fetch(`${API_BASE}${path}`, { headers, credentials: 'include' });
+    if (!res.ok) throw new Error(`Download failed (${res.status})`);
+    return res.blob();
+  },
 };
