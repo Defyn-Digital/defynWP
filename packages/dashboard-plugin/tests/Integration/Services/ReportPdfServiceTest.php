@@ -61,4 +61,26 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
         $report['updates'][0]['component_name'] = '<b>x</b>';
         self::assertStringContainsString('&lt;b&gt;x&lt;/b&gt;', $svc->debugHtml($report, $this->branding()));
     }
+
+    public function testValidateLogoResponseAcceptsSmallPngOnHttps(): void
+    {
+        $dataUri = ReportPdfService::validateLogoResponse(200, 'image/png', 'PNGBYTES', 'https://cdn.test/logo.png');
+        self::assertNotNull($dataUri);
+        self::assertStringStartsWith('data:image/png;base64,', $dataUri);
+    }
+
+    public function testValidateLogoResponseRejectsBadInputs(): void
+    {
+        self::assertNull(ReportPdfService::validateLogoResponse(200, 'image/png', 'x', 'http://cdn.test/logo.png')); // not https
+        self::assertNull(ReportPdfService::validateLogoResponse(200, 'text/html', 'x', 'https://cdn.test/logo.png')); // not image
+        self::assertNull(ReportPdfService::validateLogoResponse(404, 'image/png', 'x', 'https://cdn.test/logo.png')); // not 200
+        self::assertNull(ReportPdfService::validateLogoResponse(200, 'image/png', str_repeat('a', 600*1024), 'https://cdn.test/logo.png')); // oversize
+    }
+
+    public function testRenderWithLogoEmbedsDataUri(): void
+    {
+        $svc = new ReportPdfService(static fn (string $url): ?string => 'data:image/png;base64,AAAA');
+        $html = $svc->debugHtml($this->sampleReport(), ['agency_name'=>'A','accent_color'=>'#112233','logo_url'=>'https://cdn.test/logo.png']);
+        self::assertStringContainsString('data:image/png;base64,AAAA', $html);
+    }
 }

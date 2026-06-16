@@ -12,12 +12,54 @@ use Dompdf\Options;
  */
 final class ReportPdfService
 {
+    private const LOGO_MAX_BYTES = 512 * 1024;
+    private const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/gif'];
+
     /** @var callable(string):?string returns a validated data: URI or null */
     private $logoFetcher;
 
     public function __construct(?callable $logoFetcher = null)
     {
-        $this->logoFetcher = $logoFetcher ?? static fn (string $url): ?string => null; // real fetcher: Task 3
+        $this->logoFetcher = $logoFetcher ?? [self::class, 'defaultLogoFetcher'];
+    }
+
+    /** Pure: validate a fetched logo response → data: URI or null. No network. */
+    public static function validateLogoResponse(int $status, ?string $contentType, string $body, string $url): ?string
+    {
+        if ($status !== 200) {
+            return null;
+        }
+        if (stripos($url, 'https://') !== 0) {
+            return null;
+        }
+        $ct = strtolower(trim(explode(';', (string) $contentType)[0]));
+        if (!in_array($ct, self::LOGO_TYPES, true)) {
+            return null;
+        }
+        if (strlen($body) === 0 || strlen($body) > self::LOGO_MAX_BYTES) {
+            return null;
+        }
+        return 'data:' . $ct . ';base64,' . base64_encode($body);
+    }
+
+    /** Default fetcher — wp_remote_get (no redirects) → validateLogoResponse. Best-effort, never throws. */
+    public static function defaultLogoFetcher(string $url): ?string
+    {
+        try {
+            if (stripos($url, 'https://') !== 0) {
+                return null;
+            }
+            $res = wp_remote_get($url, ['redirection' => 0, 'timeout' => 5]);
+            if (is_wp_error($res)) {
+                return null;
+            }
+            $status = (int) wp_remote_retrieve_response_code($res);
+            $ct     = wp_remote_retrieve_header($res, 'content-type');
+            $body   = (string) wp_remote_retrieve_body($res);
+            return self::validateLogoResponse($status, is_string($ct) ? $ct : null, $body, $url);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     /**
