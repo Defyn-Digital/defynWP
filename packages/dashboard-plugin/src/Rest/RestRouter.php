@@ -20,6 +20,8 @@ use Defyn\Dashboard\Rest\SitesReportDownloadController;
 use Defyn\Dashboard\Rest\SitesReportPdfController;
 use Defyn\Dashboard\Rest\SitesReportSendController;
 use Defyn\Dashboard\Rest\SitesReportsController;
+use Defyn\Dashboard\Rest\SitesPerformanceController;
+use Defyn\Dashboard\Rest\SitesPerformanceScanController;
 use Defyn\Dashboard\Rest\SecurityScanAllController;
 use Defyn\Dashboard\Rest\SecurityScanController;
 use Defyn\Dashboard\Rest\SitesVulnerabilitiesController;
@@ -403,6 +405,20 @@ final class RestRouter
             'methods'             => 'POST',
             'callback'            => [new SitesClientEmailController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'clientEmail'],
+        ]);
+
+        // P6.1 — GET /sites/{id}/performance (latest PageSpeed snapshot, read bucket)
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/performance', [
+            'methods'             => 'GET',
+            'callback'            => [new SitesPerformanceController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'performanceRead'],
+        ]);
+
+        // P6.1 — POST /sites/{id}/performance/scan (enqueue on-demand measure, 202)
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/performance/scan', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesPerformanceScanController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'performanceScan'],
         ]);
 
         // P4.3b — POST /sites/{id}/vulnerabilities/dismiss. Toggles a per-site finding
