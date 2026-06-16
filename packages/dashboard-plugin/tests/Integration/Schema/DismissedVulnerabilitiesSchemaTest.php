@@ -10,7 +10,7 @@ final class DismissedVulnerabilitiesSchemaTest extends AbstractSchemaTestCase
 {
     public function testSchemaVersionIsTwelve(): void
     {
-        self::assertSame(12, Activation::SCHEMA_VERSION);
+        self::assertSame(13, Activation::SCHEMA_VERSION);
     }
 
     public function testDismissedTableExistsAfterEnsureSchema(): void

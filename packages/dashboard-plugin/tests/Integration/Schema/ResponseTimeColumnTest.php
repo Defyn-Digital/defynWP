@@ -17,7 +17,7 @@ final class ResponseTimeColumnTest extends AbstractSchemaTestCase
 {
     public function testSchemaVersionConstantIsNine(): void
     {
-        self::assertSame(12, Activation::SCHEMA_VERSION);
+        self::assertSame(13, Activation::SCHEMA_VERSION);
     }
 
     public function testResponseTimeColumnExistsAfterEnsureSchema(): void

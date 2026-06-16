@@ -9,6 +9,7 @@ use Defyn\Dashboard\Schema\ActivityLogTable;
 use Defyn\Dashboard\Schema\BulkJobItemsTable;
 use Defyn\Dashboard\Schema\BulkJobsTable;
 use Defyn\Dashboard\Schema\IncidentsTable;
+use Defyn\Dashboard\Schema\ReportsTable;
 use Defyn\Dashboard\Schema\DismissedVulnerabilitiesTable;
 use Defyn\Dashboard\Schema\VulnerabilitiesTable;
 use Defyn\Dashboard\Schema\SiteVulnerabilitiesTable;
@@ -27,7 +28,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 12;
+    public const SCHEMA_VERSION = 13;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -47,6 +48,7 @@ final class Activation
         VulnerabilitiesTable::class,
         SiteVulnerabilitiesTable::class,
         DismissedVulnerabilitiesTable::class,
+        ReportsTable::class,
     ];
 
     /** Throttle key for {@see maybeRunSelfHeal} — checked at most once per hour. */
@@ -107,6 +109,10 @@ final class Activation
         // P4.1 — add last_security_scan_at to wp_defyn_sites. Guarded ALTER.
         self::addLastSecurityScanAtColumn($wpdb);
 
+        // P5.3 — add client_email to wp_defyn_sites (report-queue recipient).
+        // Guarded ALTER.
+        self::addClientEmailColumn($wpdb);
+
         // P2.1: SchemaVersion is the canonical migration cursor; we coalesce
         // with any in-DB value via max() so a future install starting at v3
         // isn't silently downgraded if an older copy of this code runs ensureSchema.
@@ -158,6 +164,12 @@ final class Activation
             && as_next_scheduled_action(\Defyn\Dashboard\Jobs\SecurityScanAll::HOOK, [], 'defyn') === false) {
             \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
         }
+
+        // P5.3 — TODO(Task 7/8): add the GenerateMonthlyReportsAll ensure-scheduled
+        // guard here once that Jobs class exists. It is intentionally deferred: this
+        // method runs on `plugins_loaded`, and a `\Defyn\Dashboard\Jobs\GenerateMonthlyReportsAll::HOOK`
+        // class-constant access autoloads the (not-yet-existing) class, which fatals
+        // the whole test bootstrap. Mirror the SslCheckAll/SecurityScanAll guards above.
     }
 
     private static function canonicalTableExists(): bool
@@ -317,5 +329,19 @@ final class Activation
         }
         // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
         $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN last_security_scan_at DATETIME NULL");
+    }
+
+    private static function addClientEmailColumn(\wpdb $wpdb): void
+    {
+        $table  = SitesTable::tableName();
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SHOW COLUMNS FROM `{$table}` LIKE %s",
+            'client_email'
+        ));
+        if ($exists !== null) {
+            return;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+        $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN client_email VARCHAR(255) NULL");
     }
 }
