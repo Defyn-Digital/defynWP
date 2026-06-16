@@ -74,6 +74,15 @@ if (!defined('DEFYN_WORDFENCE_API_KEY')) {
     }
 }
 
+// PageSpeed Insights API key (P6.1): raises the PSI quota for the weekly performance
+// scan. Optional — PSI works keyless at low volume; when absent the scan still runs.
+if (!defined('DEFYN_PAGESPEED_API_KEY')) {
+    $envPsKey = getenv('DEFYN_PAGESPEED_API_KEY');
+    if ($envPsKey !== false && $envPsKey !== '') {
+        define('DEFYN_PAGESPEED_API_KEY', $envPsKey);
+    }
+}
+
 // Action Scheduler: loaded before Plugin::boot() so as_schedule_single_action()
 // and the hook system are available when controllers / Plugin::boot() reference them.
 // Loading is idempotent — if another plugin loaded AS first (its own copy ships
