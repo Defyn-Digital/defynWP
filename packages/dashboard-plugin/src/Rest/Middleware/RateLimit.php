@@ -222,6 +222,44 @@ final class RateLimit
     public const SITE_REPORT_PDF_LIMIT  = 10;
     public const SITE_REPORT_PDF_WINDOW = MINUTE_IN_SECONDS;
 
+    // P5.3 — POST /sites/{id}/reports (generate). Per-(user, site), 10/HOUR.
+    // Generation is a heavier operation than reading (aggregates data, may write
+    // the report record), so tighter than the list/download/delete read buckets.
+    // Distinct prefix `defyn_rl_reportsGenerate_%d_%d`.
+    public const REPORTS_GENERATE_LIMIT  = 10;
+    public const REPORTS_GENERATE_WINDOW = HOUR_IN_SECONDS;
+
+    // P5.3 — GET /sites/{id}/reports (list). Per-(user, site), 30/MINUTE.
+    // Read-only index query; per-MINUTE bucket mirrors siteReport/siteVulnerabilities
+    // (same operator-driven polling cadence). Distinct prefix `defyn_rl_reportsList_%d_%d`.
+    public const REPORTS_LIST_LIMIT  = 30;
+    public const REPORTS_LIST_WINDOW = MINUTE_IN_SECONDS;
+
+    // P5.3 — GET /sites/{id}/reports/{report_id}/download. Per-(user, site),
+    // 30/MINUTE. Serves stored report bytes; read-only, same cadence as reportsList.
+    // Distinct prefix `defyn_rl_reportsDownload_%d_%d`.
+    public const REPORTS_DOWNLOAD_LIMIT  = 30;
+    public const REPORTS_DOWNLOAD_WINDOW = MINUTE_IN_SECONDS;
+
+    // P5.3 — POST /sites/{id}/reports/{report_id}/send (email). Per-(user, site),
+    // 10/HOUR. Sending email is an external side-effect (SMTP/SES), so tighter
+    // than read buckets. Distinct prefix `defyn_rl_reportsSend_%d_%d`.
+    public const REPORTS_SEND_LIMIT  = 10;
+    public const REPORTS_SEND_WINDOW = HOUR_IN_SECONDS;
+
+    // P5.3 — DELETE /sites/{id}/reports/{report_id}. Per-(user, site), 30/HOUR.
+    // Write action (deletes a record), but less dangerous than generation/send so
+    // looser than their 10/HOUR buckets. Distinct prefix `defyn_rl_reportsDelete_%d_%d`.
+    public const REPORTS_DELETE_LIMIT  = 30;
+    public const REPORTS_DELETE_WINDOW = HOUR_IN_SECONDS;
+
+    // P5.3 — POST /sites/{id}/client-email. Per-(user, site), 10/HOUR. Sends the
+    // scheduled monthly report email to the client; SMTP side-effect, same weight
+    // class as reportsSend. 429 code `sites.rate_limited` (scoped to the site
+    // resource, not the reports sub-resource). Distinct prefix `defyn_rl_clientEmail_%d_%d`.
+    public const CLIENT_EMAIL_LIMIT  = 10;
+    public const CLIENT_EMAIL_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -1114,6 +1152,211 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::SITE_REPORT_PDF_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /sites/{id}/reports (generate).
+     *
+     * Per-(user, site), 10/HOUR. Generation is heavier than reading (aggregates
+     * data, may write a record), so tighter than list/download/delete. Chains
+     * RequireAuth::check first — same pattern as every post-P2.1 per-(user, site)
+     * bucket. Distinct prefix `defyn_rl_reportsGenerate_%d_%d`.
+     *
+     * @return true|WP_Error
+     */
+    public static function reportsGenerate(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_reportsGenerate_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::REPORTS_GENERATE_LIMIT) {
+            return new \WP_Error(
+                'reports.rate_limited',
+                'Too many report generate requests. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::REPORTS_GENERATE_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /sites/{id}/reports (list).
+     *
+     * Per-(user, site), 30/MINUTE. Read-only; per-MINUTE bucket mirrors
+     * siteReport/siteVulnerabilities (same operator-driven polling cadence).
+     * Distinct prefix `defyn_rl_reportsList_%d_%d`.
+     *
+     * @return true|WP_Error
+     */
+    public static function reportsList(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_reportsList_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::REPORTS_LIST_LIMIT) {
+            return new \WP_Error(
+                'reports.rate_limited',
+                'Too many requests. Try again shortly.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::REPORTS_LIST_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /sites/{id}/reports/{report_id}/download.
+     *
+     * Per-(user, site), 30/MINUTE. Serves stored report bytes; read-only, same
+     * cadence as reportsList. Distinct prefix `defyn_rl_reportsDownload_%d_%d`.
+     *
+     * @return true|WP_Error
+     */
+    public static function reportsDownload(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_reportsDownload_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::REPORTS_DOWNLOAD_LIMIT) {
+            return new \WP_Error(
+                'reports.rate_limited',
+                'Too many download requests. Try again shortly.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::REPORTS_DOWNLOAD_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /sites/{id}/reports/{report_id}/send.
+     *
+     * Per-(user, site), 10/HOUR. Sending email is an external side-effect
+     * (SMTP/SES), so tighter than read buckets. Distinct prefix
+     * `defyn_rl_reportsSend_%d_%d`.
+     *
+     * @return true|WP_Error
+     */
+    public static function reportsSend(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_reportsSend_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::REPORTS_SEND_LIMIT) {
+            return new \WP_Error(
+                'reports.rate_limited',
+                'Too many report send requests. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::REPORTS_SEND_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for DELETE /sites/{id}/reports/{report_id}.
+     *
+     * Per-(user, site), 30/HOUR. Write action (deletes a record), but less
+     * dangerous than generation/send so looser limit. Distinct prefix
+     * `defyn_rl_reportsDelete_%d_%d`.
+     *
+     * @return true|WP_Error
+     */
+    public static function reportsDelete(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_reportsDelete_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::REPORTS_DELETE_LIMIT) {
+            return new \WP_Error(
+                'reports.rate_limited',
+                'Too many delete requests. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::REPORTS_DELETE_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /sites/{id}/client-email.
+     *
+     * Per-(user, site), 10/HOUR. Sends the scheduled monthly report email to the
+     * client — an SMTP side-effect, same weight class as reportsSend. 429 code
+     * is `sites.rate_limited` (scoped to the site resource, not the reports
+     * sub-resource). Distinct prefix `defyn_rl_clientEmail_%d_%d`.
+     *
+     * @return true|WP_Error
+     */
+    public static function clientEmail(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_clientEmail_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::CLIENT_EMAIL_LIMIT) {
+            return new \WP_Error(
+                'sites.rate_limited',
+                'Too many client email requests. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::CLIENT_EMAIL_WINDOW);
         return true;
     }
 
