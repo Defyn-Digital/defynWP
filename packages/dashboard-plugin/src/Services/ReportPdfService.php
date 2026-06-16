@@ -110,6 +110,7 @@ class ReportPdfService
         $logoImg = $logoDataUri !== null ? '<img src="' . $logoDataUri . '" style="max-height:60px;max-width:200px">' : '';
 
         $overview = $this->overviewHtml($report);
+        $performance = $this->performanceHtml($report);
         $updates  = $this->updatesHtml($report);
         $uptime   = $this->uptimeHtml($report);
         $security = $this->securityHtml($report);
@@ -139,6 +140,7 @@ class ReportPdfService
   </div>
   <div class="band"></div>
   {$overview}
+  {$performance}
   {$updates}
   {$uptime}
   {$security}
@@ -265,6 +267,45 @@ HTML;
         }
 
         return $this->sectionWithBody('Security', $body);
+    }
+
+    /** @param array<string,mixed> $report */
+    private function performanceHtml(array $report): string
+    {
+        $perf   = $report['performance'] ?? ['latest' => null, 'history' => []];
+        $latest = $perf['latest'] ?? null;
+        if ($latest === null) {
+            return $this->sectionWithBody('Performance', '<p class="muted">Not yet measured.</p>');
+        }
+        $m = $latest['mobile'];  $d = $latest['desktop'];
+        $when = $this->esc((string) ($latest['fetched_at'] ?? ''));
+        $scoreRow = '<table class="stats"><tr>'
+            . '<td><div class="stat-num">' . (int) ($m['score'] ?? 0) . '</div><div class="stat-label">Mobile</div></td>'
+            . '<td><div class="stat-num">' . (int) ($d['score'] ?? 0) . '</div><div class="stat-label">Desktop</div></td>'
+            . '</tr></table>';
+
+        $cwv = '<table class="data"><thead><tr><th>Core Web Vital (mobile)</th><th>Value</th><th>Rating</th></tr></thead><tbody>'
+            . $this->cwvRow('Largest Contentful Paint', $m['lcp_ms'] ?? null, 'lcp', 'ms')
+            . $this->cwvRow('Cumulative Layout Shift', $m['cls'] ?? null, 'cls', '')
+            . $this->cwvRow('Interaction to Next Paint', $m['inp_ms'] ?? null, 'inp', 'ms')
+            . '</tbody></table>';
+
+        $rows = '';
+        foreach (($perf['history'] ?? []) as $h) {
+            $rows .= '<tr><td>' . $this->esc((string) ($h['fetched_at'] ?? '')) . '</td><td>' . (int) ($h['mobile_score'] ?? 0) . '</td><td>' . (int) ($h['desktop_score'] ?? 0) . '</td></tr>';
+        }
+        $trend = $rows === '' ? '' : '<table class="data"><thead><tr><th>Measured</th><th>Mobile</th><th>Desktop</th></tr></thead><tbody>' . $rows . '</tbody></table>';
+
+        $body = '<p class="muted">PageSpeed Insights (lab) &middot; measured ' . $when . '</p>' . $scoreRow . $cwv . $trend;
+        return $this->sectionWithBody('Performance', $body);
+    }
+
+    private function cwvRow(string $label, int|float|null $value, string $metric, string $unit): string
+    {
+        $rating = \Defyn\Dashboard\Services\CoreWebVitals::rate($metric, $value);
+        $shown  = $value === null ? '—' : ($metric === 'cls' ? (string) $value : (string) (int) $value . ($unit !== '' ? ' ' . $unit : ''));
+        $word   = match ($rating) { 'good' => 'Good', 'needs-improvement' => 'Needs work', 'poor' => 'Poor', default => '—' };
+        return '<tr><td>' . $this->esc($label) . '</td><td>' . $this->esc($shown) . '</td><td>' . $this->esc($word) . '</td></tr>';
     }
 
     private function sectionWithBody(string $heading, string $body): string

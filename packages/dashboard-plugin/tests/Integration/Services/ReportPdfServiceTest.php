@@ -83,4 +83,32 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
         $html = $svc->debugHtml($this->sampleReport(), ['agency_name'=>'A','accent_color'=>'#112233','logo_url'=>'https://cdn.test/logo.png']);
         self::assertStringContainsString('data:image/png;base64,AAAA', $html);
     }
+
+    public function testRendersPerformanceSection(): void
+    {
+        $report = $this->sampleReport();
+        $report['performance'] = [
+            'latest' => [
+                'fetched_at' => '2026-06-14 03:00:00',
+                'mobile'  => ['score' => 82, 'lcp_ms' => 2100, 'cls' => 0.14, 'inp_ms' => 180],
+                'desktop' => ['score' => 96, 'lcp_ms' => 900,  'cls' => 0.01, 'inp_ms' => 60],
+            ],
+            'history' => [
+                ['fetched_at' => '2026-05-31 03:00:00', 'mobile_score' => 78, 'desktop_score' => 94],
+                ['fetched_at' => '2026-06-14 03:00:00', 'mobile_score' => 82, 'desktop_score' => 96],
+            ],
+        ];
+        $html = (new ReportPdfService(static fn ($u): ?string => null))->debugHtml($report, $this->branding());
+        self::assertStringContainsString('Performance', $html);
+        self::assertStringContainsString('82', $html);
+        self::assertStringContainsString('Needs', $html); // CLS 0.14 → needs-improvement label "Needs work"
+    }
+
+    public function testRendersPerformanceNotMeasured(): void
+    {
+        $report = $this->sampleReport();
+        $report['performance'] = ['latest' => null, 'history' => []];
+        $html = (new ReportPdfService(static fn ($u): ?string => null))->debugHtml($report, $this->branding());
+        self::assertStringContainsString('Not yet measured', $html);
+    }
 }
