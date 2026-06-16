@@ -27,5 +27,21 @@ final class Uninstaller
 
         // P3.3 — clear every operator's Slack webhook (delete_metadata bulk form).
         delete_metadata('user', 0, 'defyn_slack_webhook_url', '', true);
+
+        // P5.3 — remove stored report PDFs + their guard files.
+        $up  = wp_upload_dir();
+        $dir = rtrim($up['basedir'], '/') . '/defyn-reports';
+        if (is_dir($dir)) {
+            $entries = array_merge(
+                (array) glob($dir . '/*'),
+                [$dir . '/.htaccess'] // dotfile — glob('/*') skips it
+            );
+            foreach ($entries as $f) {
+                if (is_file($f)) {
+                    @unlink($f);
+                }
+            }
+            @rmdir($dir);
+        }
     }
 }
