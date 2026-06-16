@@ -20,6 +20,7 @@ final class Scheduler
         CleanupExpiredCodes::HOOK  => 3600,  // 1 hour
         SslCheckAll::HOOK          => 86400, // 24 hours
         SecurityScanAll::HOOK      => 86400, // 24 hours
+        GenerateMonthlyReportsAll::HOOK => MONTH_IN_SECONDS, // ~30 days
     ];
 
     public static function installRecurringSchedules(): void

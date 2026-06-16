@@ -165,11 +165,12 @@ final class Activation
             \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
         }
 
-        // P5.3 — TODO(Task 7/8): add the GenerateMonthlyReportsAll ensure-scheduled
-        // guard here once that Jobs class exists. It is intentionally deferred: this
-        // method runs on `plugins_loaded`, and a `\Defyn\Dashboard\Jobs\GenerateMonthlyReportsAll::HOOK`
-        // class-constant access autoloads the (not-yet-existing) class, which fatals
-        // the whole test bootstrap. Mirror the SslCheckAll/SecurityScanAll guards above.
+        // P5.3 — ensure the monthly report-generation schedule exists on a silent
+        // upgrade (the SSL/security guards don't cover a brand-new hook).
+        if (function_exists('as_next_scheduled_action')
+            && as_next_scheduled_action(\Defyn\Dashboard\Jobs\GenerateMonthlyReportsAll::HOOK, [], 'defyn') === false) {
+            \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
+        }
     }
 
     private static function canonicalTableExists(): bool
