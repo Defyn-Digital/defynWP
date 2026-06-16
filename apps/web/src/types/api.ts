@@ -45,6 +45,8 @@ export const siteSchema = z.object({
   core_allow_major: z.boolean(),
   // P3.3 — operator mute-alerts toggle for this site.
   alerts_muted: z.boolean(),
+  // P5.3 — optional client email for scheduled report delivery.
+  client_email: z.string().nullable().optional(),
 });
 export type Site = z.infer<typeof siteSchema>;
 
@@ -130,7 +132,7 @@ export const siteVulnerabilitiesSchema = z.object({
 });
 export type SiteVulnerabilities = z.infer<typeof siteVulnerabilitiesSchema>;
 
-// P5.1 — Client maintenance report schemas.
+// P5.1 — Client maintenance report schemas (site report data shape).
 export const reportUpdateSchema = z.object({
   type: z.enum(['plugin', 'theme', 'core']),
   slug: z.string(),
@@ -154,7 +156,7 @@ export const reportScanSchema = z.object({
   medium: z.number(),
   low: z.number(),
 });
-export const reportSchema = z.object({
+export const siteReportSchema = z.object({
   site: z.object({ id: z.number(), label: z.string(), url: z.string(), wp_version: z.string() }),
   period: z.object({ from: z.string(), to: z.string() }),
   overview: z.object({
@@ -178,7 +180,33 @@ export const reportSchema = z.object({
     scans: z.array(reportScanSchema),
   }),
 });
+export type SiteReport = z.infer<typeof siteReportSchema>;
+
+// P5.3 — Report queue entity schemas (per-site queued/ready/failed/sent report records).
+export const reportStatusSchema = z.enum(['generating', 'ready', 'failed', 'sent']);
+export const reportSchema = z.object({
+  id: z.number(),
+  site_id: z.number(),
+  title: z.string(),
+  range_from: z.string(),
+  range_to: z.string(),
+  status: reportStatusSchema,
+  file_size: z.number().nullable(),
+  recipient_email: z.string().nullable(),
+  generated_at: z.string().nullable(),
+  sent_at: z.string().nullable(),
+  created_at: z.string(),
+});
 export type Report = z.infer<typeof reportSchema>;
+export const reportsResponseSchema = z.object({
+  data: z.object({
+    reports: z.array(reportSchema),
+    total: z.number(),
+    page: z.number(),
+    per_page: z.number(),
+  }),
+  error: z.null(),
+});
 
 // P2.5 — Overview dashboard schema.
 export const overviewAttentionReasonSchema = z.enum([

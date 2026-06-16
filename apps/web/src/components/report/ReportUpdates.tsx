@@ -1,7 +1,7 @@
-import type { Report } from '@/types/api';
+import type { SiteReport } from '@/types/api';
 
 interface ReportUpdatesProps {
-  updates: Report['updates'];
+  updates: SiteReport['updates'];
 }
 
 // Capitalise the component type for display (plugin → Plugin).

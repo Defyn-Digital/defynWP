@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { apiClient } from '@/lib/apiClient';
-import { reportSchema } from '@/types/api';
+import { siteReportSchema } from '@/types/api';
 
-const responseSchema = z.object({ data: reportSchema, error: z.null() });
+const responseSchema = z.object({ data: siteReportSchema, error: z.null() });
 
 export function useSiteReport(siteId: number, from: string, to: string) {
   return useQuery({

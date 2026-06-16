@@ -1,7 +1,7 @@
-import type { Report, Vulnerability } from '@/types/api';
+import type { SiteReport, Vulnerability } from '@/types/api';
 
 interface ReportSecurityProps {
-  security: Report['security'];
+  security: SiteReport['security'];
 }
 
 // Mirror of SiteSecurityPanel's severity ordering + label colour classes so the

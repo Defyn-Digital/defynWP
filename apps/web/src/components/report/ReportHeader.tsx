@@ -1,9 +1,9 @@
-import type { Report } from '@/types/api';
+import type { SiteReport } from '@/types/api';
 import { REPORT_AGENCY_NAME, REPORT_ACCENT } from '@/lib/reportBranding';
 
 interface ReportHeaderProps {
-  site: Report['site'];
-  period: Report['period'];
+  site: SiteReport['site'];
+  period: SiteReport['period'];
 }
 
 // Accent-coloured branding band that opens the printed report.

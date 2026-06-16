@@ -1,7 +1,7 @@
-import type { Report } from '@/types/api';
+import type { SiteReport } from '@/types/api';
 
 interface ReportUptimeProps {
-  uptime: Report['uptime'];
+  uptime: SiteReport['uptime'];
 }
 
 // Human-readable downtime length from a raw second count.

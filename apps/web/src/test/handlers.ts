@@ -828,6 +828,93 @@ handlers.push(
     return HttpResponse.json({ scheduled_count: 0, site_ids: [], scheduled_at: '2026-06-15 03:00:00' }, { status: 200 });
   }),
 
+  // P5.3 — GET /sites/:id/reports — paginated report queue list.
+  http.get('*/wp-json/defyn/v1/sites/:id/reports', ({ params }) => {
+    const siteId = Number(params.id);
+    const readyReport = {
+      id: 1,
+      site_id: siteId,
+      title: 'Website Maintenance Report',
+      range_from: '2026-05-01',
+      range_to: '2026-05-31',
+      status: 'ready',
+      file_size: 1120,
+      recipient_email: null,
+      generated_at: '2026-06-01 02:00:00',
+      sent_at: null,
+      created_at: '2026-06-01 01:59:00',
+    };
+    return HttpResponse.json(
+      { data: { reports: [readyReport], total: 1, page: 1, per_page: 20 }, error: null },
+      { status: 200 },
+    );
+  }),
+
+  // P5.3 — POST /sites/:id/reports — generate a new report (202 queued).
+  http.post('*/wp-json/defyn/v1/sites/:id/reports', ({ params }) => {
+    const siteId = Number(params.id);
+    return HttpResponse.json(
+      {
+        data: {
+          report: {
+            id: 2,
+            site_id: siteId,
+            title: 'Website Maintenance Report',
+            range_from: '2026-05-01',
+            range_to: '2026-05-31',
+            status: 'generating',
+            file_size: null,
+            recipient_email: null,
+            generated_at: null,
+            sent_at: null,
+            created_at: '2026-06-16 00:00:00',
+          },
+        },
+        error: null,
+      },
+      { status: 202 },
+    );
+  }),
+
+  // P5.3 — POST /sites/:id/reports/:rid/send — email a ready report.
+  http.post('*/wp-json/defyn/v1/sites/:id/reports/:rid/send', ({ params }) => {
+    return HttpResponse.json(
+      {
+        data: {
+          report: {
+            id: Number(params.rid),
+            site_id: Number(params.id),
+            title: 'Website Maintenance Report',
+            range_from: '2026-05-01',
+            range_to: '2026-05-31',
+            status: 'sent',
+            file_size: 1120,
+            recipient_email: 'c@acme.test',
+            generated_at: '2026-06-01 02:00:00',
+            sent_at: '2026-06-16 03:00:00',
+            created_at: '2026-06-01 01:59:00',
+          },
+        },
+        error: null,
+      },
+      { status: 200 },
+    );
+  }),
+
+  // P5.3 — DELETE /sites/:id/reports/:rid — delete a report record.
+  http.delete('*/wp-json/defyn/v1/sites/:id/reports/:rid', () => {
+    return HttpResponse.json({ data: { deleted: true }, error: null }, { status: 200 });
+  }),
+
+  // P5.3 — POST /sites/:id/client-email — save the site's client email.
+  http.post('*/wp-json/defyn/v1/sites/:id/client-email', async ({ request }) => {
+    const body = (await request.json()) as { client_email?: string };
+    return HttpResponse.json(
+      { data: { client_email: body.client_email ?? 'c@acme.test' }, error: null },
+      { status: 200 },
+    );
+  }),
+
   // P5.1 — GET /sites/:id/report — default synthetic report; tests override via server.use().
   http.get('*/wp-json/defyn/v1/sites/:id/report', ({ params }) => {
     const siteId = Number(params.id);

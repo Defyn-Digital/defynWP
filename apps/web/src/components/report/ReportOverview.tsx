@@ -1,7 +1,7 @@
-import type { Report } from '@/types/api';
+import type { SiteReport } from '@/types/api';
 
 interface ReportOverviewProps {
-  overview: Report['overview'];
+  overview: SiteReport['overview'];
 }
 
 interface StatProps {
