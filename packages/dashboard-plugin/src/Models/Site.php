@@ -67,6 +67,8 @@ final class Site
         public readonly ?string $sslAlertSentAt = null,
         // P4.1 — timestamp of the last completed security scan (internal; read by security-scan endpoints).
         public readonly ?string $lastSecurityScanAt = null,
+        // P5.3 — per-site default report recipient; pre-fills the Send dialog in the SPA.
+        public readonly ?string $clientEmail = null,
     ) {}
 
     /** @param array<string, mixed> $row wpdb result row (all values come back as strings) */
@@ -103,6 +105,7 @@ final class Site
             alertsMuted:             (bool) (int) ($row['alerts_muted'] ?? 0),
             sslAlertSentAt:          isset($row['ssl_alert_sent_at']) ? (string) $row['ssl_alert_sent_at'] : null,
             lastSecurityScanAt:      isset($row['last_security_scan_at']) ? (string) $row['last_security_scan_at'] : null,
+            clientEmail:             isset($row['client_email']) && $row['client_email'] !== null ? (string) $row['client_email'] : null,
         );
     }
 
@@ -151,6 +154,8 @@ final class Site
             'last_core_update_attempt_at' => $this->lastCoreUpdateAttemptAt,
             'core_allow_major'            => $this->coreAllowMajor,
             'alerts_muted'                => $this->alertsMuted,
+            // P5.3: per-site default report recipient.
+            'client_email'                => $this->clientEmail,
         ];
     }
 }

@@ -133,6 +133,60 @@ final class SiteTest extends TestCase
             'core_allow_major'            => false,
             // P3.3: per-site alert mute flag defaults to false.
             'alerts_muted'                => false,
+            // P5.3: per-site default report recipient (null when not set).
+            'client_email'                => null,
         ], $site->toJson());
+    }
+
+    // -------------------------------------------------------------------------
+    // P5.3: client_email column
+    // -------------------------------------------------------------------------
+
+    public function testFromRowMapsClientEmailWhenPresent(): void
+    {
+        $site = Site::fromRow([
+            'id' => 1, 'user_id' => 1, 'url' => 'https://a.test', 'label' => 'A',
+            'status' => 'active', 'created_at' => '2026-06-16 00:00:00',
+            'client_email' => 'c@acme.test',
+        ]);
+        self::assertSame('c@acme.test', $site->clientEmail);
+    }
+
+    public function testFromRowDefaultsClientEmailToNullWhenAbsent(): void
+    {
+        $site = Site::fromRow([
+            'id' => 1, 'user_id' => 1, 'url' => 'https://a.test', 'label' => 'A',
+            'status' => 'active', 'created_at' => '2026-06-16 00:00:00',
+        ]);
+        self::assertNull($site->clientEmail);
+    }
+
+    public function testFromRowDefaultsClientEmailToNullWhenExplicitlyNull(): void
+    {
+        $site = Site::fromRow([
+            'id' => 1, 'user_id' => 1, 'url' => 'https://a.test', 'label' => 'A',
+            'status' => 'active', 'created_at' => '2026-06-16 00:00:00',
+            'client_email' => null,
+        ]);
+        self::assertNull($site->clientEmail);
+    }
+
+    public function testToJsonExposesClientEmail(): void
+    {
+        $site = Site::fromRow([
+            'id' => 1, 'user_id' => 1, 'url' => 'https://a.test', 'label' => 'A',
+            'status' => 'active', 'created_at' => '2026-06-16 00:00:00',
+            'client_email' => 'c@acme.test',
+        ]);
+        self::assertSame('c@acme.test', $site->toJson()['client_email']);
+    }
+
+    public function testToJsonExposesClientEmailAsNullWhenUnset(): void
+    {
+        $site = Site::fromRow([
+            'id' => 1, 'user_id' => 1, 'url' => 'https://a.test', 'label' => 'A',
+            'status' => 'active', 'created_at' => '2026-06-16 00:00:00',
+        ]);
+        self::assertNull($site->toJson()['client_email']);
     }
 }
