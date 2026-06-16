@@ -8,9 +8,9 @@ use Defyn\Dashboard\Tests\Integration\AbstractSchemaTestCase;
 
 final class PerformanceSchemaTest extends AbstractSchemaTestCase
 {
-    public function testSchemaVersionIs14(): void
+    public function testSchemaVersionIs15(): void
     {
-        self::assertSame(14, Activation::SCHEMA_VERSION);
+        self::assertSame(15, Activation::SCHEMA_VERSION);
     }
 
     public function testPerformanceTableExistsWithColumns(): void
