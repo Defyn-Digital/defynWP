@@ -10,6 +10,8 @@ use Defyn\Dashboard\Jobs\HealthPing;
 use Defyn\Dashboard\Jobs\HealthPingAll;
 use Defyn\Dashboard\Jobs\GenerateMonthlyReportsAll;
 use Defyn\Dashboard\Jobs\GenerateReport;
+use Defyn\Dashboard\Jobs\PerformanceScan;
+use Defyn\Dashboard\Jobs\PerformanceScanAll;
 use Defyn\Dashboard\Jobs\SecurityScan;
 use Defyn\Dashboard\Jobs\SecurityScanAll;
 use Defyn\Dashboard\Jobs\SslCheck;
@@ -135,6 +137,14 @@ final class Plugin
         add_action(SecurityScan::HOOK, static function (int $siteId): void {
             (new SecurityScan())->handle($siteId);
         }, 10, 1);
+
+        // P6.1 — weekly PageSpeed performance scan fan-out + per-site leaf job.
+        add_action(PerformanceScanAll::HOOK, static function (): void {
+            (new PerformanceScanAll())->handle();
+        });
+        add_action(PerformanceScan::HOOK, static function (int $siteId): void {
+            (new PerformanceScan())->handle($siteId);
+        });
 
         // P5.3 — monthly client report fan-out + per-report leaf job.
         add_action(GenerateMonthlyReportsAll::HOOK, static function (): void {
