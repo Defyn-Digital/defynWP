@@ -441,6 +441,16 @@ final class SitesRepository
     }
 
     /**
+     * P5.3 — set the per-site default report recipient. Pass null to clear it.
+     * The controller validates the address (or empty-to-clear) before calling.
+     */
+    public function setClientEmail(int $siteId, ?string $email): void
+    {
+        global $wpdb;
+        $wpdb->update(SitesTable::tableName(), ['client_email' => $email], ['id' => $siteId]);
+    }
+
+    /**
      * P2.5 — count of pending plugin updates across all sites owned by $userId.
      */
     public function countPendingPlugins(int $userId): int
