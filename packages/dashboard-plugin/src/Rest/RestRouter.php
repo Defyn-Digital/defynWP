@@ -437,6 +437,13 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'settingsWrite'],
         ]);
 
+        // P5.2 — POST /settings/report-branding. Per-operator report white-label config.
+        register_rest_route(self::NAMESPACE, '/settings/report-branding', [
+            'methods'             => 'POST',
+            'callback'            => [new SettingsController(), 'handleSetBranding'],
+            'permission_callback' => [RateLimit::class, 'settingsWrite'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],

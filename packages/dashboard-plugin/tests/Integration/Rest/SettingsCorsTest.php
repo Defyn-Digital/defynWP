@@ -62,6 +62,21 @@ final class SettingsCorsTest extends AbstractSchemaTestCase
         self::assertSame(false, $served);
     }
 
+    public function testCorsHeadersOnSettingsReportBrandingPostRoute(): void
+    {
+        $response = new WP_REST_Response(['ok' => true], 200);
+        $request  = new WP_REST_Request('POST', '/defyn/v1/settings/report-branding');
+        $server   = rest_get_server();
+
+        $served = Cors::apply(false, $response, $request, $server);
+
+        $headers = $response->get_headers();
+        self::assertArrayHasKey('Access-Control-Allow-Origin', $headers);
+        self::assertSame(DEFYN_SPA_ORIGIN, $headers['Access-Control-Allow-Origin']);
+        self::assertSame('true', $headers['Access-Control-Allow-Credentials']);
+        self::assertSame(false, $served);
+    }
+
     public function testNonDefynRouteDoesNotGetCorsHeaders(): void
     {
         $response = new WP_REST_Response(['ok' => true], 200);
