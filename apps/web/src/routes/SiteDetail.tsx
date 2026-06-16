@@ -15,6 +15,7 @@ import { useSiteThemes } from '@/lib/queries/useSiteThemes';
 import { SiteThemesPanel } from '@/components/sites/SiteThemesPanel';
 import { SiteSecurityPanel } from '@/components/sites/SiteSecurityPanel';
 import { IncidentHistoryPanel } from '@/components/sites/IncidentHistoryPanel';
+import { SiteReportsPanel } from '@/components/reports/SiteReportsPanel';
 
 export default function SiteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -118,6 +119,10 @@ export default function SiteDetail() {
           {data.status !== 'pending' && <SiteThemesPanel siteId={siteId} />}
 
           {data.status !== 'pending' && <SiteSecurityPanel siteId={siteId} />}
+
+          {data.status !== 'pending' && (
+            <SiteReportsPanel siteId={siteId} clientEmail={data.client_email ?? null} />
+          )}
 
           <Button asChild variant="outline">
             <Link to="/sites">Back to sites</Link>
