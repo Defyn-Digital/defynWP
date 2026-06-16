@@ -16,6 +16,7 @@ use Defyn\Dashboard\Schema\SiteVulnerabilitiesTable;
 use Defyn\Dashboard\Schema\ConnectionCodesTable;
 use Defyn\Dashboard\Schema\SchemaTable;
 use Defyn\Dashboard\Schema\SchemaVersion;
+use Defyn\Dashboard\Schema\SitePerformanceTable;
 use Defyn\Dashboard\Schema\SitePluginsTable;
 use Defyn\Dashboard\Schema\SiteThemesTable;
 use Defyn\Dashboard\Schema\SitesTable;
@@ -28,7 +29,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 13;
+    public const SCHEMA_VERSION = 14;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -49,6 +50,7 @@ final class Activation
         SiteVulnerabilitiesTable::class,
         DismissedVulnerabilitiesTable::class,
         ReportsTable::class,
+        SitePerformanceTable::class,
     ];
 
     /** Throttle key for {@see maybeRunSelfHeal} — checked at most once per hour. */
