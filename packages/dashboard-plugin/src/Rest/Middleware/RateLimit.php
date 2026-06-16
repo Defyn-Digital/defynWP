@@ -215,6 +215,13 @@ final class RateLimit
     public const SITE_REPORT_LIMIT  = 30;
     public const SITE_REPORT_WINDOW = MINUTE_IN_SECONDS;
 
+    // P5.2 — GET /sites/{id}/report.pdf. Per-(user, site), 10/MINUTE. Tighter
+    // than siteReport's 30/MINUTE because PDF rendering (dompdf) is heavier than
+    // the JSON report. Distinct prefix `defyn_rl_siteReportPdf_%d_%d` so it never
+    // exhausts the siteReport bucket and vice versa.
+    public const SITE_REPORT_PDF_LIMIT  = 10;
+    public const SITE_REPORT_PDF_WINDOW = MINUTE_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -1075,6 +1082,38 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::SITE_REPORT_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /sites/{id}/report.pdf — per-(user, site), 10/MINUTE.
+     * Distinct prefix `defyn_rl_siteReportPdf_%d_%d`; mirrors siteReport's shape but
+     * a tighter limit because PDF rendering is heavier. SAME 429 code `report.rate_limited`.
+     *
+     * @return true|WP_Error
+     */
+    public static function siteReportPdf(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_siteReportPdf_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::SITE_REPORT_PDF_LIMIT) {
+            return new \WP_Error(
+                'report.rate_limited',
+                'Too many requests. Try again shortly.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::SITE_REPORT_PDF_WINDOW);
         return true;
     }
 

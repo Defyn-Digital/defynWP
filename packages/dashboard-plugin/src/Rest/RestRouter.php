@@ -14,6 +14,7 @@ use Defyn\Dashboard\Rest\SitesAlertsMuteController;
 use Defyn\Dashboard\Rest\SitesCoreAllowMajorController;
 use Defyn\Dashboard\Rest\SitesIncidentsController;
 use Defyn\Dashboard\Rest\SitesReportController;
+use Defyn\Dashboard\Rest\SitesReportPdfController;
 use Defyn\Dashboard\Rest\SecurityScanAllController;
 use Defyn\Dashboard\Rest\SecurityScanController;
 use Defyn\Dashboard\Rest\SitesVulnerabilitiesController;
@@ -352,6 +353,14 @@ final class RestRouter
             'methods'             => 'GET',
             'callback'            => [new SitesReportController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'siteReport'],
+        ]);
+
+        // P5.2 — GET /sites/{id}/report.pdf. Branded PDF download. The dot in
+        // `report\.pdf` is escaped so the regex matches a literal '.pdf' suffix.
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/report\.pdf', [
+            'methods'             => 'GET',
+            'callback'            => [new SitesReportPdfController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'siteReportPdf'],
         ]);
 
         // P4.3b — POST /sites/{id}/vulnerabilities/dismiss. Toggles a per-site finding
