@@ -770,14 +770,33 @@ handlers.push(
   }),
 
   // P3.3 — GET /settings — returns current notification settings.
+  // P5.2 — includes report_branding defaults so settingsSchema.parse() succeeds.
   http.get('*/wp-json/defyn/v1/settings', () => {
-    return HttpResponse.json({ slack_webhook_url: null });
+    return HttpResponse.json({
+      slack_webhook_url: null,
+      report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+    });
   }),
 
   // P3.3 — POST /settings/slack-webhook — update webhook URL.
   http.post('*/wp-json/defyn/v1/settings/slack-webhook', async ({ request }) => {
     const body = (await request.json()) as { webhook_url?: string | null };
-    return HttpResponse.json({ slack_webhook_url: body.webhook_url ?? null });
+    return HttpResponse.json({
+      slack_webhook_url: body.webhook_url ?? null,
+      report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+    });
+  }),
+
+  // P5.2 — POST /settings/report-branding — update agency branding.
+  http.post('*/wp-json/defyn/v1/settings/report-branding', async ({ request }) => {
+    const body = (await request.json()) as { agency_name?: string; accent_color?: string; logo_url?: string };
+    return HttpResponse.json({
+      report_branding: {
+        agency_name: body.agency_name ?? 'Defyn Digital',
+        accent_color: body.accent_color ?? '#26215C',
+        logo_url: body.logo_url ?? '',
+      },
+    });
   }),
 
   // P3.3 — POST /sites/:id/alerts/mute — mute alerts for a site.

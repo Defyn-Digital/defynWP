@@ -15,7 +15,10 @@ describe('useSettings', () => {
   it('returns parsed settings when the response is valid', async () => {
     server.use(
       http.get('*/wp-json/defyn/v1/settings', () =>
-        HttpResponse.json({ slack_webhook_url: 'https://hooks.slack.com/services/abc' })
+        HttpResponse.json({
+          slack_webhook_url: 'https://hooks.slack.com/services/abc',
+          report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+        })
       )
     );
 
@@ -27,7 +30,10 @@ describe('useSettings', () => {
   it('returns null slack_webhook_url when not configured', async () => {
     server.use(
       http.get('*/wp-json/defyn/v1/settings', () =>
-        HttpResponse.json({ slack_webhook_url: null })
+        HttpResponse.json({
+          slack_webhook_url: null,
+          report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+        })
       )
     );
 

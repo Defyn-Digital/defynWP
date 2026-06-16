@@ -24,7 +24,10 @@ describe('Settings page', () => {
   it('pre-fills the input from useSettings when a webhook URL is saved', async () => {
     server.use(
       http.get('*/wp-json/defyn/v1/settings', () =>
-        HttpResponse.json({ slack_webhook_url: 'https://hooks.slack.com/services/T000/B000/xxxx' }),
+        HttpResponse.json({
+          slack_webhook_url: 'https://hooks.slack.com/services/T000/B000/xxxx',
+          report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+        }),
       ),
     )
     renderPage()
@@ -37,7 +40,10 @@ describe('Settings page', () => {
   it('shows an empty input when no webhook is saved', async () => {
     server.use(
       http.get('*/wp-json/defyn/v1/settings', () =>
-        HttpResponse.json({ slack_webhook_url: null }),
+        HttpResponse.json({
+          slack_webhook_url: null,
+          report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+        }),
       ),
     )
     renderPage()
@@ -48,7 +54,10 @@ describe('Settings page', () => {
   it('shows an inline error and disables Save for a non-hooks.slack.com URL', async () => {
     server.use(
       http.get('*/wp-json/defyn/v1/settings', () =>
-        HttpResponse.json({ slack_webhook_url: null }),
+        HttpResponse.json({
+          slack_webhook_url: null,
+          report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+        }),
       ),
     )
     renderPage()
@@ -63,7 +72,10 @@ describe('Settings page', () => {
   it('enables Save and hides the error for a valid hooks.slack.com URL', async () => {
     server.use(
       http.get('*/wp-json/defyn/v1/settings', () =>
-        HttpResponse.json({ slack_webhook_url: null }),
+        HttpResponse.json({
+          slack_webhook_url: null,
+          report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+        }),
       ),
     )
     renderPage()
@@ -79,12 +91,18 @@ describe('Settings page', () => {
     let mutationCalled = false
     server.use(
       http.get('*/wp-json/defyn/v1/settings', () =>
-        HttpResponse.json({ slack_webhook_url: null }),
+        HttpResponse.json({
+          slack_webhook_url: null,
+          report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+        }),
       ),
       http.post('*/wp-json/defyn/v1/settings/slack-webhook', async ({ request }) => {
         mutationCalled = true
         const body = (await request.json()) as { webhook_url?: string }
-        return HttpResponse.json({ slack_webhook_url: body.webhook_url ?? null })
+        return HttpResponse.json({
+          slack_webhook_url: body.webhook_url ?? null,
+          report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+        })
       }),
     )
     renderPage()

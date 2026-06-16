@@ -26,7 +26,10 @@ describe('useSaveSlackWebhook', () => {
     server.use(
       http.post('*/wp-json/defyn/v1/settings/slack-webhook', async ({ request }) => {
         capturedBody = await request.json();
-        return HttpResponse.json({ slack_webhook_url: 'https://hooks.slack.com/services/T0/B0/xxx' });
+        return HttpResponse.json({
+          slack_webhook_url: 'https://hooks.slack.com/services/T0/B0/xxx',
+          report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+        });
       })
     );
 
@@ -43,7 +46,10 @@ describe('useSaveSlackWebhook', () => {
     server.use(
       http.post('*/wp-json/defyn/v1/settings/slack-webhook', async ({ request }) => {
         const body = (await request.json()) as { webhook_url?: string | null };
-        return HttpResponse.json({ slack_webhook_url: body.webhook_url ?? null });
+        return HttpResponse.json({
+          slack_webhook_url: body.webhook_url ?? null,
+          report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+        });
       })
     );
 
@@ -63,7 +69,10 @@ describe('useSaveSlackWebhook', () => {
 
     server.use(
       http.post('*/wp-json/defyn/v1/settings/slack-webhook', () =>
-        HttpResponse.json({ slack_webhook_url: 'https://hooks.slack.com/services/new' })
+        HttpResponse.json({
+          slack_webhook_url: 'https://hooks.slack.com/services/new',
+          report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+        })
       )
     );
 

@@ -408,7 +408,18 @@ export const monitoringSchema = z.object({
 export type Monitoring = z.infer<typeof monitoringSchema>;
 
 // P3.3 — operator notification settings.
-export const settingsSchema = z.object({ slack_webhook_url: z.string().nullable() });
+// P5.2 — report branding sub-schema.
+export const reportBrandingSchema = z.object({
+  agency_name: z.string(),
+  accent_color: z.string(),
+  logo_url: z.string(),
+});
+export type ReportBranding = z.infer<typeof reportBrandingSchema>;
+
+export const settingsSchema = z.object({
+  slack_webhook_url: z.string().nullable(),
+  report_branding: reportBrandingSchema,
+});
 export type Settings = z.infer<typeof settingsSchema>;
 
 // P4.2 — Security fleet page schemas.
