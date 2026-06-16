@@ -517,3 +517,27 @@ export const scanAllSecurityResponseSchema = z.object({
   scheduled_at: z.string(),
 });
 export type ScanAllSecurityResponse = z.infer<typeof scanAllSecurityResponseSchema>;
+
+// P6.1 — Site-detail latest PageSpeed snapshot (from SitePerformance::toJson).
+// Distinct from reportPerformanceSchema, which is the nested block on the
+// maintenance report; this is the standalone snapshot row.
+export const sitePerformanceSchema = z.object({
+  id: z.number(),
+  site_id: z.number(),
+  mobile_score: z.number().nullable(),
+  mobile_lcp_ms: z.number().nullable(),
+  mobile_cls: z.number().nullable(),
+  mobile_inp_ms: z.number().nullable(),
+  desktop_score: z.number().nullable(),
+  desktop_lcp_ms: z.number().nullable(),
+  desktop_cls: z.number().nullable(),
+  desktop_inp_ms: z.number().nullable(),
+  fetched_at: z.string(),
+  created_at: z.string(),
+});
+export type SitePerformance = z.infer<typeof sitePerformanceSchema>;
+
+export const sitePerformanceResponseSchema = z.object({
+  data: z.object({ latest: sitePerformanceSchema.nullable() }),
+  error: z.null(),
+});

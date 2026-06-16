@@ -814,6 +814,16 @@ handlers.push(
     return HttpResponse.json({ scheduled: true, site_id: Number(params.id) }, { status: 202 });
   }),
 
+  // P6.1 — GET /sites/:id/performance — never-measured (latest: null) by default.
+  http.get('*/wp-json/defyn/v1/sites/:id/performance', () => {
+    return HttpResponse.json({ data: { latest: null }, error: null });
+  }),
+
+  // P6.1 — POST /sites/:id/performance/scan — 202 scheduled.
+  http.post('*/wp-json/defyn/v1/sites/:id/performance/scan', ({ params }) => {
+    return HttpResponse.json({ scheduled: true, site_id: Number(params.id) }, { status: 202 });
+  }),
+
   // P4.2 — GET /security — empty fleet by default; tests override via server.use().
   http.get('*/wp-json/defyn/v1/security', () => {
     return HttpResponse.json({
