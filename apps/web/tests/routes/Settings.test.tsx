@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -20,6 +20,18 @@ function renderPage() {
   )
 }
 
+// The page now also renders the Report-branding card, so scope these queries to
+// the Slack webhook input and the Notifications card's Save button specifically.
+function webhookInput(): HTMLInputElement {
+  return screen.getByLabelText(/Slack webhook URL/i) as HTMLInputElement
+}
+
+function notificationsSaveButton(): HTMLElement {
+  const heading = screen.getByRole('heading', { name: /Notifications/i })
+  const card = heading.closest('div') as HTMLElement
+  return within(card).getByRole('button', { name: /save/i })
+}
+
 describe('Settings page', () => {
   it('pre-fills the input from useSettings when a webhook URL is saved', async () => {
     server.use(
@@ -32,8 +44,7 @@ describe('Settings page', () => {
     )
     renderPage()
     await waitFor(() => {
-      const input = screen.getByRole('textbox')
-      expect((input as HTMLInputElement).value).toBe('https://hooks.slack.com/services/T000/B000/xxxx')
+      expect(webhookInput().value).toBe('https://hooks.slack.com/services/T000/B000/xxxx')
     })
   })
 
@@ -47,8 +58,8 @@ describe('Settings page', () => {
       ),
     )
     renderPage()
-    await waitFor(() => screen.getByRole('textbox'))
-    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('')
+    await waitFor(() => webhookInput())
+    expect(webhookInput().value).toBe('')
   })
 
   it('shows an inline error and disables Save for a non-hooks.slack.com URL', async () => {
@@ -61,12 +72,12 @@ describe('Settings page', () => {
       ),
     )
     renderPage()
-    await waitFor(() => screen.getByRole('textbox'))
+    await waitFor(() => webhookInput())
 
-    await userEvent.type(screen.getByRole('textbox'), 'https://example.com/not-a-webhook')
+    await userEvent.type(webhookInput(), 'https://example.com/not-a-webhook')
 
     expect(screen.getByText(/must start with https:\/\/hooks\.slack\.com\//i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /save/i })).toBeDisabled()
+    expect(notificationsSaveButton()).toBeDisabled()
   })
 
   it('enables Save and hides the error for a valid hooks.slack.com URL', async () => {
@@ -79,12 +90,12 @@ describe('Settings page', () => {
       ),
     )
     renderPage()
-    await waitFor(() => screen.getByRole('textbox'))
+    await waitFor(() => webhookInput())
 
-    await userEvent.type(screen.getByRole('textbox'), 'https://hooks.slack.com/services/T000/B000/yyyy')
+    await userEvent.type(webhookInput(), 'https://hooks.slack.com/services/T000/B000/yyyy')
 
     expect(screen.queryByText(/must start with/i)).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /save/i })).not.toBeDisabled()
+    expect(notificationsSaveButton()).not.toBeDisabled()
   })
 
   it('calls the mutation and shows saving state on Save click', async () => {
@@ -106,19 +117,19 @@ describe('Settings page', () => {
       }),
     )
     renderPage()
-    await waitFor(() => screen.getByRole('textbox'))
+    await waitFor(() => webhookInput())
 
-    await userEvent.type(screen.getByRole('textbox'), 'https://hooks.slack.com/services/T000/B000/zzzz')
-    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+    await userEvent.type(webhookInput(), 'https://hooks.slack.com/services/T000/B000/zzzz')
+    await userEvent.click(notificationsSaveButton())
 
     await waitFor(() => expect(mutationCalled).toBe(true))
   })
 
   it('allows clearing the webhook by saving an empty string', async () => {
     renderPage()
-    await waitFor(() => screen.getByRole('textbox'))
+    await waitFor(() => webhookInput())
 
     // Empty value is valid — Save should be enabled
-    expect(screen.getByRole('button', { name: /save/i })).not.toBeDisabled()
+    expect(notificationsSaveButton()).not.toBeDisabled()
   })
 })

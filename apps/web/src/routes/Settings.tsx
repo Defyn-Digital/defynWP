@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSettings } from '@/lib/queries/useSettings';
 import { useSaveSlackWebhook } from '@/lib/mutations/useSaveSlackWebhook';
+import { ReportBrandingCard } from '@/components/settings/ReportBrandingCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
@@ -42,8 +43,9 @@ export function Settings() {
       {isError && <p className="text-sm text-red-600">Couldn't load settings.</p>}
 
       {!isLoading && !isError && (
-        <div className="rounded-lg border border-zinc-200 p-5">
-          <h2 className="mb-4 text-base font-medium">Notifications</h2>
+        <div className="space-y-5">
+          <div className="rounded-lg border border-zinc-200 p-5">
+            <h2 className="mb-4 text-base font-medium">Notifications</h2>
 
           <div className="space-y-4">
             <div>
@@ -78,7 +80,10 @@ export function Settings() {
             >
               {isPending ? 'Saving…' : 'Save'}
             </Button>
+            </div>
           </div>
+
+          <ReportBrandingCard />
         </div>
       )}
     </div>
