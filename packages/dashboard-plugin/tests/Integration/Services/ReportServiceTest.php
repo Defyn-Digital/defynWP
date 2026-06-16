@@ -17,7 +17,7 @@ final class ReportServiceTest extends AbstractSchemaTestCase
         global $wpdb;
         // phpcs:disable WordPress.DB.PreparedSQL
         $wpdb->query('SET autocommit = 1');
-        foreach (['defyn_sites','defyn_activity_log','defyn_incidents','defyn_site_vulnerabilities','defyn_site_plugins'] as $t) {
+        foreach (['defyn_sites','defyn_activity_log','defyn_incidents','defyn_site_vulnerabilities','defyn_site_plugins','defyn_site_performance'] as $t) {
             $wpdb->query('DELETE FROM ' . $wpdb->prefix . $t);
         }
         // phpcs:enable WordPress.DB.PreparedSQL
@@ -65,6 +65,30 @@ final class ReportServiceTest extends AbstractSchemaTestCase
         self::assertSame(1, $report['security']['severity_counts']['high']);
         self::assertCount(1, $report['security']['scans']);
         self::assertSame('2026-06-14 05:35:00', $report['security']['last_scan_at']);
+    }
+
+    public function testComposeIncludesPerformanceLatestAndHistory(): void
+    {
+        $siteId = $this->seedSite(1, 'https://acme.test', 'Acme', '6.9.4');
+        $perf = new \Defyn\Dashboard\Services\SitePerformanceRepository();
+        $m = ['score' => 70, 'lcp_ms' => 2200, 'cls' => 0.1, 'inp_ms' => 150];
+        $d = ['score' => 90, 'lcp_ms' => 800, 'cls' => 0.02, 'inp_ms' => 60];
+        $perf->store($siteId, $m, $d, '2026-05-10 03:00:00', '2026-05-10 03:00:05');
+        $perf->store($siteId, ['score'=>82]+$m, ['score'=>96]+$d, '2026-05-31 03:00:00', '2026-05-31 03:00:05');
+        $perf->store($siteId, ['score'=>40]+$m, ['score'=>70]+$d, '2026-03-01 03:00:00', '2026-03-01 03:00:05'); // out of range
+
+        $report = (new \Defyn\Dashboard\Services\ReportService())->compose($siteId, 1, '2026-05-01 00:00:00', '2026-05-31 23:59:59');
+        self::assertSame(82, $report['performance']['latest']['mobile']['score']); // latest = newest overall
+        self::assertCount(2, $report['performance']['history']); // only the 2 in-range, oldest first
+        self::assertSame(70, $report['performance']['history'][0]['mobile_score']);
+    }
+
+    public function testComposePerformanceNullWhenNeverMeasured(): void
+    {
+        $siteId = $this->seedSite(1, 'https://beta.test', 'Beta', '6.9.4');
+        $report = (new \Defyn\Dashboard\Services\ReportService())->compose($siteId, 1, '2026-05-01 00:00:00', '2026-05-31 23:59:59');
+        self::assertNull($report['performance']['latest']);
+        self::assertSame([], $report['performance']['history']);
     }
 
     private function seedSite(int $userId, string $url, string $label, string $wpVersion): int

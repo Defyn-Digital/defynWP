@@ -17,6 +17,7 @@ final class ReportService
         private readonly ?SiteVulnerabilitiesRepository $findings = null,
         private readonly ?SitePluginsRepository $plugins = null,
         private readonly ?ThemesRepository $themes = null,
+        private readonly ?SitePerformanceRepository $performance = null,
     ) {}
 
     /** @return array<string,mixed> */
@@ -36,6 +37,7 @@ final class ReportService
         $updates  = $this->buildUpdates($siteId, $fromUtc, $toUtc, $activity);
         $uptime   = $this->buildUptime($siteId, $fromUtc, $toUtc, $incidents);
         $security = $this->buildSecurity($siteId, $fromUtc, $toUtc, $findings, $activity, $lastScan);
+        $performance = $this->buildPerformance($siteId, $fromUtc, $toUtc);
 
         return [
             'site'   => ['id' => $siteId, 'label' => $label, 'url' => $url, 'wp_version' => $wpVer],
@@ -49,7 +51,25 @@ final class ReportService
             'updates'  => $updates,
             'uptime'   => $uptime,
             'security' => $security,
+            'performance' => $performance,
         ];
+    }
+
+    /** @return array<string,mixed> */
+    private function buildPerformance(int $siteId, string $fromUtc, string $toUtc): array
+    {
+        $repo   = $this->performance ?? new SitePerformanceRepository();
+        $latest = $repo->latestForSite($siteId);
+        $latestJson = $latest === null ? null : [
+            'fetched_at' => $latest->fetchedAt,
+            'mobile'  => ['score' => $latest->mobileScore,  'lcp_ms' => $latest->mobileLcpMs,  'cls' => $latest->mobileCls,  'inp_ms' => $latest->mobileInpMs],
+            'desktop' => ['score' => $latest->desktopScore, 'lcp_ms' => $latest->desktopLcpMs, 'cls' => $latest->desktopCls, 'inp_ms' => $latest->desktopInpMs],
+        ];
+        $history = [];
+        foreach ($repo->findForSiteInRange($siteId, $fromUtc, $toUtc) as $p) {
+            $history[] = ['fetched_at' => $p->fetchedAt, 'mobile_score' => $p->mobileScore, 'desktop_score' => $p->desktopScore];
+        }
+        return ['latest' => $latestJson, 'history' => $history];
     }
 
     /** @return list<array<string,mixed>> */
