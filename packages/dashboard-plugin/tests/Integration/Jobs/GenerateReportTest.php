@@ -69,6 +69,63 @@ final class GenerateReportTest extends AbstractSchemaTestCase
         $this->expectNotToPerformAssertions();
     }
 
+    public function testAutoSendsWhenOptedInWithEmail(): void
+    {
+        $siteId = $this->seedSite();
+        (new \Defyn\Dashboard\Services\SitesRepository())->setClientEmail($siteId, 'c@acme.com');
+        (new \Defyn\Dashboard\Services\SitesRepository())->setAutoSendReports($siteId, true);
+        $repo = new ReportsRepository();
+        $id = $repo->create($siteId, 'T', '2026-05-01', '2026-05-31', '2026-06-01 00:00:00');
+
+        $sender = new \Defyn\Dashboard\Services\ReportSendService(new \Defyn\Dashboard\Services\ReportMailer(fn (...$a): bool => true));
+        (new GenerateReport(null, null, null, $sender))->handle($id);
+
+        $r = $repo->findByIdForSite($id, $siteId);
+        self::assertSame('sent', $r->status);
+        self::assertSame('auto', $r->sentMethod);
+        global $wpdb;
+        self::assertSame('report.auto_sent', $wpdb->get_var("SELECT event_type FROM {$wpdb->prefix}defyn_activity_log WHERE event_type='report.auto_sent' LIMIT 1"));
+        if ($r->fileName !== null) { (new ReportStorage())->delete($r->fileName); }
+    }
+
+    public function testSkipsAutoSendWhenNoClientEmail(): void
+    {
+        $siteId = $this->seedSite();
+        (new \Defyn\Dashboard\Services\SitesRepository())->setAutoSendReports($siteId, true); // opted-in, no email
+        $repo = new ReportsRepository();
+        $id = $repo->create($siteId, 'T', '2026-05-01', '2026-05-31', '2026-06-01 00:00:00');
+        (new GenerateReport())->handle($id);
+        $r = $repo->findByIdForSite($id, $siteId);
+        self::assertSame('ready', $r->status);
+        if ($r->fileName !== null) { (new ReportStorage())->delete($r->fileName); }
+    }
+
+    public function testSkipsAutoSendWhenNotOptedIn(): void
+    {
+        $siteId = $this->seedSite();
+        (new \Defyn\Dashboard\Services\SitesRepository())->setClientEmail($siteId, 'c@acme.com'); // email, toggle OFF
+        $repo = new ReportsRepository();
+        $id = $repo->create($siteId, 'T', '2026-05-01', '2026-05-31', '2026-06-01 00:00:00');
+        (new GenerateReport())->handle($id);
+        $r = $repo->findByIdForSite($id, $siteId);
+        self::assertSame('ready', $r->status);
+        if ($r->fileName !== null) { (new ReportStorage())->delete($r->fileName); }
+    }
+
+    public function testThrowingSenderLeavesReportReady(): void
+    {
+        $siteId = $this->seedSite();
+        (new \Defyn\Dashboard\Services\SitesRepository())->setClientEmail($siteId, 'c@acme.com');
+        (new \Defyn\Dashboard\Services\SitesRepository())->setAutoSendReports($siteId, true);
+        $repo = new ReportsRepository();
+        $id = $repo->create($siteId, 'T', '2026-05-01', '2026-05-31', '2026-06-01 00:00:00');
+        $throwing = new \Defyn\Dashboard\Services\ReportSendService(new \Defyn\Dashboard\Services\ReportMailer(function (...$a): bool { throw new \RuntimeException('boom'); }));
+        (new GenerateReport(null, null, null, $throwing))->handle($id); // must NOT throw
+        $r = $repo->findByIdForSite($id, $siteId);
+        self::assertSame('ready', $r->status);
+        if ($r->fileName !== null) { (new ReportStorage())->delete($r->fileName); }
+    }
+
     /**
      * Insert a minimal site row (with wp_version so ReportService::compose works)
      * and return its id. Columns mirror the real defyn_sites schema.

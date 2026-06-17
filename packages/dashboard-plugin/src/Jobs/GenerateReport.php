@@ -6,6 +6,7 @@ use Defyn\Dashboard\Schema\ReportsTable;
 use Defyn\Dashboard\Services\ActivityLogger;
 use Defyn\Dashboard\Services\BrandingService;
 use Defyn\Dashboard\Services\ReportPdfService;
+use Defyn\Dashboard\Services\ReportSendService;
 use Defyn\Dashboard\Services\ReportService;
 use Defyn\Dashboard\Services\ReportsRepository;
 use Defyn\Dashboard\Services\ReportStorage;
@@ -27,6 +28,7 @@ final class GenerateReport
         private readonly ?ReportsRepository $reports = null,
         private readonly ?ReportStorage $storage = null,
         private readonly ?ReportPdfService $pdf = null,
+        private readonly ?ReportSendService $sender = null,
     ) {
     }
 
@@ -68,6 +70,22 @@ final class GenerateReport
                 'report_id' => $reportId,
                 'error'     => $e->getMessage(),
             ]);
+        }
+
+        // P5.4 — best-effort auto-send. Generation is already committed above; a
+        // send failure (or throw) must never undo it — the report stays `ready`
+        // for manual retry. Only fires when the site is opted-in AND has a valid
+        // client email AND the report actually reached `ready`.
+        $finalReport = $reports->findByIdForSite($reportId, $siteId);
+        if ($finalReport !== null
+            && $finalReport->status === 'ready'
+            && $site->autoSendReports
+            && is_email((string) $site->clientEmail)) {
+            try {
+                ($this->sender ?? new ReportSendService())->send($finalReport, $site, (string) $site->clientEmail, null, 'auto');
+            } catch (\Throwable $e) {
+                // swallow — the report stays `ready`; operator can send manually.
+            }
         }
     }
 
