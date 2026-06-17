@@ -83,6 +83,17 @@ if (!defined('DEFYN_PAGESPEED_API_KEY')) {
     }
 }
 
+// Google Analytics 4 service-account key (P6.2): the JSON key for an agency
+// service account granted Viewer on the operator's GA4 properties. Optional —
+// when absent, Ga4Client cleanly returns null so analytics stays inert-but-safe.
+// NEVER logged.
+if (!defined('DEFYN_GA4_SERVICE_ACCOUNT_JSON')) {
+    $envGa4 = getenv('DEFYN_GA4_SERVICE_ACCOUNT_JSON');
+    if ($envGa4 !== false && $envGa4 !== '') {
+        define('DEFYN_GA4_SERVICE_ACCOUNT_JSON', $envGa4);
+    }
+}
+
 // Action Scheduler: loaded before Plugin::boot() so as_schedule_single_action()
 // and the hook system are available when controllers / Plugin::boot() reference them.
 // Loading is idempotent — if another plugin loaded AS first (its own copy ships
