@@ -185,6 +185,12 @@ final class Activation
             && as_next_scheduled_action(\Defyn\Dashboard\Jobs\PerformanceScanAll::HOOK, [], 'defyn') === false) {
             \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
         }
+
+        // P6.2 — ensure the weekly analytics-sync schedule exists on a silent upgrade.
+        if (function_exists('as_next_scheduled_action')
+            && as_next_scheduled_action(\Defyn\Dashboard\Jobs\AnalyticsSyncAll::HOOK, [], 'defyn') === false) {
+            \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
+        }
     }
 
     private static function canonicalTableExists(): bool

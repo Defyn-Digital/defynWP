@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard;
 
+use Defyn\Dashboard\Jobs\AnalyticsSync;
+use Defyn\Dashboard\Jobs\AnalyticsSyncAll;
 use Defyn\Dashboard\Jobs\CleanupExpiredCodes;
 use Defyn\Dashboard\Jobs\CompleteConnection;
 use Defyn\Dashboard\Jobs\HealthPing;
@@ -144,6 +146,14 @@ final class Plugin
         });
         add_action(PerformanceScan::HOOK, static function (int $siteId): void {
             (new PerformanceScan())->handle($siteId);
+        });
+
+        // P6.2 — weekly GA4 analytics sync fan-out + per-site leaf job.
+        add_action(AnalyticsSyncAll::HOOK, static function (): void {
+            (new AnalyticsSyncAll())->handle();
+        });
+        add_action(AnalyticsSync::HOOK, static function (int $siteId): void {
+            (new AnalyticsSync())->handle($siteId);
         });
 
         // P5.3 — monthly client report fan-out + per-report leaf job.
