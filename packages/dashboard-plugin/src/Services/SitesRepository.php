@@ -451,6 +451,15 @@ final class SitesRepository
     }
 
     /**
+     * P6.2 — set the GA4 property ID for a site. Pass null to clear it.
+     */
+    public function setGa4PropertyId(int $siteId, ?string $propertyId): void
+    {
+        global $wpdb;
+        $wpdb->update(SitesTable::tableName(), ['ga4_property_id' => $propertyId], ['id' => $siteId]);
+    }
+
+    /**
      * P2.5 — count of pending plugin updates across all sites owned by $userId.
      */
     public function countPendingPlugins(int $userId): int

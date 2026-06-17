@@ -135,6 +135,8 @@ final class SiteTest extends TestCase
             'alerts_muted'                => false,
             // P5.3: per-site default report recipient (null when not set).
             'client_email'                => null,
+            // P6.2: GA4 property ID (null when not set).
+            'ga4_property_id'             => null,
         ], $site->toJson());
     }
 

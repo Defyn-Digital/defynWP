@@ -69,6 +69,8 @@ final class Site
         public readonly ?string $lastSecurityScanAt = null,
         // P5.3 — per-site default report recipient; pre-fills the Send dialog in the SPA.
         public readonly ?string $clientEmail = null,
+        // P6.2 — numeric GA4 property ID for the analytics report section.
+        public readonly ?string $ga4PropertyId = null,
     ) {}
 
     /** @param array<string, mixed> $row wpdb result row (all values come back as strings) */
@@ -106,6 +108,7 @@ final class Site
             sslAlertSentAt:          isset($row['ssl_alert_sent_at']) ? (string) $row['ssl_alert_sent_at'] : null,
             lastSecurityScanAt:      isset($row['last_security_scan_at']) ? (string) $row['last_security_scan_at'] : null,
             clientEmail:             isset($row['client_email']) && $row['client_email'] !== null ? (string) $row['client_email'] : null,
+            ga4PropertyId:           isset($row['ga4_property_id']) && $row['ga4_property_id'] !== null ? (string) $row['ga4_property_id'] : null,
         );
     }
 
@@ -156,6 +159,8 @@ final class Site
             'alerts_muted'                => $this->alertsMuted,
             // P5.3: per-site default report recipient.
             'client_email'                => $this->clientEmail,
+            // P6.2: GA4 property ID for the analytics report section.
+            'ga4_property_id'             => $this->ga4PropertyId,
         ];
     }
 }
