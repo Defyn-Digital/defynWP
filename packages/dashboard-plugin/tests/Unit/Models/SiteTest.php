@@ -137,6 +137,8 @@ final class SiteTest extends TestCase
             'client_email'                => null,
             // P6.2: GA4 property ID (null when not set).
             'ga4_property_id'             => null,
+            // P5.4: per-site auto-send opt-in flag defaults to false.
+            'auto_send_reports'           => false,
         ], $site->toJson());
     }
 

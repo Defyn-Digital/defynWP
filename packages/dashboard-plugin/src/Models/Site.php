@@ -71,6 +71,8 @@ final class Site
         public readonly ?string $clientEmail = null,
         // P6.2 — numeric GA4 property ID for the analytics report section.
         public readonly ?string $ga4PropertyId = null,
+        // P5.4 — per-site opt-in: auto-email the generated monthly report to client_email.
+        public readonly bool $autoSendReports = false,
     ) {}
 
     /** @param array<string, mixed> $row wpdb result row (all values come back as strings) */
@@ -109,6 +111,7 @@ final class Site
             lastSecurityScanAt:      isset($row['last_security_scan_at']) ? (string) $row['last_security_scan_at'] : null,
             clientEmail:             isset($row['client_email']) && $row['client_email'] !== null ? (string) $row['client_email'] : null,
             ga4PropertyId:           isset($row['ga4_property_id']) && $row['ga4_property_id'] !== null ? (string) $row['ga4_property_id'] : null,
+            autoSendReports:         (bool) (int) ($row['auto_send_reports'] ?? 0),
         );
     }
 
@@ -161,6 +164,8 @@ final class Site
             'client_email'                => $this->clientEmail,
             // P6.2: GA4 property ID for the analytics report section.
             'ga4_property_id'             => $this->ga4PropertyId,
+            // P5.4: per-site auto-send opt-in flag.
+            'auto_send_reports'           => $this->autoSendReports,
         ];
     }
 }

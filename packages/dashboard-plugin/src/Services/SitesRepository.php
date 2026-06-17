@@ -460,6 +460,15 @@ final class SitesRepository
     }
 
     /**
+     * P5.4 — toggle the per-site auto-send-reports opt-in flag.
+     */
+    public function setAutoSendReports(int $siteId, bool $on): void
+    {
+        global $wpdb;
+        $wpdb->update(SitesTable::tableName(), ['auto_send_reports' => (int) $on], ['id' => $siteId]);
+    }
+
+    /**
      * P2.5 — count of pending plugin updates across all sites owned by $userId.
      */
     public function countPendingPlugins(int $userId): int
