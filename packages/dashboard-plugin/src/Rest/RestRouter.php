@@ -7,6 +7,7 @@ namespace Defyn\Dashboard\Rest;
 use Defyn\Dashboard\Rest\Middleware\Cors;
 use Defyn\Dashboard\Rest\Middleware\RateLimit;
 use Defyn\Dashboard\Rest\Middleware\RequireAuth;
+use Defyn\Dashboard\Rest\InsightsController;
 use Defyn\Dashboard\Rest\MonitoringController;
 use Defyn\Dashboard\Rest\SecurityController;
 use Defyn\Dashboard\Rest\SettingsController;
@@ -505,6 +506,16 @@ final class RestRouter
             'methods'             => 'POST',
             'callback'            => [new SecurityScanAllController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'securityScanAll'],
+        ]);
+
+        // P6.3 — GET /insights. Read-only combined fleet Performance + Analytics
+        // rollup over the P6.1/P6.2 weekly snapshots. RateLimit::insights chains
+        // RequireAuth::check internally and adds a per-user 30/MINUTE throttle.
+        // Ownership-scoped via InsightsService::compose($userId).
+        register_rest_route(self::NAMESPACE, '/insights', [
+            'methods'             => 'GET',
+            'callback'            => [new InsightsController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'insights'],
         ]);
 
         // P3.3 — GET /settings. Returns the authenticated operator's per-user
