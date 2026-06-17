@@ -127,7 +127,11 @@ export default function SiteDetail() {
           {data.status !== 'pending' && <SiteAnalyticsPanel siteId={siteId} />}
 
           {data.status !== 'pending' && (
-            <SiteReportsPanel siteId={siteId} clientEmail={data.client_email ?? null} />
+            <SiteReportsPanel
+              siteId={siteId}
+              clientEmail={data.client_email ?? null}
+              autoSendReports={data.auto_send_reports}
+            />
           )}
 
           <Button asChild variant="outline">

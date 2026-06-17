@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { useSiteReports } from '@/lib/queries/useSiteReports';
 import { useGenerateReport } from '@/lib/mutations/useGenerateReport';
 import { useSendReport } from '@/lib/mutations/useSendReport';
 import { useDeleteReport } from '@/lib/mutations/useDeleteReport';
 import { useSetClientEmail } from '@/lib/mutations/useSetClientEmail';
+import { useSetAutoSend } from '@/lib/mutations/useSetAutoSend';
 import { downloadStoredReport } from '@/lib/downloadStoredReport';
 import type { Report } from '@/types/api';
 import { ReportStatusBadge } from './ReportStatusBadge';
@@ -16,6 +18,8 @@ import { DeleteReportDialog } from './DeleteReportDialog';
 interface SiteReportsPanelProps {
   siteId: number;
   clientEmail: string | null;
+  /** P5.4 — per-site auto-send opt-in (the toggle reflects this flag). */
+  autoSendReports: boolean;
 }
 
 // --- helpers ---
@@ -36,12 +40,17 @@ function isSendable(status: Report['status']): boolean {
 
 // --- main component ---
 
-export function SiteReportsPanel({ siteId, clientEmail }: SiteReportsPanelProps) {
+export function SiteReportsPanel({
+  siteId,
+  clientEmail,
+  autoSendReports,
+}: SiteReportsPanelProps) {
   const { data, isLoading, isError } = useSiteReports(siteId);
   const generate = useGenerateReport(siteId);
   const send = useSendReport(siteId);
   const remove = useDeleteReport(siteId);
   const setClientEmail = useSetClientEmail(siteId);
+  const setAutoSend = useSetAutoSend(siteId);
 
   // Dialog open-state is tracked by PRIMITIVE report ids (number | null), never
   // by a captured report object — keeps the render path free of object-keyed
@@ -101,6 +110,24 @@ export function SiteReportsPanel({ siteId, clientEmail }: SiteReportsPanelProps)
         </Button>
       </div>
 
+      {/* Auto-send monthly reports toggle — same Switch as mute-alerts/allow-major */}
+      <div className="flex items-start gap-3">
+        <Switch
+          checked={autoSendReports}
+          disabled={setAutoSend.isPending}
+          onCheckedChange={(checked) => setAutoSend.mutate(checked)}
+          aria-label="Auto-send monthly reports"
+        />
+        <div className="flex-1">
+          <p className="text-sm font-medium">Auto-send monthly reports</p>
+          {!clientEmail && (
+            <p className="text-xs text-amber-600">
+              Set a client email to receive auto-sent reports.
+            </p>
+          )}
+        </div>
+      </div>
+
       {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
 
       {isError && (
@@ -131,7 +158,7 @@ export function SiteReportsPanel({ siteId, clientEmail }: SiteReportsPanelProps)
                   <td className="py-2 text-zinc-800">{r.title}</td>
                   <td className="py-2 text-zinc-600">{formatSize(r.file_size)}</td>
                   <td className="py-2">
-                    <ReportStatusBadge status={r.status} />
+                    <ReportStatusBadge status={r.status} sentMethod={r.sent_method} />
                   </td>
                   <td className="py-2">
                     <div className="flex items-center justify-end gap-2">

@@ -47,6 +47,7 @@ const generateSpy = vi.fn();
 const sendSpy = vi.fn();
 const deleteSpy = vi.fn();
 const setClientEmailSpy = vi.fn();
+const setAutoSendSpy = vi.fn();
 const downloadSpy = vi.fn();
 
 vi.mock('@/lib/mutations/useGenerateReport', () => ({
@@ -61,18 +62,31 @@ vi.mock('@/lib/mutations/useDeleteReport', () => ({
 vi.mock('@/lib/mutations/useSetClientEmail', () => ({
   useSetClientEmail: () => ({ mutate: setClientEmailSpy, isPending: false }),
 }));
+vi.mock('@/lib/mutations/useSetAutoSend', () => ({
+  useSetAutoSend: () => ({ mutate: setAutoSendSpy, isPending: false }),
+}));
 vi.mock('@/lib/downloadStoredReport', () => ({
   downloadStoredReport: (...args: unknown[]) => downloadSpy(...args),
 }));
 
 const SITE_ID = 7;
 
-function renderPanel(clientEmail: string | null = 'client@acme.test') {
+function renderPanel(
+  clientEmail: string | null = 'client@acme.test',
+  autoSendReports = false,
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  return render(<SiteReportsPanel siteId={SITE_ID} clientEmail={clientEmail} />, { wrapper });
+  return render(
+    <SiteReportsPanel
+      siteId={SITE_ID}
+      clientEmail={clientEmail}
+      autoSendReports={autoSendReports}
+    />,
+    { wrapper },
+  );
 }
 
 /** Find the table row whose title cell matches `title`. */
@@ -89,6 +103,7 @@ describe('SiteReportsPanel', () => {
     sendSpy.mockClear();
     deleteSpy.mockClear();
     setClientEmailSpy.mockClear();
+    setAutoSendSpy.mockClear();
     downloadSpy.mockClear();
   });
 
@@ -163,5 +178,29 @@ describe('SiteReportsPanel', () => {
     const row = rowFor('April report');
     await user.click(within(row).getByRole('button', { name: /download/i }));
     expect(downloadSpy).toHaveBeenCalledWith(SITE_ID, 11, 'report-11.pdf');
+  });
+
+  it('renders the auto-send toggle OFF and fires useSetAutoSend when toggled', async () => {
+    const user = userEvent.setup();
+    renderPanel('client@acme.test', false);
+
+    const toggle = screen.getByRole('switch', { name: /auto-send monthly reports/i });
+    expect(toggle).not.toBeChecked();
+
+    await user.click(toggle);
+    expect(setAutoSendSpy).toHaveBeenCalledWith(true);
+  });
+
+  it('renders the auto-send toggle ON when autoSendReports is true', () => {
+    renderPanel('client@acme.test', true);
+    const toggle = screen.getByRole('switch', { name: /auto-send monthly reports/i });
+    expect(toggle).toBeChecked();
+  });
+
+  it('shows the missing-email hint when clientEmail is empty', () => {
+    renderPanel(null, false);
+    expect(
+      screen.getByText(/set a client email to receive auto-sent reports/i),
+    ).toBeInTheDocument();
   });
 });

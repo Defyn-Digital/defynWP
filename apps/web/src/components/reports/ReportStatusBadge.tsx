@@ -31,19 +31,28 @@ const STATUS_LABELS: Record<ReportStatus, string> = {
 
 interface ReportStatusBadgeProps {
   status: ReportStatus;
+  /**
+   * P5.4 — when a report was delivered automatically (`sent_method === 'auto'`),
+   * the otherwise-green "Sent" badge becomes a violet "Auto-sent" badge so
+   * operators can tell scheduled sends apart from manual ones at a glance.
+   */
+  sentMethod?: string | null;
 }
 
-export function ReportStatusBadge({ status }: ReportStatusBadgeProps) {
+export function ReportStatusBadge({ status, sentMethod }: ReportStatusBadgeProps) {
+  const isAuto = status === 'sent' && sentMethod === 'auto';
+  const cls = isAuto ? 'text-violet-700 bg-violet-100' : STATUS_CLASSES[status];
+  const label = isAuto ? 'Auto-sent' : STATUS_LABELS[status];
   const Icon = STATUS_ICONS[status];
   const isSpinning = status === 'generating';
 
   return (
     <span
       data-testid="report-status-badge"
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASSES[status]}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}
     >
       <Icon className={`h-3 w-3${isSpinning ? ' animate-spin' : ''}`} aria-hidden="true" />
-      {STATUS_LABELS[status]}
+      {label}
     </span>
   );
 }
