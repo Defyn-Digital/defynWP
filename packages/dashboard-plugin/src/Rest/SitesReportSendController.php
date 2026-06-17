@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace Defyn\Dashboard\Rest;
 
 use Defyn\Dashboard\Rest\Responses\ErrorResponse;
-use Defyn\Dashboard\Services\ActivityLogger;
-use Defyn\Dashboard\Services\BrandingService;
 use Defyn\Dashboard\Services\ReportMailer;
+use Defyn\Dashboard\Services\ReportSendService;
 use Defyn\Dashboard\Services\ReportsRepository;
-use Defyn\Dashboard\Services\ReportStorage;
 use Defyn\Dashboard\Services\SitesRepository;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -58,23 +56,10 @@ final class SitesReportSendController
         }
         $note = is_string($body['note'] ?? null) ? trim((string) $body['note']) : '';
 
-        $branding = (new BrandingService())->get($userId);
-        $agency   = (string) ($branding['agency_name'] ?? 'Defyn Digital');
-        $host     = esc_html((string) parse_url($site->url, PHP_URL_HOST));
-        $subject  = "{$agency} — Website Maintenance Report ({$report->rangeFrom} – {$report->rangeTo})";
-        $intro    = $note !== '' ? '<p>' . esc_html($note) . '</p>' : '';
-        $bodyHtml = $intro . '<p>Please find attached the website maintenance report for ' . $host
-            . ', covering ' . esc_html($report->rangeFrom) . ' – ' . esc_html($report->rangeTo) . '.</p>'
-            . '<p>— ' . esc_html($agency) . '</p>';
-
-        $path = (new ReportStorage())->path($report->fileName);
-        $ok = ($this->mailer ?? new ReportMailer())->send($to, $subject, $bodyHtml, $path);
+        $ok = (new ReportSendService($this->mailer))->send($report, $site, $to, $note, 'manual');
         if (!$ok) {
             return ErrorResponse::create(502, 'reports.send_failed', 'The email could not be sent. Please try again.');
         }
-
-        $reports->markSent($rid, $to, gmdate('Y-m-d H:i:s'));
-        (new ActivityLogger())->log($userId, $siteId, 'report.sent', ['report_id' => $rid, 'recipient' => $to]);
 
         return new WP_REST_Response(['data' => ['report' => $reports->findByIdForSite($rid, $siteId)->toJson()], 'error' => null], 200);
     }
