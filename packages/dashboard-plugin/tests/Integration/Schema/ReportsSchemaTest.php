@@ -11,7 +11,7 @@ final class ReportsSchemaTest extends AbstractSchemaTestCase
 {
     public function testSchemaVersionIs13(): void
     {
-        self::assertSame(15, Activation::SCHEMA_VERSION);
+        self::assertSame(16, Activation::SCHEMA_VERSION);
     }
 
     public function testReportsTableExistsWithColumns(): void

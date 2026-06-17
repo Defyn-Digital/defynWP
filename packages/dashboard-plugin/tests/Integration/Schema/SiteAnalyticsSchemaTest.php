@@ -23,8 +23,8 @@ final class SiteAnalyticsSchemaTest extends AbstractSchemaTestCase
         self::assertNotNull($wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", 'ga4_property_id')));
     }
 
-    public function testSchemaVersionIs15(): void
+    public function testSchemaVersionIs16(): void
     {
-        self::assertSame(15, Activation::SCHEMA_VERSION);
+        self::assertSame(16, Activation::SCHEMA_VERSION);
     }
 }

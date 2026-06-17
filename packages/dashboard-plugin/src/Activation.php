@@ -30,7 +30,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 15;
+    public const SCHEMA_VERSION = 16;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -120,6 +120,12 @@ final class Activation
         // P6.2 — add ga4_property_id to wp_defyn_sites (GA4 analytics binding).
         // Guarded ALTER.
         self::addGa4PropertyColumn($wpdb);
+
+        // P5.4 — add auto_send_reports to wp_defyn_sites (per-site auto-send opt-in).
+        self::addAutoSendReportsColumn($wpdb);
+
+        // P5.4 — add sent_method to wp_defyn_reports (manual|auto send distinction).
+        self::addSentMethodColumn($wpdb);
 
         // P2.1: SchemaVersion is the canonical migration cursor; we coalesce
         // with any in-DB value via max() so a future install starting at v3
@@ -378,5 +384,33 @@ final class Activation
         }
         // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
         $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN ga4_property_id VARCHAR(32) NULL");
+    }
+
+    private static function addAutoSendReportsColumn(\wpdb $wpdb): void
+    {
+        $table  = SitesTable::tableName();
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SHOW COLUMNS FROM `{$table}` LIKE %s",
+            'auto_send_reports'
+        ));
+        if ($exists !== null) {
+            return;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+        $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN auto_send_reports TINYINT(1) NOT NULL DEFAULT 0");
+    }
+
+    private static function addSentMethodColumn(\wpdb $wpdb): void
+    {
+        $table  = ReportsTable::tableName();
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SHOW COLUMNS FROM `{$table}` LIKE %s",
+            'sent_method'
+        ));
+        if ($exists !== null) {
+            return;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+        $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN sent_method VARCHAR(10) NULL");
     }
 }
