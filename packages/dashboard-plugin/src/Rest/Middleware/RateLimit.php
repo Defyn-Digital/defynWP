@@ -270,6 +270,18 @@ final class RateLimit
     public const PERFORMANCE_READ_LIMIT  = 30;
     public const PERFORMANCE_READ_WINDOW = MINUTE_IN_SECONDS;
 
+    // P6.2 — read latest analytics snapshot. Per-MINUTE. Key: defyn_rl_analyticsRead_%d_%d.
+    public const ANALYTICS_READ_LIMIT  = 30;
+    public const ANALYTICS_READ_WINDOW = MINUTE_IN_SECONDS;
+
+    // P6.2 — on-demand analytics refresh (enqueues a GA4 fetch). Per-HOUR. Key: defyn_rl_analyticsRefresh_%d_%d.
+    public const ANALYTICS_REFRESH_LIMIT  = 6;
+    public const ANALYTICS_REFRESH_WINDOW = HOUR_IN_SECONDS;
+
+    // P6.2 — set the GA4 property ID. Per-HOUR write, mirrors clientEmail. Key: defyn_rl_ga4Property_%d_%d.
+    public const GA4_PROPERTY_LIMIT  = 10;
+    public const GA4_PROPERTY_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -1568,6 +1580,72 @@ final class RateLimit
             );
         }
         set_transient($key, $count + 1, self::PERFORMANCE_READ_WINDOW);
+        return true;
+    }
+
+    /** @return true|WP_Error */
+    public static function analyticsRead(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+        $key   = sprintf('defyn_rl_analyticsRead_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+        if ($count >= self::ANALYTICS_READ_LIMIT) {
+            return new \WP_Error(
+                'analytics.rate_limited',
+                'Too many requests. Try again in a minute.',
+                ['status' => 429]
+            );
+        }
+        set_transient($key, $count + 1, self::ANALYTICS_READ_WINDOW);
+        return true;
+    }
+
+    /** @return true|WP_Error */
+    public static function analyticsRefresh(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+        $key   = sprintf('defyn_rl_analyticsRefresh_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+        if ($count >= self::ANALYTICS_REFRESH_LIMIT) {
+            return new \WP_Error(
+                'analytics.rate_limited',
+                'Refresh requested too often. Try again later.',
+                ['status' => 429]
+            );
+        }
+        set_transient($key, $count + 1, self::ANALYTICS_REFRESH_WINDOW);
+        return true;
+    }
+
+    /** @return true|WP_Error */
+    public static function ga4Property(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+        $key   = sprintf('defyn_rl_ga4Property_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+        if ($count >= self::GA4_PROPERTY_LIMIT) {
+            return new \WP_Error(
+                'sites.rate_limited',
+                'Too many updates. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+        set_transient($key, $count + 1, self::GA4_PROPERTY_WINDOW);
         return true;
     }
 
