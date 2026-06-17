@@ -282,6 +282,11 @@ final class RateLimit
     public const GA4_PROPERTY_LIMIT  = 10;
     public const GA4_PROPERTY_WINDOW = HOUR_IN_SECONDS;
 
+    // P5.4 — POST /sites/{id}/auto-send. Per-(user, site), 10/HOUR. Toggles the
+    // per-site auto-send opt-in. 429 code `sites.rate_limited`. Key defyn_rl_autoSend_%d_%d.
+    public const AUTO_SEND_LIMIT  = 10;
+    public const AUTO_SEND_WINDOW = HOUR_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -1646,6 +1651,41 @@ final class RateLimit
             );
         }
         set_transient($key, $count + 1, self::GA4_PROPERTY_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /sites/{id}/auto-send.
+     *
+     * Per-(user, site), 10/HOUR. Toggles the per-site auto-send opt-in —
+     * a cheap metadata write (single column update), same weight class as
+     * coreAllowMajor and alertsMute. 429 code `sites.rate_limited` (scoped
+     * to the site resource). Distinct prefix `defyn_rl_autoSend_%d_%d`.
+     *
+     * @return true|WP_Error
+     */
+    public static function autoSend(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+
+        $key   = sprintf('defyn_rl_autoSend_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::AUTO_SEND_LIMIT) {
+            return new \WP_Error(
+                'sites.rate_limited',
+                'Too many auto-send updates. Try again in an hour.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::AUTO_SEND_WINDOW);
         return true;
     }
 
