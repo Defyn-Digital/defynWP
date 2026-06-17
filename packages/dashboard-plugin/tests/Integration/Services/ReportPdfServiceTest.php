@@ -111,4 +111,42 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
         $html = (new ReportPdfService(static fn ($u): ?string => null))->debugHtml($report, $this->branding());
         self::assertStringContainsString('Not yet measured', $html);
     }
+
+    public function testRendersAnalyticsReadySection(): void
+    {
+        $report = $this->sampleReport();
+        $report['analytics'] = [
+            'state' => 'ready',
+            'period' => ['start' => '2026-06-01', 'end' => '2026-06-30'],
+            'totals' => ['sessions' => 12480, 'users' => 9210, 'pageviews' => 31540, 'avg_engagement_seconds' => 108.5],
+            'top_pages' => [['path' => '/', 'title' => 'Home', 'views' => 8420]],
+            'channels'  => [['channel' => 'Organic Search', 'sessions' => 5200]],
+        ];
+        $html = (new ReportPdfService(static fn ($u): ?string => null))->debugHtml($report, $this->branding());
+        self::assertStringContainsString('Analytics', $html);
+        self::assertStringContainsString('12,480', $html);   // formatted session count
+        self::assertStringContainsString('1m 48s', $html);   // avg engagement
+        self::assertStringContainsString('Organic Search', $html);
+    }
+
+    public function testRendersAnalyticsNotConnectedWhenKeyMissing(): void
+    {
+        $report = $this->sampleReport(); // no 'analytics' key
+        $html = (new ReportPdfService(static fn ($u): ?string => null))->debugHtml($report, $this->branding());
+        self::assertStringContainsString('Analytics not connected', $html);
+    }
+
+    public function testEscapesAnalyticsStrings(): void
+    {
+        $report = $this->sampleReport();
+        $report['analytics'] = [
+            'state' => 'ready', 'period' => ['start' => '2026-06-01', 'end' => '2026-06-30'],
+            'totals' => ['sessions' => 1, 'users' => 1, 'pageviews' => 1, 'avg_engagement_seconds' => 1.0],
+            'top_pages' => [['path' => '/x', 'title' => '<script>bad</script>', 'views' => 1]],
+            'channels'  => [['channel' => 'Direct', 'sessions' => 1]],
+        ];
+        $html = (new ReportPdfService(static fn ($u): ?string => null))->debugHtml($report, $this->branding());
+        self::assertStringNotContainsString('<script>bad</script>', $html);
+        self::assertStringContainsString('&lt;script&gt;', $html);
+    }
 }

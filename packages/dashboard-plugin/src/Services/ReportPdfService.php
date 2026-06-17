@@ -111,6 +111,7 @@ class ReportPdfService
 
         $overview = $this->overviewHtml($report);
         $performance = $this->performanceHtml($report);
+        $analytics = $this->analyticsHtml($report);
         $updates  = $this->updatesHtml($report);
         $uptime   = $this->uptimeHtml($report);
         $security = $this->securityHtml($report);
@@ -141,6 +142,7 @@ class ReportPdfService
   <div class="band"></div>
   {$overview}
   {$performance}
+  {$analytics}
   {$updates}
   {$uptime}
   {$security}
@@ -298,6 +300,51 @@ HTML;
 
         $body = '<p class="muted">PageSpeed Insights (lab) &middot; measured ' . $when . '</p>' . $scoreRow . $cwv . $trend;
         return $this->sectionWithBody('Performance', $body);
+    }
+
+    /** @param array<string,mixed> $report */
+    private function analyticsHtml(array $report): string
+    {
+        $a     = $report['analytics'] ?? ['state' => 'not_connected'];
+        $state = $a['state'] ?? 'not_connected';
+        if ($state === 'not_connected') {
+            return $this->sectionWithBody('Analytics', '<p class="muted">Analytics not connected.</p>');
+        }
+        if ($state !== 'ready') {
+            return $this->sectionWithBody('Analytics', '<p class="muted">Analytics not yet available for this period.</p>');
+        }
+
+        $t = $a['totals'] ?? [];
+        $avg = \Defyn\Dashboard\Services\EngagementFormat::format((float) ($t['avg_engagement_seconds'] ?? 0));
+        $kpis = '<table class="stats"><tr>'
+            . '<td><div class="stat-num">' . $this->esc(number_format((int) ($t['sessions'] ?? 0)))  . '</div><div class="stat-label">Sessions</div></td>'
+            . '<td><div class="stat-num">' . $this->esc(number_format((int) ($t['users'] ?? 0)))     . '</div><div class="stat-label">Users</div></td>'
+            . '<td><div class="stat-num">' . $this->esc(number_format((int) ($t['pageviews'] ?? 0))) . '</div><div class="stat-label">Pageviews</div></td>'
+            . '<td><div class="stat-num">' . $this->esc($avg) . '</div><div class="stat-label">Avg engaged</div></td>'
+            . '</tr></table>';
+
+        $pageRows = '';
+        foreach (($a['top_pages'] ?? []) as $p) {
+            $path  = $this->esc((string) ($p['path'] ?? ''));
+            $title = $this->esc((string) ($p['title'] ?? ''));
+            $views = $this->esc(number_format((int) ($p['views'] ?? 0)));
+            $pageRows .= "<tr><td>{$path} <span style=\"color:#999\">{$title}</span></td><td>{$views}</td></tr>";
+        }
+        $topPages = $pageRows === '' ? '' :
+            '<table class="data"><thead><tr><th>Top pages</th><th>Views</th></tr></thead><tbody>' . $pageRows . '</tbody></table>';
+
+        $chanRows = '';
+        foreach (($a['channels'] ?? []) as $c) {
+            $chan = $this->esc((string) ($c['channel'] ?? ''));
+            $sess = $this->esc(number_format((int) ($c['sessions'] ?? 0)));
+            $chanRows .= "<tr><td>{$chan}</td><td>{$sess}</td></tr>";
+        }
+        $channels = $chanRows === '' ? '' :
+            '<table class="data"><thead><tr><th>Traffic channels</th><th>Sessions</th></tr></thead><tbody>' . $chanRows . '</tbody></table>';
+
+        $period = $this->esc((string) ($a['period']['start'] ?? '') . ' – ' . (string) ($a['period']['end'] ?? ''));
+        $body = '<p class="muted">Google Analytics 4 &middot; ' . $period . '</p>' . $kpis . $topPages . $channels;
+        return $this->sectionWithBody('Analytics', $body);
     }
 
     private function cwvRow(string $label, int|float|null $value, string $metric, string $unit): string
