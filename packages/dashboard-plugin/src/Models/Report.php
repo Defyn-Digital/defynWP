@@ -24,6 +24,8 @@ final class Report
         public readonly ?string $generatedAt,
         public readonly ?string $sentAt,
         public readonly string  $createdAt,
+        // P5.4 — 'manual' | 'auto' | null (never-sent). How the report was emailed.
+        public readonly ?string $sentMethod = null,
     ) {}
 
     /** @param array<string, mixed> $row wpdb result row (all values come back as strings) */
@@ -43,6 +45,7 @@ final class Report
             generatedAt:    isset($row['generated_at'])    && $row['generated_at']    !== null ? (string) $row['generated_at']    : null,
             sentAt:         isset($row['sent_at'])         && $row['sent_at']         !== null ? (string) $row['sent_at']         : null,
             createdAt:      (string) $row['created_at'],
+            sentMethod:     isset($row['sent_method'])     && $row['sent_method']     !== null ? (string) $row['sent_method']     : null,
         );
     }
 
@@ -65,6 +68,7 @@ final class Report
             'generated_at'    => $this->generatedAt,
             'sent_at'         => $this->sentAt,
             'created_at'      => $this->createdAt,
+            'sent_method'     => $this->sentMethod,
         ];
     }
 }

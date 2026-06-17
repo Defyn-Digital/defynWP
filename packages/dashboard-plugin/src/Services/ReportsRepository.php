@@ -62,11 +62,11 @@ final class ReportsRepository
             ['id' => $id]);
     }
 
-    public function markSent(int $id, string $recipient, string $sentAt): void
+    public function markSent(int $id, string $recipient, string $sentAt, string $method = 'manual'): void
     {
         global $wpdb;
         $wpdb->update(ReportsTable::tableName(),
-            ['status' => 'sent', 'recipient_email' => $recipient, 'sent_at' => $sentAt],
+            ['status' => 'sent', 'recipient_email' => $recipient, 'sent_at' => $sentAt, 'sent_method' => $method],
             ['id' => $id]);
     }
 
