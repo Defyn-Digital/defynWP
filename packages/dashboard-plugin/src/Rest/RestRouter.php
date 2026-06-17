@@ -11,6 +11,7 @@ use Defyn\Dashboard\Rest\MonitoringController;
 use Defyn\Dashboard\Rest\SecurityController;
 use Defyn\Dashboard\Rest\SettingsController;
 use Defyn\Dashboard\Rest\SitesAlertsMuteController;
+use Defyn\Dashboard\Rest\SitesAutoSendController;
 use Defyn\Dashboard\Rest\SitesCoreAllowMajorController;
 use Defyn\Dashboard\Rest\SitesIncidentsController;
 use Defyn\Dashboard\Rest\SitesClientEmailController;
@@ -408,6 +409,13 @@ final class RestRouter
             'methods'             => 'POST',
             'callback'            => [new SitesClientEmailController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'clientEmail'],
+        ]);
+
+        // P5.4 — POST /sites/{id}/auto-send (per-site auto-send opt-in toggle)
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/auto-send', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesAutoSendController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'autoSend'],
         ]);
 
         // P6.1 — GET /sites/{id}/performance (latest PageSpeed snapshot, read bucket)
