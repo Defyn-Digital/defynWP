@@ -18,6 +18,7 @@ final class ReportService
         private readonly ?SitePluginsRepository $plugins = null,
         private readonly ?ThemesRepository $themes = null,
         private readonly ?SitePerformanceRepository $performance = null,
+        private readonly ?SiteAnalyticsRepository $analytics = null,
     ) {}
 
     /** @return array<string,mixed> */
@@ -38,6 +39,7 @@ final class ReportService
         $uptime   = $this->buildUptime($siteId, $fromUtc, $toUtc, $incidents);
         $security = $this->buildSecurity($siteId, $fromUtc, $toUtc, $findings, $activity, $lastScan);
         $performance = $this->buildPerformance($siteId, $fromUtc, $toUtc);
+        $analytics   = $this->buildAnalytics($site, $fromUtc, $toUtc);
 
         return [
             'site'   => ['id' => $siteId, 'label' => $label, 'url' => $url, 'wp_version' => $wpVer],
@@ -52,6 +54,50 @@ final class ReportService
             'uptime'   => $uptime,
             'security' => $security,
             'performance' => $performance,
+            'analytics' => $analytics,
+        ];
+    }
+
+    /**
+     * P6.2 — GA4 analytics for the report's calendar month. Reads ONLY cached
+     * snapshots (never calls GA4 — no-sync-fetch guardrail). States:
+     *   not_connected — site has no ga4_property_id
+     *   pending       — connected but no month-snapshot, or the range isn't a clean calendar month
+     *   ready         — snapshot found for the report's calendar month
+     * @return array<string,mixed>
+     */
+    private function buildAnalytics(?\Defyn\Dashboard\Models\Site $site, string $fromUtc, string $toUtc): array
+    {
+        $empty = ['period' => null, 'totals' => null, 'top_pages' => [], 'channels' => []];
+
+        if ($site === null || $site->ga4PropertyId === null || $site->ga4PropertyId === '') {
+            return ['state' => 'not_connected'] + $empty;
+        }
+
+        $fromDate = substr($fromUtc, 0, 10);
+        $toDate   = substr($toUtc, 0, 10);
+        $monthStart = substr($fromDate, 0, 7) . '-01';
+        $monthEnd   = gmdate('Y-m-t', strtotime($monthStart . ' UTC'));
+        if ($fromDate !== $monthStart || $toDate !== $monthEnd) {
+            return ['state' => 'pending'] + $empty;
+        }
+
+        $snap = ($this->analytics ?? new SiteAnalyticsRepository())->findForSiteAndMonth($site->id, $monthStart);
+        if ($snap === null) {
+            return ['state' => 'pending'] + $empty;
+        }
+
+        return [
+            'state'  => 'ready',
+            'period' => ['start' => $snap->periodStart, 'end' => $snap->periodEnd],
+            'totals' => [
+                'sessions'               => $snap->sessions,
+                'users'                  => $snap->totalUsers,
+                'pageviews'              => $snap->screenPageViews,
+                'avg_engagement_seconds' => $snap->avgSessionDuration,
+            ],
+            'top_pages' => $snap->topPages,
+            'channels'  => $snap->channels,
         ];
     }
 

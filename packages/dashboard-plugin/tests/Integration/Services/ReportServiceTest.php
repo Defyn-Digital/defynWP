@@ -17,7 +17,7 @@ final class ReportServiceTest extends AbstractSchemaTestCase
         global $wpdb;
         // phpcs:disable WordPress.DB.PreparedSQL
         $wpdb->query('SET autocommit = 1');
-        foreach (['defyn_sites','defyn_activity_log','defyn_incidents','defyn_site_vulnerabilities','defyn_site_plugins','defyn_site_performance'] as $t) {
+        foreach (['defyn_sites','defyn_activity_log','defyn_incidents','defyn_site_vulnerabilities','defyn_site_plugins','defyn_site_performance','defyn_site_analytics'] as $t) {
             $wpdb->query('DELETE FROM ' . $wpdb->prefix . $t);
         }
         // phpcs:enable WordPress.DB.PreparedSQL
@@ -89,6 +89,53 @@ final class ReportServiceTest extends AbstractSchemaTestCase
         $report = (new \Defyn\Dashboard\Services\ReportService())->compose($siteId, 1, '2026-05-01 00:00:00', '2026-05-31 23:59:59');
         self::assertNull($report['performance']['latest']);
         self::assertSame([], $report['performance']['history']);
+    }
+
+    public function testAnalyticsNotConnectedWhenNoProperty(): void
+    {
+        $siteId = $this->seedSite(1, 'https://acme.test', 'Acme', '6.9.4');
+        $report = (new \Defyn\Dashboard\Services\ReportService())->compose($siteId, 1, '2026-06-01 00:00:00', '2026-06-30 23:59:59');
+        self::assertSame('not_connected', $report['analytics']['state']);
+        self::assertNull($report['analytics']['totals']);
+    }
+
+    public function testAnalyticsReadyWhenMonthSnapshotExists(): void
+    {
+        $siteId = $this->seedSite(1, 'https://acme.test', 'Acme', '6.9.4');
+        (new \Defyn\Dashboard\Services\SitesRepository())->setGa4PropertyId($siteId, '123456789');
+        (new \Defyn\Dashboard\Services\SiteAnalyticsRepository())->upsertForSiteAndPeriod(
+            $siteId, '2026-06-01', '2026-06-30',
+            ['sessions'=>12480,'users'=>9210,'pageviews'=>31540,'avg_engagement'=>108.5,
+             'top_pages'=>[['path'=>'/','title'=>'Home','views'=>8420]],
+             'channels'=>[['channel'=>'Organic Search','sessions'=>5200]]],
+            '2026-06-30 03:00:00', '2026-06-30 03:00:00'
+        );
+        $report = (new \Defyn\Dashboard\Services\ReportService())->compose($siteId, 1, '2026-06-01 00:00:00', '2026-06-30 23:59:59');
+        self::assertSame('ready', $report['analytics']['state']);
+        self::assertSame(12480, $report['analytics']['totals']['sessions']);
+        self::assertSame('Home', $report['analytics']['top_pages'][0]['title']);
+        self::assertSame('2026-06-01', $report['analytics']['period']['start']);
+    }
+
+    public function testAnalyticsPendingWhenConnectedButNoSnapshot(): void
+    {
+        $siteId = $this->seedSite(1, 'https://acme.test', 'Acme', '6.9.4');
+        (new \Defyn\Dashboard\Services\SitesRepository())->setGa4PropertyId($siteId, '123456789');
+        $report = (new \Defyn\Dashboard\Services\ReportService())->compose($siteId, 1, '2026-06-01 00:00:00', '2026-06-30 23:59:59');
+        self::assertSame('pending', $report['analytics']['state']);
+    }
+
+    public function testAnalyticsPendingWhenRangeNotCalendarMonth(): void
+    {
+        $siteId = $this->seedSite(1, 'https://acme.test', 'Acme', '6.9.4');
+        (new \Defyn\Dashboard\Services\SitesRepository())->setGa4PropertyId($siteId, '123456789');
+        (new \Defyn\Dashboard\Services\SiteAnalyticsRepository())->upsertForSiteAndPeriod(
+            $siteId, '2026-06-01', '2026-06-30',
+            ['sessions'=>1,'users'=>1,'pageviews'=>1,'avg_engagement'=>1.0,'top_pages'=>[],'channels'=>[]],
+            '2026-06-30 03:00:00', '2026-06-30 03:00:00'
+        );
+        $report = (new \Defyn\Dashboard\Services\ReportService())->compose($siteId, 1, '2026-06-10 00:00:00', '2026-06-20 23:59:59');
+        self::assertSame('pending', $report['analytics']['state']);
     }
 
     private function seedSite(int $userId, string $url, string $label, string $wpVersion): int
