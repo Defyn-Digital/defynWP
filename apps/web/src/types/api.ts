@@ -185,6 +185,21 @@ export const reportPerformanceSchema = z.object({
 });
 export type ReportPerformanceData = z.infer<typeof reportPerformanceSchema>;
 
+// P6.2 — GA4 analytics block on the maintenance report.
+export const reportAnalyticsSchema = z.object({
+  state: z.enum(['not_connected', 'pending', 'ready']),
+  period: z.object({ start: z.string(), end: z.string() }).nullable(),
+  totals: z.object({
+    sessions: z.number().nullable(),
+    users: z.number().nullable(),
+    pageviews: z.number().nullable(),
+    avg_engagement_seconds: z.number().nullable(),
+  }).nullable(),
+  top_pages: z.array(z.object({ path: z.string(), title: z.string(), views: z.number() })),
+  channels: z.array(z.object({ channel: z.string(), sessions: z.number() })),
+});
+export type ReportAnalyticsData = z.infer<typeof reportAnalyticsSchema>;
+
 export const siteReportSchema = z.object({
   site: z.object({ id: z.number(), label: z.string(), url: z.string(), wp_version: z.string() }),
   period: z.object({ from: z.string(), to: z.string() }),
@@ -209,6 +224,7 @@ export const siteReportSchema = z.object({
     scans: z.array(reportScanSchema),
   }),
   performance: reportPerformanceSchema,
+  analytics: reportAnalyticsSchema,
 });
 export type SiteReport = z.infer<typeof siteReportSchema>;
 

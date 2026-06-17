@@ -92,6 +92,13 @@ describe('useSiteReport', () => {
                 { fetched_at: '2026-05-30 03:00:00', mobile_score: 82, desktop_score: 96 },
               ],
             },
+            analytics: {
+              state: 'ready',
+              period: { start: '2026-05-01', end: '2026-05-31' },
+              totals: { sessions: 1200, users: 900, pageviews: 3400, avg_engagement_seconds: 95 },
+              top_pages: [{ path: '/', title: 'Home', views: 800 }],
+              channels: [{ channel: 'Direct', sessions: 600 }],
+            },
           },
           error: null,
         });
