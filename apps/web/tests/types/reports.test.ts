@@ -7,7 +7,7 @@ describe('reportSchema', () => {
       id: 1, site_id: 2, title: 'Website Maintenance Report',
       range_from: '2026-05-01', range_to: '2026-05-31', status: 'ready',
       file_size: 1120, recipient_email: null, generated_at: '2026-06-01 02:00:00',
-      sent_at: null, created_at: '2026-06-01 01:59:00',
+      sent_at: null, sent_method: null, created_at: '2026-06-01 01:59:00',
     });
     expect(r.status).toBe('ready');
   });
@@ -15,7 +15,7 @@ describe('reportSchema', () => {
     const r = reportSchema.parse({
       id: 1, site_id: 2, title: 'T', range_from: '2026-05-01', range_to: '2026-05-31',
       status: 'generating', file_size: null, recipient_email: null,
-      generated_at: null, sent_at: null, created_at: '2026-06-16 00:00:00',
+      generated_at: null, sent_at: null, sent_method: null, created_at: '2026-06-16 00:00:00',
     });
     expect(r.file_size).toBeNull();
   });

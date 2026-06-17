@@ -54,6 +54,7 @@ describe('SiteDetail — core card integration', () => {
       last_core_update_attempt_at: null,
       core_allow_major: false,
       alerts_muted: false,
+      auto_send_reports: false,
     });
     mockSiteCoreState[1] = {
       core_update_available: false,

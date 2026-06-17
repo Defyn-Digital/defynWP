@@ -26,6 +26,7 @@ describe('siteSchema', () => {
       last_core_update_attempt_at: null,
       core_allow_major: false,
       alerts_muted: false,
+      auto_send_reports: false,
     });
     expect(parsed.status).toBe('active');
   });
@@ -54,6 +55,7 @@ describe('siteSchema', () => {
       last_core_update_attempt_at: null,
       core_allow_major: false,
       alerts_muted: false,
+      auto_send_reports: false,
     });
     expect(parsed.last_contact_at).toBeNull();
   });
@@ -82,6 +84,7 @@ describe('siteSchema', () => {
       last_core_update_attempt_at: null,
       core_allow_major: false,
       alerts_muted: false,
+      auto_send_reports: false,
     });
     expect(parsed.status).toBe('offline');
   });
@@ -128,6 +131,7 @@ describe('siteSchema', () => {
       is_auto_update_enabled: false,
       core_allow_major: false,
       alerts_muted: false,
+      auto_send_reports: false,
     });
     expect(parsed.core_update_available).toBe(true);
     expect(parsed.core_update_state).toBe('queued');
@@ -158,6 +162,7 @@ describe('siteSchema', () => {
       last_core_update_attempt_at: null,
       core_allow_major: false,
       alerts_muted: false,
+      auto_send_reports: false,
     });
     expect(parsed.core_update_available).toBe(false);
     expect(parsed.is_minor_update).toBeUndefined();

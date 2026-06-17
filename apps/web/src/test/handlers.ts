@@ -113,6 +113,7 @@ handlers.push(
       last_core_update_attempt_at: null,
       core_allow_major: false,
       alerts_muted: false,
+      auto_send_reports: false,
     };
     mockSites.push(site);
     return HttpResponse.json({ site_id: site.id }, { status: 202 });
@@ -260,6 +261,7 @@ export function seedMockSitesAllStatuses(): void {
       last_core_update_attempt_at: null,
       core_allow_major: false,
       alerts_muted: false,
+      auto_send_reports: false,
     },
     {
       id: nextSiteId++,
@@ -284,6 +286,7 @@ export function seedMockSitesAllStatuses(): void {
       last_core_update_attempt_at: null,
       core_allow_major: false,
       alerts_muted: false,
+      auto_send_reports: false,
     },
     {
       id: nextSiteId++,
@@ -308,6 +311,7 @@ export function seedMockSitesAllStatuses(): void {
       last_core_update_attempt_at: null,
       core_allow_major: false,
       alerts_muted: false,
+      auto_send_reports: false,
     },
     {
       id: nextSiteId++,
@@ -332,6 +336,7 @@ export function seedMockSitesAllStatuses(): void {
       last_core_update_attempt_at: null,
       core_allow_major: false,
       alerts_muted: false,
+      auto_send_reports: false,
     },
   );
 }
@@ -871,6 +876,7 @@ handlers.push(
       recipient_email: null,
       generated_at: '2026-06-01 02:00:00',
       sent_at: null,
+      sent_method: null,
       created_at: '2026-06-01 01:59:00',
     };
     return HttpResponse.json(
@@ -896,6 +902,7 @@ handlers.push(
             recipient_email: null,
             generated_at: null,
             sent_at: null,
+            sent_method: null,
             created_at: '2026-06-16 00:00:00',
           },
         },
@@ -921,6 +928,7 @@ handlers.push(
             recipient_email: 'c@acme.test',
             generated_at: '2026-06-01 02:00:00',
             sent_at: '2026-06-16 03:00:00',
+            sent_method: 'manual',
             created_at: '2026-06-01 01:59:00',
           },
         },
@@ -940,6 +948,15 @@ handlers.push(
     const body = (await request.json()) as { client_email?: string };
     return HttpResponse.json(
       { data: { client_email: body.client_email ?? 'c@acme.test' }, error: null },
+      { status: 200 },
+    );
+  }),
+
+  // P5.4 — POST /sites/:id/auto-send — toggle the per-site auto-send opt-in.
+  http.post('*/wp-json/defyn/v1/sites/:id/auto-send', async ({ request }) => {
+    const body = (await request.json()) as { auto_send?: boolean };
+    return HttpResponse.json(
+      { data: { auto_send_reports: body.auto_send === true }, error: null },
       { status: 200 },
     );
   }),

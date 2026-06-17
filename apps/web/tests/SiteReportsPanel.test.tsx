@@ -20,6 +20,7 @@ function makeReport(over: Partial<Report>): Report {
     recipient_email: null,
     generated_at: '2026-06-01 02:00:00',
     sent_at: null,
+    sent_method: null,
     created_at: '2026-06-01 01:59:00',
     ...over,
   };

@@ -47,6 +47,8 @@ export const siteSchema = z.object({
   alerts_muted: z.boolean(),
   // P5.3 — optional client email for scheduled report delivery.
   client_email: z.string().nullable().optional(),
+  // P5.4 — per-site auto-send opt-in (backend always sends it; NOT NULL DEFAULT 0).
+  auto_send_reports: z.boolean(),
 });
 export type Site = z.infer<typeof siteSchema>;
 
@@ -241,6 +243,8 @@ export const reportSchema = z.object({
   recipient_email: z.string().nullable(),
   generated_at: z.string().nullable(),
   sent_at: z.string().nullable(),
+  // P5.4 — how the report was delivered (e.g. 'manual', 'auto'); null until sent.
+  sent_method: z.string().nullable(),
   created_at: z.string(),
 });
 export type Report = z.infer<typeof reportSchema>;
