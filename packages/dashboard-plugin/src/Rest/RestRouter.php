@@ -22,6 +22,9 @@ use Defyn\Dashboard\Rest\SitesReportSendController;
 use Defyn\Dashboard\Rest\SitesReportsController;
 use Defyn\Dashboard\Rest\SitesPerformanceController;
 use Defyn\Dashboard\Rest\SitesPerformanceScanController;
+use Defyn\Dashboard\Rest\SitesAnalyticsController;
+use Defyn\Dashboard\Rest\SitesAnalyticsRefreshController;
+use Defyn\Dashboard\Rest\SitesGa4PropertyController;
 use Defyn\Dashboard\Rest\SecurityScanAllController;
 use Defyn\Dashboard\Rest\SecurityScanController;
 use Defyn\Dashboard\Rest\SitesVulnerabilitiesController;
@@ -419,6 +422,27 @@ final class RestRouter
             'methods'             => 'POST',
             'callback'            => [new SitesPerformanceScanController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'performanceScan'],
+        ]);
+
+        // P6.2 — GET /sites/{id}/analytics (latest snapshot + connection, read bucket)
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/analytics', [
+            'methods'             => 'GET',
+            'callback'            => [new SitesAnalyticsController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'analyticsRead'],
+        ]);
+
+        // P6.2 — POST /sites/{id}/analytics/refresh (enqueue GA4 sync, 202)
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/analytics/refresh', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesAnalyticsRefreshController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'analyticsRefresh'],
+        ]);
+
+        // P6.2 — POST /sites/{id}/ga4-property (set/clear the property ID)
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/ga4-property', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesGa4PropertyController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'ga4Property'],
         ]);
 
         // P4.3b — POST /sites/{id}/vulnerabilities/dismiss. Toggles a per-site finding
