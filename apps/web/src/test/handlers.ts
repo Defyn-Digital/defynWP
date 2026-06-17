@@ -824,6 +824,25 @@ handlers.push(
     return HttpResponse.json({ scheduled: true, site_id: Number(params.id) }, { status: 202 });
   }),
 
+  // P6.2 — GET /sites/:id/analytics — never-connected (latest + property null) by default.
+  http.get('*/wp-json/defyn/v1/sites/:id/analytics', () => {
+    return HttpResponse.json({ data: { latest: null, ga4_property_id: null }, error: null });
+  }),
+
+  // P6.2 — POST /sites/:id/ga4-property — echo the saved property ID.
+  http.post('*/wp-json/defyn/v1/sites/:id/ga4-property', async ({ request }) => {
+    const body = (await request.json()) as { ga4_property_id?: string };
+    return HttpResponse.json(
+      { data: { ga4_property_id: body.ga4_property_id ?? null }, error: null },
+      { status: 200 },
+    );
+  }),
+
+  // P6.2 — POST /sites/:id/analytics/refresh — 202 scheduled.
+  http.post('*/wp-json/defyn/v1/sites/:id/analytics/refresh', () => {
+    return HttpResponse.json({ data: { scheduled: true }, error: null }, { status: 202 });
+  }),
+
   // P4.2 — GET /security — empty fleet by default; tests override via server.use().
   http.get('*/wp-json/defyn/v1/security', () => {
     return HttpResponse.json({

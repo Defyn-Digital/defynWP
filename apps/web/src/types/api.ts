@@ -557,3 +557,30 @@ export const sitePerformanceResponseSchema = z.object({
   data: z.object({ latest: sitePerformanceSchema.nullable() }),
   error: z.null(),
 });
+
+// P6.2 — Site-detail latest GA4 analytics snapshot (from SiteAnalytics::toJson).
+// Distinct from reportAnalyticsSchema, which is the nested block on the
+// maintenance report; this is the standalone snapshot row.
+export const siteAnalyticsSnapshotSchema = z.object({
+  id: z.number(),
+  site_id: z.number(),
+  period_start: z.string(),
+  period_end: z.string(),
+  sessions: z.number().nullable(),
+  total_users: z.number().nullable(),
+  screen_page_views: z.number().nullable(),
+  avg_session_duration: z.number().nullable(),
+  top_pages: z.array(z.object({ path: z.string(), title: z.string(), views: z.number() })),
+  channels: z.array(z.object({ channel: z.string(), sessions: z.number() })),
+  fetched_at: z.string(),
+});
+export type SiteAnalyticsSnapshot = z.infer<typeof siteAnalyticsSnapshotSchema>;
+
+export const siteAnalyticsResponseSchema = z.object({
+  data: z.object({
+    latest: siteAnalyticsSnapshotSchema.nullable(),
+    ga4_property_id: z.string().nullable(),
+  }),
+  error: z.null(),
+});
+export type SiteAnalyticsResponse = z.infer<typeof siteAnalyticsResponseSchema>;

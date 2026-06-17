@@ -15,6 +15,7 @@ import { useSiteThemes } from '@/lib/queries/useSiteThemes';
 import { SiteThemesPanel } from '@/components/sites/SiteThemesPanel';
 import { SiteSecurityPanel } from '@/components/sites/SiteSecurityPanel';
 import { SitePerformancePanel } from '@/components/sites/SitePerformancePanel';
+import { SiteAnalyticsPanel } from '@/components/sites/SiteAnalyticsPanel';
 import { IncidentHistoryPanel } from '@/components/sites/IncidentHistoryPanel';
 import { SiteReportsPanel } from '@/components/reports/SiteReportsPanel';
 
@@ -122,6 +123,8 @@ export default function SiteDetail() {
           {data.status !== 'pending' && <SiteSecurityPanel siteId={siteId} />}
 
           {data.status !== 'pending' && <SitePerformancePanel siteId={siteId} />}
+
+          {data.status !== 'pending' && <SiteAnalyticsPanel siteId={siteId} />}
 
           {data.status !== 'pending' && (
             <SiteReportsPanel siteId={siteId} clientEmail={data.client_email ?? null} />
