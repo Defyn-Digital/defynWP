@@ -298,7 +298,9 @@ HTML;
         }
         $trend = $rows === '' ? '' : '<table class="data"><thead><tr><th>Measured</th><th>Mobile</th><th>Desktop</th></tr></thead><tbody>' . $rows . '</tbody></table>';
 
-        $body = '<p class="muted">PageSpeed Insights (lab) &middot; measured ' . $when . '</p>' . $scoreRow . $cwv . $trend;
+        $spark      = $this->sparklineSvg($perf['history'] ?? []);
+        $sparkBlock = $spark === '' ? '' : '<p class="muted" style="margin-bottom:2px">Score trend (0&ndash;100)</p>' . $spark;
+        $body = '<p class="muted">PageSpeed Insights (lab) &middot; measured ' . $when . '</p>' . $scoreRow . $cwv . $sparkBlock . $trend;
         return $this->sectionWithBody('Performance', $body);
     }
 
@@ -380,6 +382,78 @@ HTML;
     private function safeAccent(string $accent): string
     {
         return preg_match('/^#[0-9a-fA-F]{6}$/', $accent) === 1 ? $accent : '#26215C';
+    }
+
+    /**
+     * P6.4 — inline-SVG trend line of the weekly mobile+desktop scores. Returns ''
+     * unless at least one series has >=2 non-null points (a single point is not a
+     * trend). dompdf renders this via the bundled php-svg-lib. Coordinates are
+     * floats computed from our own integer scores — not attacker data.
+     *
+     * @param array<int,array<string,mixed>> $history oldest→newest history points
+     */
+    private function sparklineSvg(array $history): string
+    {
+        $mobile  = [];
+        $desktop = [];
+        foreach ($history as $h) {
+            $mobile[]  = isset($h['mobile_score'])  && $h['mobile_score']  !== null ? (int) $h['mobile_score']  : null;
+            $desktop[] = isset($h['desktop_score']) && $h['desktop_score'] !== null ? (int) $h['desktop_score'] : null;
+        }
+        $mPts = $this->sparkPoints($mobile);
+        $dPts = $this->sparkPoints($desktop);
+        if (count($mPts) < 2 && count($dPts) < 2) {
+            return '';
+        }
+
+        $g50 = $this->sparkY(50);
+        $g90 = $this->sparkY(90);
+        $svg  = '<svg width="200" height="56" viewBox="0 0 200 56" xmlns="http://www.w3.org/2000/svg">';
+        $svg .= '<line x1="6" y1="' . $g50 . '" x2="194" y2="' . $g50 . '" stroke="#e5e7eb" stroke-width="1"/>';
+        $svg .= '<line x1="6" y1="' . $g90 . '" x2="194" y2="' . $g90 . '" stroke="#e5e7eb" stroke-width="1"/>';
+        if (count($mPts) >= 2) {
+            $svg .= '<polyline fill="none" stroke="#d97706" stroke-width="2" points="' . $this->sparkPointsAttr($mPts) . '"/>';
+            $last = $mPts[count($mPts) - 1];
+            $svg .= '<circle cx="' . $last[0] . '" cy="' . $last[1] . '" r="2.6" fill="#d97706"/>';
+        }
+        if (count($dPts) >= 2) {
+            $svg .= '<polyline fill="none" stroke="#16a34a" stroke-width="2" points="' . $this->sparkPointsAttr($dPts) . '"/>';
+            $last = $dPts[count($dPts) - 1];
+            $svg .= '<circle cx="' . $last[0] . '" cy="' . $last[1] . '" r="2.6" fill="#16a34a"/>';
+        }
+        $svg .= '</svg>';
+        return $svg;
+    }
+
+    /**
+     * Non-null scores → [x,y] points, evenly spaced across the width.
+     * viewBox 200x56, x in [10,190], y from sparkY().
+     * @param array<int,int|null> $scores
+     * @return array<int,array{0:float,1:float}>
+     */
+    private function sparkPoints(array $scores): array
+    {
+        $vals = array_values(array_filter($scores, static fn ($s) => $s !== null));
+        $n = count($vals);
+        $pts = [];
+        foreach ($vals as $i => $v) {
+            $x = $n <= 1 ? 10.0 : 10.0 + ($i / ($n - 1)) * 180.0;
+            $pts[] = [round($x, 1), $this->sparkY((int) $v)];
+        }
+        return $pts;
+    }
+
+    /** Score 0..100 → y in [4,52] (higher score = higher on chart). */
+    private function sparkY(int $score): float
+    {
+        $score = max(0, min(100, $score));
+        return round(4.0 + (100 - $score) / 100 * 48.0, 1);
+    }
+
+    /** @param array<int,array{0:float,1:float}> $pts */
+    private function sparkPointsAttr(array $pts): string
+    {
+        return implode(' ', array_map(static fn (array $p): string => $p[0] . ',' . $p[1], $pts));
     }
 
     private function esc(string $s): string
