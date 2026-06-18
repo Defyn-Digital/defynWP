@@ -862,6 +862,29 @@ handlers.push(
     return HttpResponse.json({ scheduled_count: 0, site_ids: [], scheduled_at: '2026-06-15 03:00:00' }, { status: 200 });
   }),
 
+  // P6.3 — GET /insights — representative fleet fixture; tests override via server.use().
+  http.get('*/wp-json/defyn/v1/insights', () => {
+    return HttpResponse.json({
+      performance: {
+        summary: { total_sites: 3, measured: 2, avg_mobile: 61, avg_desktop: 88, slow_sites: 1 },
+        sites: [
+          { site_id: 2, label: 'Bravo', url: 'https://b.example', mobile_score: 42, desktop_score: 71, mobile_lcp_ms: 4600, fetched_at: '2026-06-01 00:00:00' },
+          { site_id: 1, label: 'Alpha', url: 'https://a.example', mobile_score: 80, desktop_score: 95, mobile_lcp_ms: 2100, fetched_at: '2026-06-01 00:00:00' },
+          { site_id: 3, label: 'Charlie', url: 'https://c.example', mobile_score: null, desktop_score: null, mobile_lcp_ms: null, fetched_at: null },
+        ],
+      },
+      analytics: {
+        summary: { total_sites: 3, connected: 1, total_sessions: 1240, total_users: 910 },
+        sites: [
+          { site_id: 1, label: 'Alpha', url: 'https://a.example', ga4_property_id: '111', sessions: 1240, total_users: 910, screen_page_views: 3410, avg_session_duration: 72, period_start: '2026-05-01', period_end: '2026-05-31', fetched_at: '2026-06-01 00:00:00' },
+          { site_id: 2, label: 'Bravo', url: 'https://b.example', ga4_property_id: '222', sessions: null, total_users: null, screen_page_views: null, avg_session_duration: null, period_start: null, period_end: null, fetched_at: null },
+          { site_id: 3, label: 'Charlie', url: 'https://c.example', ga4_property_id: null, sessions: null, total_users: null, screen_page_views: null, avg_session_duration: null, period_start: null, period_end: null, fetched_at: null },
+        ],
+      },
+      generated_at: '2026-06-18 00:00:00',
+    });
+  }),
+
   // P5.3 — GET /sites/:id/reports — paginated report queue list.
   http.get('*/wp-json/defyn/v1/sites/:id/reports', ({ params }) => {
     const siteId = Number(params.id);

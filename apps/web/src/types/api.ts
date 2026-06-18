@@ -588,3 +588,55 @@ export const siteAnalyticsResponseSchema = z.object({
   error: z.null(),
 });
 export type SiteAnalyticsResponse = z.infer<typeof siteAnalyticsResponseSchema>;
+
+// P6.3 — Fleet Insights (/insights) schemas. Read-only rollup of the latest
+// per-site performance + analytics snapshots.
+export const performanceFleetRowSchema = z.object({
+  site_id: z.number().int().positive(),
+  label: z.string(),
+  url: z.string(),
+  mobile_score: z.number().int().nullable(),
+  desktop_score: z.number().int().nullable(),
+  mobile_lcp_ms: z.number().int().nullable(),
+  fetched_at: z.string().nullable(),
+});
+export type PerformanceFleetRow = z.infer<typeof performanceFleetRowSchema>;
+
+export const analyticsFleetRowSchema = z.object({
+  site_id: z.number().int().positive(),
+  label: z.string(),
+  url: z.string(),
+  ga4_property_id: z.string().nullable(),
+  sessions: z.number().int().nullable(),
+  total_users: z.number().int().nullable(),
+  screen_page_views: z.number().int().nullable(),
+  avg_session_duration: z.number().nullable(),
+  period_start: z.string().nullable(),
+  period_end: z.string().nullable(),
+  fetched_at: z.string().nullable(),
+});
+export type AnalyticsFleetRow = z.infer<typeof analyticsFleetRowSchema>;
+
+export const insightsSchema = z.object({
+  performance: z.object({
+    summary: z.object({
+      total_sites: z.number().int().nonnegative(),
+      measured: z.number().int().nonnegative(),
+      avg_mobile: z.number().int().nullable(),
+      avg_desktop: z.number().int().nullable(),
+      slow_sites: z.number().int().nonnegative(),
+    }),
+    sites: z.array(performanceFleetRowSchema),
+  }),
+  analytics: z.object({
+    summary: z.object({
+      total_sites: z.number().int().nonnegative(),
+      connected: z.number().int().nonnegative(),
+      total_sessions: z.number().int().nonnegative(),
+      total_users: z.number().int().nonnegative(),
+    }),
+    sites: z.array(analyticsFleetRowSchema),
+  }),
+  generated_at: z.string(),
+});
+export type Insights = z.infer<typeof insightsSchema>;

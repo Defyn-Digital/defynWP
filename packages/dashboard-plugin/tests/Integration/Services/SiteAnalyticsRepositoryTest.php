@@ -10,9 +10,22 @@ final class SiteAnalyticsRepositoryTest extends AbstractSchemaTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        \Defyn\Dashboard\Activation::ensureSchema();
         global $wpdb;
         $wpdb->query('SET autocommit = 1');
-        $wpdb->query('DELETE FROM ' . $wpdb->prefix . 'defyn_site_analytics');
+        foreach (['defyn_site_analytics', 'defyn_sites'] as $t) {
+            $wpdb->query('DELETE FROM ' . $wpdb->prefix . $t);
+        }
+    }
+
+    private function seedSite(int $id = 1, int $userId = 1, string $url = 'https://acme.test', string $label = 'Acme'): int
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'defyn_sites', [
+            'id' => $id, 'user_id' => $userId, 'url' => $url, 'label' => $label,
+            'status' => 'active', 'created_at' => '2026-01-01 00:00:00', 'updated_at' => '2026-01-01 00:00:00', 'wp_version' => '6.9.4',
+        ]);
+        return $id;
     }
 
     private function data(int $sessions): array
@@ -52,5 +65,49 @@ final class SiteAnalyticsRepositoryTest extends AbstractSchemaTestCase
         $repo->upsertForSiteAndPeriod(3, '2026-06-01', '2026-06-30', $this->data(90), '2026-07-01 03:00:00', '2026-07-01 03:00:00');
         self::assertSame('2026-06-01', $repo->latestForSite(3)->periodStart);
         self::assertNull($repo->latestForSite(999));
+    }
+
+    public function testFindFleetForUserReturnsLatestMonthPerSite(): void
+    {
+        $this->seedSite(1, 7, 'https://a.example', 'Alpha');
+        $this->seedSite(2, 7, 'https://b.example', 'Bravo');   // property, no snapshot
+        $this->seedSite(3, 7, 'https://c.example', 'Charlie'); // no property
+
+        (new \Defyn\Dashboard\Services\SitesRepository())->setGa4PropertyId(1, '111111');
+        (new \Defyn\Dashboard\Services\SitesRepository())->setGa4PropertyId(2, '222222');
+
+        $repo = new SiteAnalyticsRepository();
+        $repo->upsertForSiteAndPeriod(1, '2026-04-01', '2026-04-30',
+            ['sessions' => 500, 'users' => 400, 'pageviews' => 1200, 'avg_engagement' => 60.0, 'top_pages' => [], 'channels' => []],
+            '2026-05-01 00:00:00', '2026-05-01 00:00:00');
+        $repo->upsertForSiteAndPeriod(1, '2026-05-01', '2026-05-31',
+            ['sessions' => 1240, 'users' => 910, 'pageviews' => 3410, 'avg_engagement' => 72.0, 'top_pages' => [], 'channels' => []],
+            '2026-06-01 00:00:00', '2026-06-01 00:00:00');
+
+        $rows = $repo->findFleetForUser(7);
+        $this->assertCount(3, $rows);
+        $byId = [];
+        foreach ($rows as $r) { $byId[$r['site_id']] = $r; }
+
+        $this->assertSame('111111', $byId[1]['ga4_property_id']);
+        $this->assertSame(1240, $byId[1]['sessions']);          // latest month wins
+        $this->assertSame('2026-05-01', $byId[1]['period_start']);
+        $this->assertSame(72.0, $byId[1]['avg_session_duration']);
+
+        $this->assertSame('222222', $byId[2]['ga4_property_id']); // connected, no data
+        $this->assertNull($byId[2]['sessions']);
+        $this->assertNull($byId[2]['fetched_at']);
+
+        $this->assertNull($byId[3]['ga4_property_id']);           // not connected
+        $this->assertNull($byId[3]['sessions']);
+    }
+
+    public function testFindFleetForUserExcludesOtherOwners(): void
+    {
+        $this->seedSite(1, 7, 'https://a.example', 'Alpha');
+        $this->seedSite(2, 9, 'https://x.example', 'Other');
+        $rows = (new SiteAnalyticsRepository())->findFleetForUser(7);
+        $this->assertCount(1, $rows);
+        $this->assertSame(1, $rows[0]['site_id']);
     }
 }

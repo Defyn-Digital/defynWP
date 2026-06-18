@@ -6,6 +6,7 @@ import { SyncAllSitesButton } from '@/components/overview/SyncAllSitesButton'
 import { JobsNavLink } from '@/components/nav/JobsNavLink'
 import { MonitoringNavLink } from '@/components/nav/MonitoringNavLink'
 import { SecurityNavLink } from '@/components/nav/SecurityNavLink'
+import { InsightsNavLink } from '@/components/nav/InsightsNavLink'
 import { SettingsNavLink } from '@/components/nav/SettingsNavLink'
 import { BulkUpdatePluginsButton } from '@/components/overview/BulkUpdatePluginsButton'
 import { BulkUpdateThemesButton } from '@/components/overview/BulkUpdateThemesButton'
@@ -55,6 +56,7 @@ export default function Overview() {
           <JobsNavLink />
           <MonitoringNavLink />
           <SecurityNavLink />
+          <InsightsNavLink />
           <SettingsNavLink />
         </div>
         <div className="flex flex-col items-end gap-1">

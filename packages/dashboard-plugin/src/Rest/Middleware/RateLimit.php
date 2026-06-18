@@ -189,6 +189,12 @@ final class RateLimit
     public const SECURITY_LIMIT  = 30;
     public const SECURITY_WINDOW = MINUTE_IN_SECONDS;
 
+    // P6.3 — GET /insights. Read-only combined fleet Performance + Analytics
+    // rollup. Same read weight class as security()/monitoring() — per-user,
+    // 30/MINUTE. Distinct transient prefix `defyn_rl_insights_%d`.
+    public const INSIGHTS_LIMIT  = 30;
+    public const INSIGHTS_WINDOW = MINUTE_IN_SECONDS;
+
     // P4.2 — POST /security/scan-all. Bulk fan-out: schedules a `defyn_security_scan`
     // AS job per owned site. Per-user, 5/HOUR — same weight class as bulkPluginUpdate
     // and bulkThemeUpdate (N write fan-outs; distinct bucket from the per-site
@@ -1453,6 +1459,36 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::SECURITY_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /insights. Per-user, 30/MINUTE — same read
+     * weight class as security()/monitoring(). Distinct prefix `defyn_rl_insights_%d`.
+     *
+     * @return true|\WP_Error
+     */
+    public static function insights(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+
+        $userId = (int) $request->get_param('_authenticated_user_id');
+
+        $key   = sprintf('defyn_rl_insights_%d', $userId);
+        $count = (int) (get_transient($key) ?: 0);
+
+        if ($count >= self::INSIGHTS_LIMIT) {
+            return new \WP_Error(
+                'insights.rate_limited',
+                'Too many requests. Try again shortly.',
+                ['status' => 429]
+            );
+        }
+
+        set_transient($key, $count + 1, self::INSIGHTS_WINDOW);
         return true;
     }
 

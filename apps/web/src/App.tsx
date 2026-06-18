@@ -14,6 +14,7 @@ import Jobs from './routes/Jobs';
 import JobDetail from './routes/JobDetail';
 import { Monitoring } from './routes/Monitoring';
 import { Security } from './routes/Security';
+import { Insights } from './routes/Insights';
 import { Settings } from './routes/Settings';
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/activity" element={<Activity />} />
         <Route path="/monitoring" element={<Monitoring />} />
         <Route path="/security" element={<Security />} />
+        <Route path="/insights" element={<Insights />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>
