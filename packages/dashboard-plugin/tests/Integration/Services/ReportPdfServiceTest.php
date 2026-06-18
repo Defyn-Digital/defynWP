@@ -112,6 +112,47 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
         self::assertStringContainsString('Not yet measured', $html);
     }
 
+    public function testPerformanceSparklineRendersWhenHistoryHasTwoPoints(): void
+    {
+        $svc = new ReportPdfService();
+        $report = $this->sampleReport();
+        $report['performance'] = [
+            'latest' => [
+                'fetched_at' => '2026-06-16 03:00:00',
+                'mobile'  => ['score' => 58, 'lcp_ms' => 4600, 'cls' => 0.10, 'inp_ms' => 250],
+                'desktop' => ['score' => 91, 'lcp_ms' => 2400, 'cls' => 0.05, 'inp_ms' => 120],
+            ],
+            'history' => [
+                ['fetched_at' => '2026-05-19 03:00:00', 'mobile_score' => 48, 'desktop_score' => 88],
+                ['fetched_at' => '2026-06-16 03:00:00', 'mobile_score' => 58, 'desktop_score' => 91],
+            ],
+        ];
+        $html = $svc->debugHtml($report, $this->branding());
+        $this->assertStringContainsString('<svg', $html);
+        $this->assertStringContainsString('<polyline', $html);
+        $this->assertStringContainsString('stroke="#d97706"', $html); // mobile line
+        $this->assertStringContainsString('stroke="#16a34a"', $html); // desktop line
+        $this->assertStringContainsString('<th>Mobile</th>', $html);   // existing table still renders
+    }
+
+    public function testPerformanceSparklineAbsentWhenSingleHistoryPoint(): void
+    {
+        $svc = new ReportPdfService();
+        $report = $this->sampleReport();
+        $report['performance'] = [
+            'latest' => [
+                'fetched_at' => '2026-06-16 03:00:00',
+                'mobile'  => ['score' => 58, 'lcp_ms' => 4600, 'cls' => 0.10, 'inp_ms' => 250],
+                'desktop' => ['score' => 91, 'lcp_ms' => 2400, 'cls' => 0.05, 'inp_ms' => 120],
+            ],
+            'history' => [
+                ['fetched_at' => '2026-06-16 03:00:00', 'mobile_score' => 58, 'desktop_score' => 91],
+            ],
+        ];
+        $html = $svc->debugHtml($report, $this->branding());
+        $this->assertStringNotContainsString('<svg', $html); // <2 points = not a trend
+    }
+
     public function testRendersAnalyticsReadySection(): void
     {
         $report = $this->sampleReport();
