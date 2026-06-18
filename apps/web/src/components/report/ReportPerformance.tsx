@@ -1,6 +1,7 @@
 import { rateCwv } from '@/lib/coreWebVitals';
 import type { CwvRating } from '@/lib/coreWebVitals';
 import type { ReportPerformanceData } from '@/types/api';
+import { TrendSparkline } from '@/components/report/TrendSparkline';
 
 interface ReportPerformanceProps {
   performance: ReportPerformanceData;
@@ -109,6 +110,8 @@ export function ReportPerformance({ performance }: ReportPerformanceProps) {
               </tbody>
             </table>
           </div>
+
+          <TrendSparkline history={history} />
 
           {history.length > 0 && (
             <div className="space-y-2">

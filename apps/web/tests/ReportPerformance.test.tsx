@@ -35,4 +35,22 @@ describe('ReportPerformance', () => {
     render(<ReportPerformance performance={emptyPerformance()} />);
     expect(screen.getByText(/Not yet measured/i)).toBeInTheDocument();
   });
+
+  it('renders the trend sparkline above the weekly history table', () => {
+    const performance = {
+      latest: {
+        fetched_at: '2026-06-16 03:00:00',
+        mobile: { score: 58, lcp_ms: 4600, cls: 0.1, inp_ms: 250 },
+        desktop: { score: 91, lcp_ms: 2400, cls: 0.05, inp_ms: 120 },
+      },
+      history: [
+        { fetched_at: '2026-05-19 03:00:00', mobile_score: 48, desktop_score: 88 },
+        { fetched_at: '2026-06-16 03:00:00', mobile_score: 58, desktop_score: 91 },
+      ],
+    };
+    const { container, getByText } = render(<ReportPerformance performance={performance} />);
+    expect(container.querySelector('svg')).not.toBeNull(); // sparkline present
+    expect(container.querySelectorAll('polyline')).toHaveLength(2);
+    expect(getByText('Trend')).toBeInTheDocument(); // existing table heading still there
+  });
 });
