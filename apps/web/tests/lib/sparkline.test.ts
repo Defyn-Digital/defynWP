@@ -28,3 +28,23 @@ describe('buildSparkPoints', () => {
     expect(buildSparkPoints([])).toBe('');
   });
 });
+
+describe('sparkY relative max', () => {
+  it('scales to an arbitrary max (floor at 0)', () => {
+    expect(sparkY(10000, 10000)).toBe(4);   // max → top
+    expect(sparkY(0, 10000)).toBe(52);       // 0 → bottom
+    expect(sparkY(5000, 10000)).toBe(28);    // half → middle
+  });
+  it('still defaults to a 0..100 scale (P6.4 behaviour)', () => {
+    expect(sparkY(50)).toBe(28);
+  });
+});
+
+describe('buildSparkPoints relative max', () => {
+  it('spaces survivors evenly with a custom max', () => {
+    expect(buildSparkPoints([0, 5000, 10000], 10000)).toBe('10,52 100,28 190,4');
+  });
+  it('still defaults to a 0..100 scale (P6.4 behaviour)', () => {
+    expect(buildSparkPoints([100, 50, 0])).toBe('10,4 100,28 190,52');
+  });
+});
