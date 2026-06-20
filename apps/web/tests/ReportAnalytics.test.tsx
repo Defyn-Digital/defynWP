@@ -42,4 +42,17 @@ describe('ReportAnalytics', () => {
     render(<ReportAnalytics analytics={pendingAnalytics()} />);
     expect(screen.getByText(/not yet available/i)).toBeInTheDocument();
   });
+
+  it('renders the sessions sparkline in the ready state with history', () => {
+    const analytics: ReportAnalyticsData = {
+      ...readyAnalytics(),
+      history: [
+        { period_start: '2026-05-01', sessions: 500 },
+        { period_start: '2026-06-01', sessions: 980 },
+      ],
+    };
+    const { container } = render(<ReportAnalytics analytics={analytics} />);
+    expect(container.querySelector('polyline')).not.toBeNull(); // sparkline present
+    expect(screen.getByText('Channels')).toBeInTheDocument(); // existing tables still render
+  });
 });
