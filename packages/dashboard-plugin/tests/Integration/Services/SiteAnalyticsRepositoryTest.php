@@ -110,4 +110,35 @@ final class SiteAnalyticsRepositoryTest extends AbstractSchemaTestCase
         $this->assertCount(1, $rows);
         $this->assertSame(1, $rows[0]['site_id']);
     }
+
+    public function testFindRecentForSiteReturnsOldestToNewest(): void
+    {
+        $this->seedSite(1, 7, 'https://a.example', 'Alpha');
+        $repo = new SiteAnalyticsRepository();
+        foreach ([['2026-03-01', '2026-03-31', 300], ['2026-04-01', '2026-04-30', 400], ['2026-05-01', '2026-05-31', 500]] as [$ps, $pe, $sess]) {
+            $repo->upsertForSiteAndPeriod(1, $ps, $pe,
+                ['sessions' => $sess, 'users' => 0, 'pageviews' => 0, 'avg_engagement' => 0.0, 'top_pages' => [], 'channels' => []],
+                '2026-06-01 00:00:00', '2026-06-01 00:00:00');
+        }
+        $rows = $repo->findRecentForSite(1, 12);
+        $this->assertCount(3, $rows);
+        $this->assertSame(['2026-03-01', '2026-04-01', '2026-05-01'], array_map(static fn ($m) => $m->periodStart, $rows));
+        $this->assertSame([300, 400, 500], array_map(static fn ($m) => $m->sessions, $rows));
+    }
+
+    public function testFindRecentForSiteCapsAtLimit(): void
+    {
+        $this->seedSite(1, 7, 'https://a.example', 'Alpha');
+        $repo = new SiteAnalyticsRepository();
+        for ($i = 0; $i < 14; $i++) {
+            $ts = strtotime("2025-01-01 +{$i} months UTC");
+            $repo->upsertForSiteAndPeriod(1, gmdate('Y-m-01', $ts), gmdate('Y-m-t', $ts),
+                ['sessions' => $i + 1, 'users' => 0, 'pageviews' => 0, 'avg_engagement' => 0.0, 'top_pages' => [], 'channels' => []],
+                '2026-06-01 00:00:00', '2026-06-01 00:00:00');
+        }
+        $rows = $repo->findRecentForSite(1, 12);
+        $this->assertCount(12, $rows);                  // capped at 12 of the 14 months
+        $this->assertSame(3, $rows[0]->sessions);       // most-recent 12 = months i=2..13 (sessions 3..14), oldest→newest
+        $this->assertSame(14, $rows[11]->sessions);
+    }
 }

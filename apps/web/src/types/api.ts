@@ -199,6 +199,7 @@ export const reportAnalyticsSchema = z.object({
   }).nullable(),
   top_pages: z.array(z.object({ path: z.string(), title: z.string(), views: z.number() })),
   channels: z.array(z.object({ channel: z.string(), sessions: z.number() })),
+  history: z.array(z.object({ period_start: z.string(), sessions: z.number().nullable() })).default([]),
 });
 export type ReportAnalyticsData = z.infer<typeof reportAnalyticsSchema>;
 

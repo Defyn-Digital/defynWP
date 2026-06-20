@@ -10,15 +10,16 @@ function readyAnalytics(): ReportAnalyticsData {
     totals: { sessions: 12480, users: 9300, pageviews: 41200, avg_engagement_seconds: 108 },
     top_pages: [{ path: '/', title: 'Home', views: 8000 }],
     channels: [{ channel: 'Organic Search', sessions: 7200 }],
+    history: [],
   };
 }
 
 function notConnectedAnalytics(): ReportAnalyticsData {
-  return { state: 'not_connected', period: null, totals: null, top_pages: [], channels: [] };
+  return { state: 'not_connected', period: null, totals: null, top_pages: [], channels: [], history: [] };
 }
 
 function pendingAnalytics(): ReportAnalyticsData {
-  return { state: 'pending', period: null, totals: null, top_pages: [], channels: [] };
+  return { state: 'pending', period: null, totals: null, top_pages: [], channels: [], history: [] };
 }
 
 describe('ReportAnalytics', () => {
@@ -40,5 +41,18 @@ describe('ReportAnalytics', () => {
   it('renders a pending (not yet available) state', () => {
     render(<ReportAnalytics analytics={pendingAnalytics()} />);
     expect(screen.getByText(/not yet available/i)).toBeInTheDocument();
+  });
+
+  it('renders the sessions sparkline in the ready state with history', () => {
+    const analytics: ReportAnalyticsData = {
+      ...readyAnalytics(),
+      history: [
+        { period_start: '2026-05-01', sessions: 500 },
+        { period_start: '2026-06-01', sessions: 980 },
+      ],
+    };
+    const { container } = render(<ReportAnalytics analytics={analytics} />);
+    expect(container.querySelector('polyline')).not.toBeNull(); // sparkline present
+    expect(screen.getByText('Channels')).toBeInTheDocument(); // existing tables still render
   });
 });

@@ -1,5 +1,6 @@
 import { formatEngagement } from '@/lib/engagement';
 import type { ReportAnalyticsData } from '@/types/api';
+import { AnalyticsTrendSparkline } from '@/components/report/AnalyticsTrendSparkline';
 
 interface ReportAnalyticsProps {
   analytics: ReportAnalyticsData;
@@ -22,7 +23,7 @@ function kpiValue(value: number | null): string {
 // pages and acquisition-channel tables. Three states: not_connected, pending,
 // ready — mirroring ReportPerformance's section shell/styling.
 export function ReportAnalytics({ analytics }: ReportAnalyticsProps) {
-  const { state, totals, top_pages, channels } = analytics;
+  const { state, totals, top_pages, channels, history } = analytics;
 
   return (
     <section className="report-section space-y-3">
@@ -44,6 +45,8 @@ export function ReportAnalytics({ analytics }: ReportAnalyticsProps) {
             <KpiBlock label="Pageviews" value={kpiValue(totals?.pageviews ?? null)} />
             <KpiBlock label="Avg engaged" value={formatEngagement(totals?.avg_engagement_seconds ?? 0)} />
           </div>
+
+          <AnalyticsTrendSparkline history={history} />
 
           <div className="space-y-2">
             <h3 className="text-sm font-semibold text-zinc-700">Top pages</h3>

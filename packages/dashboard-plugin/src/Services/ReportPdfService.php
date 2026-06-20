@@ -298,7 +298,7 @@ HTML;
         }
         $trend = $rows === '' ? '' : '<table class="data"><thead><tr><th>Measured</th><th>Mobile</th><th>Desktop</th></tr></thead><tbody>' . $rows . '</tbody></table>';
 
-        $spark      = $this->sparklineSvg($perf['history'] ?? []);
+        $spark      = $this->svgImg($this->sparklineSvg($perf['history'] ?? []));
         $sparkBlock = $spark === '' ? '' : '<p class="muted" style="margin-bottom:2px">Score trend (0&ndash;100)</p>' . $spark;
         $body = '<p class="muted">PageSpeed Insights (lab) &middot; measured ' . $when . '</p>' . $scoreRow . $cwv . $sparkBlock . $trend;
         return $this->sectionWithBody('Performance', $body);
@@ -345,7 +345,9 @@ HTML;
             '<table class="data"><thead><tr><th>Traffic channels</th><th>Sessions</th></tr></thead><tbody>' . $chanRows . '</tbody></table>';
 
         $period = $this->esc((string) ($a['period']['start'] ?? '') . ' – ' . (string) ($a['period']['end'] ?? ''));
-        $body = '<p class="muted">Google Analytics 4 &middot; ' . $period . '</p>' . $kpis . $topPages . $channels;
+        $spark      = $this->svgImg($this->analyticsSparklineSvg($a['history'] ?? []));
+        $sparkBlock = $spark === '' ? '' : '<p class="muted" style="margin-bottom:2px">Sessions trend</p>' . $spark;
+        $body = '<p class="muted">Google Analytics 4 &middot; ' . $period . '</p>' . $kpis . $sparkBlock . $topPages . $channels;
         return $this->sectionWithBody('Analytics', $body);
     }
 
@@ -426,28 +428,77 @@ HTML;
     }
 
     /**
-     * Non-null scores → [x,y] points, evenly spaced across the width.
-     * viewBox 200x56, x in [10,190], y from sparkY().
-     * @param array<int,int|null> $scores
+     * Wrap a raw sparkline <svg> as a data-URI <img> so dompdf actually paints it.
+     * dompdf 3.1.5 silently drops inline <svg> elements (no error, no output), but
+     * php-svg-lib DOES render SVG referenced via <img src="data:image/svg+xml;base64,…">.
+     * Returns '' for an empty SVG (caller suppresses the whole block).
+     */
+    private function svgImg(string $svg): string
+    {
+        if ($svg === '') {
+            return '';
+        }
+        return '<img src="data:image/svg+xml;base64,' . base64_encode($svg)
+            . '" style="width:200px;height:56px" alt=""/>';
+    }
+
+    /**
+     * P6.5 — relative-scaled (floor 0 → series max) monthly sessions trend line.
+     * Returns '' unless >=2 non-null sessions and max>0. One blue line, no gridlines.
+     * dompdf-safe primitives only (<svg>/<polyline>/<circle>, solid strokes).
+     *
+     * @param array<int,array<string,mixed>> $history oldest→newest {period_start, sessions}
+     */
+    private function analyticsSparklineSvg(array $history): string
+    {
+        $sessions = [];
+        foreach ($history as $h) {
+            $sessions[] = isset($h['sessions']) && $h['sessions'] !== null ? (int) $h['sessions'] : null;
+        }
+        $nonNull = array_values(array_filter($sessions, static fn ($s) => $s !== null));
+        if (count($nonNull) < 2) {
+            return '';
+        }
+        $max = max($nonNull);
+        if ($max <= 0) {
+            return '';
+        }
+        $pts  = $this->sparkPoints($sessions, $max);
+        $last = $pts[count($pts) - 1];
+        return '<svg width="200" height="56" viewBox="0 0 200 56" xmlns="http://www.w3.org/2000/svg">'
+            . '<polyline fill="none" stroke="#2563eb" stroke-width="2" points="' . $this->sparkPointsAttr($pts) . '"/>'
+            . '<circle cx="' . $last[0] . '" cy="' . $last[1] . '" r="2.6" fill="#2563eb"/>'
+            . '</svg>';
+    }
+
+    /**
+     * Non-null values → [x,y] points, evenly spaced across the width.
+     * viewBox 200x56, x in [10,190], y from sparkY(). $max threads the y-scale
+     * ($max=100 = PageSpeed; pass a series max for relative-scaled lines).
+     * @param array<int,int|null> $values
      * @return array<int,array{0:float,1:float}>
      */
-    private function sparkPoints(array $scores): array
+    private function sparkPoints(array $values, int $max = 100): array
     {
-        $vals = array_values(array_filter($scores, static fn ($s) => $s !== null));
+        $vals = array_values(array_filter($values, static fn ($s) => $s !== null));
         $n = count($vals);
         $pts = [];
         foreach ($vals as $i => $v) {
             $x = $n <= 1 ? 10.0 : 10.0 + ($i / ($n - 1)) * 180.0;
-            $pts[] = [round($x, 1), $this->sparkY((int) $v)];
+            $pts[] = [round($x, 1), $this->sparkY((int) $v, $max)];
         }
         return $pts;
     }
 
-    /** Score 0..100 → y in [4,52] (higher score = higher on chart). */
-    private function sparkY(int $score): float
+    /**
+     * Value 0..max → y in [4,52] (higher value = higher on chart; floor at 0).
+     * $max defaults to 100 (PageSpeed scale) so the performance sparkline stays byte-identical.
+     */
+    private function sparkY(int $value, int $max = 100): float
     {
-        $score = max(0, min(100, $score));
-        return round(4.0 + (100 - $score) / 100 * 48.0, 1);
+        $max   = $max <= 0 ? 1 : $max;
+        $value = max(0, min($max, $value));
+        return round(4.0 + ($max - $value) / $max * 48.0, 1);
     }
 
     /** @param array<int,array{0:float,1:float}> $pts */

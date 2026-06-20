@@ -68,7 +68,7 @@ final class ReportService
      */
     private function buildAnalytics(?\Defyn\Dashboard\Models\Site $site, string $fromUtc, string $toUtc): array
     {
-        $empty = ['period' => null, 'totals' => null, 'top_pages' => [], 'channels' => []];
+        $empty = ['period' => null, 'totals' => null, 'top_pages' => [], 'channels' => [], 'history' => []];
 
         if ($site === null || $site->ga4PropertyId === null || $site->ga4PropertyId === '') {
             return ['state' => 'not_connected'] + $empty;
@@ -82,9 +82,15 @@ final class ReportService
             return ['state' => 'pending'] + $empty;
         }
 
-        $snap = ($this->analytics ?? new SiteAnalyticsRepository())->findForSiteAndMonth($site->id, $monthStart);
+        $repo = $this->analytics ?? new SiteAnalyticsRepository();
+        $snap = $repo->findForSiteAndMonth($site->id, $monthStart);
         if ($snap === null) {
             return ['state' => 'pending'] + $empty;
+        }
+
+        $history = [];
+        foreach ($repo->findRecentForSite($site->id, 12) as $h) {
+            $history[] = ['period_start' => $h->periodStart, 'sessions' => $h->sessions];
         }
 
         return [
@@ -98,6 +104,7 @@ final class ReportService
             ],
             'top_pages' => $snap->topPages,
             'channels'  => $snap->channels,
+            'history'   => $history,
         ];
     }
 

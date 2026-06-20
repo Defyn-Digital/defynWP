@@ -63,6 +63,24 @@ final class SiteAnalyticsRepository
     }
 
     /**
+     * P6.5 — the most-recent $limit monthly snapshots for a site, returned
+     * oldest→newest (for the analytics trend sparkline). Reads accumulated rows —
+     * no GA4 call.
+     *
+     * @return SiteAnalytics[] oldest→newest
+     */
+    public function findRecentForSite(int $siteId, int $limit): array
+    {
+        global $wpdb;
+        $table = SiteAnalyticsTable::tableName();
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$table} WHERE site_id = %d ORDER BY period_start DESC, id DESC LIMIT %d",
+            $siteId, $limit
+        ), ARRAY_A) ?: [];
+        return array_reverse(array_map([SiteAnalytics::class, 'fromRow'], $rows));
+    }
+
+    /**
      * P6.3 — fleet rollup: every site owned by $userId LEFT JOIN its latest GA4
      * snapshot (most recent period_start), plus ga4_property_id so the UI can tell
      * "not connected" (no property) from "connected, no data yet". Same
