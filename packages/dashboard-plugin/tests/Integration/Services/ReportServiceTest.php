@@ -138,6 +138,39 @@ final class ReportServiceTest extends AbstractSchemaTestCase
         self::assertSame('pending', $report['analytics']['state']);
     }
 
+    public function testAnalyticsReadyIncludesSessionsHistoryOldestToNewest(): void
+    {
+        $siteId = $this->seedSite(7, 'https://a.example', 'Alpha', '6.9.4');
+        (new \Defyn\Dashboard\Services\SitesRepository())->setGa4PropertyId($siteId, '111');
+        $ar = new \Defyn\Dashboard\Services\SiteAnalyticsRepository();
+        foreach ([['2026-04-01', '2026-04-30', 400], ['2026-05-01', '2026-05-31', 500], ['2026-06-01', '2026-06-30', 980]] as [$ps, $pe, $sess]) {
+            $ar->upsertForSiteAndPeriod($siteId, $ps, $pe,
+                ['sessions' => $sess, 'users' => 0, 'pageviews' => 0, 'avg_engagement' => 0.0, 'top_pages' => [], 'channels' => []],
+                '2026-06-20 00:00:00', '2026-06-20 00:00:00');
+        }
+        $report = (new \Defyn\Dashboard\Services\ReportService())->compose($siteId, 7, '2026-06-01 00:00:00', '2026-06-30 23:59:59');
+        $a = $report['analytics'];
+        self::assertSame('ready', $a['state']);
+        self::assertArrayHasKey('history', $a);
+        self::assertSame(
+            [['period_start' => '2026-04-01', 'sessions' => 400], ['period_start' => '2026-05-01', 'sessions' => 500], ['period_start' => '2026-06-01', 'sessions' => 980]],
+            $a['history'],
+        );
+    }
+
+    public function testAnalyticsNotConnectedAndPendingEmitEmptyHistory(): void
+    {
+        $siteId = $this->seedSite(7, 'https://b.example', 'Bravo', '6.9.4');
+        $report = (new \Defyn\Dashboard\Services\ReportService())->compose($siteId, 7, '2026-06-01 00:00:00', '2026-06-30 23:59:59');
+        self::assertSame('not_connected', $report['analytics']['state']);
+        self::assertSame([], $report['analytics']['history']);
+
+        (new \Defyn\Dashboard\Services\SitesRepository())->setGa4PropertyId($siteId, '222');
+        $report2 = (new \Defyn\Dashboard\Services\ReportService())->compose($siteId, 7, '2026-06-05 00:00:00', '2026-06-20 23:59:59'); // non-calendar-month → pending
+        self::assertSame('pending', $report2['analytics']['state']);
+        self::assertSame([], $report2['analytics']['history']);
+    }
+
     private function seedSite(int $userId, string $url, string $label, string $wpVersion): int
     {
         global $wpdb;
