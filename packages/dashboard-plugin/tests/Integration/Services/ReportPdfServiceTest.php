@@ -190,4 +190,39 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
         self::assertStringNotContainsString('<script>bad</script>', $html);
         self::assertStringContainsString('&lt;script&gt;', $html);
     }
+
+    public function testAnalyticsSparklineRendersWhenHistoryHasTwoMonths(): void
+    {
+        $svc = new ReportPdfService();
+        $report = $this->sampleReport();
+        $report['analytics'] = [
+            'state'  => 'ready',
+            'period' => ['start' => '2026-06-01', 'end' => '2026-06-30'],
+            'totals' => ['sessions' => 980, 'users' => 670, 'pageviews' => 2450, 'avg_engagement_seconds' => 123.0],
+            'top_pages' => [], 'channels' => [],
+            'history'   => [
+                ['period_start' => '2026-05-01', 'sessions' => 500],
+                ['period_start' => '2026-06-01', 'sessions' => 980],
+            ],
+        ];
+        $html = $svc->debugHtml($report, $this->branding());
+        $this->assertStringContainsString('<svg', $html);
+        $this->assertStringContainsString('<polyline', $html);
+        $this->assertStringContainsString('stroke="#2563eb"', $html); // analytics sessions line
+    }
+
+    public function testAnalyticsSparklineAbsentWhenSingleMonth(): void
+    {
+        $svc = new ReportPdfService();
+        $report = $this->sampleReport();
+        $report['analytics'] = [
+            'state'  => 'ready',
+            'period' => ['start' => '2026-06-01', 'end' => '2026-06-30'],
+            'totals' => ['sessions' => 980, 'users' => 670, 'pageviews' => 2450, 'avg_engagement_seconds' => 123.0],
+            'top_pages' => [], 'channels' => [],
+            'history'   => [['period_start' => '2026-06-01', 'sessions' => 980]],
+        ];
+        $html = $svc->debugHtml($report, $this->branding());
+        $this->assertStringNotContainsString('stroke="#2563eb"', $html); // <2 points = no analytics sparkline
+    }
 }
