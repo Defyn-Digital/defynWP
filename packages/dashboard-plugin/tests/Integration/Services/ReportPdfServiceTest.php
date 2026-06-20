@@ -30,6 +30,19 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
         return ['agency_name'=>'Defyn Digital','accent_color'=>'#26215C','logo_url'=>''];
     }
 
+    /**
+     * Decode every data:image/svg+xml;base64 payload in $html into one string.
+     * Sparklines are embedded as data-URI <img> (dompdf does not paint inline <svg>),
+     * so the raw <polyline>/stroke markup lives base64-encoded inside the src.
+     */
+    private function decodedSvgs(string $html): string
+    {
+        if (!preg_match_all('#data:image/svg\+xml;base64,([A-Za-z0-9+/=]+)#', $html, $m)) {
+            return '';
+        }
+        return implode("\n", array_map(static fn ($b): string => (string) base64_decode($b), $m[1]));
+    }
+
     public function testRenderReturnsPdfBytes(): void
     {
         $svc = new ReportPdfService(static fn (string $url): ?string => null); // no network
@@ -128,10 +141,11 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
             ],
         ];
         $html = $svc->debugHtml($report, $this->branding());
-        $this->assertStringContainsString('<svg', $html);
-        $this->assertStringContainsString('<polyline', $html);
-        $this->assertStringContainsString('stroke="#d97706"', $html); // mobile line
-        $this->assertStringContainsString('stroke="#16a34a"', $html); // desktop line
+        $svg = $this->decodedSvgs($html);
+        $this->assertStringContainsString('data:image/svg+xml;base64,', $html); // sparkline embedded as data-URI img (dompdf paints these, not inline <svg>)
+        $this->assertStringContainsString('<polyline', $svg);
+        $this->assertStringContainsString('stroke="#d97706"', $svg); // mobile line
+        $this->assertStringContainsString('stroke="#16a34a"', $svg); // desktop line
         $this->assertStringContainsString('<th>Mobile</th>', $html);   // existing table still renders
     }
 
@@ -150,7 +164,7 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
             ],
         ];
         $html = $svc->debugHtml($report, $this->branding());
-        $this->assertStringNotContainsString('<svg', $html); // <2 points = not a trend
+        $this->assertStringNotContainsString('data:image/svg+xml', $html); // <2 points = no sparkline img
     }
 
     public function testRendersAnalyticsReadySection(): void
@@ -206,9 +220,10 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
             ],
         ];
         $html = $svc->debugHtml($report, $this->branding());
-        $this->assertStringContainsString('<svg', $html);
-        $this->assertStringContainsString('<polyline', $html);
-        $this->assertStringContainsString('stroke="#2563eb"', $html); // analytics sessions line
+        $svg = $this->decodedSvgs($html);
+        $this->assertStringContainsString('data:image/svg+xml;base64,', $html); // embedded as data-URI img
+        $this->assertStringContainsString('<polyline', $svg);
+        $this->assertStringContainsString('stroke="#2563eb"', $svg); // analytics sessions line
     }
 
     public function testAnalyticsSparklineAbsentWhenSingleMonth(): void
@@ -223,6 +238,6 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
             'history'   => [['period_start' => '2026-06-01', 'sessions' => 980]],
         ];
         $html = $svc->debugHtml($report, $this->branding());
-        $this->assertStringNotContainsString('stroke="#2563eb"', $html); // <2 points = no analytics sparkline
+        $this->assertStringNotContainsString('stroke="#2563eb"', $this->decodedSvgs($html)); // <2 points = no analytics sparkline
     }
 }

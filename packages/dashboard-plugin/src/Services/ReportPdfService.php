@@ -298,7 +298,7 @@ HTML;
         }
         $trend = $rows === '' ? '' : '<table class="data"><thead><tr><th>Measured</th><th>Mobile</th><th>Desktop</th></tr></thead><tbody>' . $rows . '</tbody></table>';
 
-        $spark      = $this->sparklineSvg($perf['history'] ?? []);
+        $spark      = $this->svgImg($this->sparklineSvg($perf['history'] ?? []));
         $sparkBlock = $spark === '' ? '' : '<p class="muted" style="margin-bottom:2px">Score trend (0&ndash;100)</p>' . $spark;
         $body = '<p class="muted">PageSpeed Insights (lab) &middot; measured ' . $when . '</p>' . $scoreRow . $cwv . $sparkBlock . $trend;
         return $this->sectionWithBody('Performance', $body);
@@ -345,7 +345,7 @@ HTML;
             '<table class="data"><thead><tr><th>Traffic channels</th><th>Sessions</th></tr></thead><tbody>' . $chanRows . '</tbody></table>';
 
         $period = $this->esc((string) ($a['period']['start'] ?? '') . ' – ' . (string) ($a['period']['end'] ?? ''));
-        $spark      = $this->analyticsSparklineSvg($a['history'] ?? []);
+        $spark      = $this->svgImg($this->analyticsSparklineSvg($a['history'] ?? []));
         $sparkBlock = $spark === '' ? '' : '<p class="muted" style="margin-bottom:2px">Sessions trend</p>' . $spark;
         $body = '<p class="muted">Google Analytics 4 &middot; ' . $period . '</p>' . $kpis . $sparkBlock . $topPages . $channels;
         return $this->sectionWithBody('Analytics', $body);
@@ -425,6 +425,21 @@ HTML;
         }
         $svg .= '</svg>';
         return $svg;
+    }
+
+    /**
+     * Wrap a raw sparkline <svg> as a data-URI <img> so dompdf actually paints it.
+     * dompdf 3.1.5 silently drops inline <svg> elements (no error, no output), but
+     * php-svg-lib DOES render SVG referenced via <img src="data:image/svg+xml;base64,…">.
+     * Returns '' for an empty SVG (caller suppresses the whole block).
+     */
+    private function svgImg(string $svg): string
+    {
+        if ($svg === '') {
+            return '';
+        }
+        return '<img src="data:image/svg+xml;base64,' . base64_encode($svg)
+            . '" style="width:200px;height:56px" alt=""/>';
     }
 
     /**
