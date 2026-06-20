@@ -10,15 +10,16 @@ function readyAnalytics(): ReportAnalyticsData {
     totals: { sessions: 12480, users: 9300, pageviews: 41200, avg_engagement_seconds: 108 },
     top_pages: [{ path: '/', title: 'Home', views: 8000 }],
     channels: [{ channel: 'Organic Search', sessions: 7200 }],
+    history: [],
   };
 }
 
 function notConnectedAnalytics(): ReportAnalyticsData {
-  return { state: 'not_connected', period: null, totals: null, top_pages: [], channels: [] };
+  return { state: 'not_connected', period: null, totals: null, top_pages: [], channels: [], history: [] };
 }
 
 function pendingAnalytics(): ReportAnalyticsData {
-  return { state: 'pending', period: null, totals: null, top_pages: [], channels: [] };
+  return { state: 'pending', period: null, totals: null, top_pages: [], channels: [], history: [] };
 }
 
 describe('ReportAnalytics', () => {

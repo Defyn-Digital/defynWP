@@ -86,6 +86,7 @@ function populatedReport(): Report {
       totals: { sessions: 1200, users: 900, pageviews: 3400, avg_engagement_seconds: 95 },
       top_pages: [{ path: '/', title: 'Home', views: 800 }],
       channels: [{ channel: 'Direct', sessions: 600 }],
+      history: [],
     },
   };
 }
@@ -99,7 +100,7 @@ function emptyReport(): Report {
     uptime: { ...base.uptime, range_percent: 100, incidents: [] },
     security: { ...base.security, last_scan_at: null, open_findings: [], scans: [] },
     performance: { latest: null, history: [] },
-    analytics: { state: 'not_connected', period: null, totals: null, top_pages: [], channels: [] },
+    analytics: { state: 'not_connected', period: null, totals: null, top_pages: [], channels: [], history: [] },
   };
 }
 

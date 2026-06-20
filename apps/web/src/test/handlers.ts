@@ -1061,6 +1061,7 @@ handlers.push(
           totals: { sessions: 1200, users: 900, pageviews: 3400, avg_engagement_seconds: 95 },
           top_pages: [{ path: '/', title: 'Home', views: 800 }],
           channels: [{ channel: 'Direct', sessions: 600 }],
+          history: [],
         },
       },
       error: null,
