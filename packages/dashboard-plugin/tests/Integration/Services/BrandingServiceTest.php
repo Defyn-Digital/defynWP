@@ -11,7 +11,8 @@ final class BrandingServiceTest extends AbstractSchemaTestCase
     {
         $uid = self::factory()->user->create();
         $b = (new BrandingService())->get($uid);
-        self::assertSame('Defyn Digital', $b['agency_name']);
+        // No hardcoded agency default — empty until the operator sets one.
+        self::assertSame('', $b['agency_name']);
         self::assertSame('#26215C', $b['accent_color']);
         self::assertSame('', $b['logo_url']);
     }
@@ -33,6 +34,7 @@ final class BrandingServiceTest extends AbstractSchemaTestCase
         $svc = new BrandingService();
         $svc->set($uid, ['agency_name'=>'Acme Co']);
         $svc->set($uid, ['agency_name'=>'']);
-        self::assertSame('Defyn Digital', $svc->get($uid)['agency_name']);
+        // Clearing the agency leaves it empty (no hardcoded fallback).
+        self::assertSame('', $svc->get($uid)['agency_name']);
     }
 }

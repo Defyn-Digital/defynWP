@@ -9,7 +9,7 @@ final class BrandingService
     private const KEY_ACCENT = 'defyn_report_accent_color';
     private const KEY_LOGO   = 'defyn_report_logo_url';
 
-    public const DEFAULT_AGENCY = 'Defyn Digital';
+    public const DEFAULT_AGENCY = '';
     public const DEFAULT_ACCENT = '#26215C';
 
     /** @return array{agency_name:string,accent_color:string,logo_url:string} */
