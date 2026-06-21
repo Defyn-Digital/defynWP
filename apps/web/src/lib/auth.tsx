@@ -19,7 +19,7 @@ interface AuthContextValue extends AuthState {
   logout: () => Promise<void>;
 }
 
-const AuthContext = React.createContext<AuthContextValue | null>(null);
+export const AuthContext = React.createContext<AuthContextValue | null>(null);
 
 interface LoginResponse {
   access_token: string;
