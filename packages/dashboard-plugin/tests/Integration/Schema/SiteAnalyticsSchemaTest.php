@@ -25,6 +25,6 @@ final class SiteAnalyticsSchemaTest extends AbstractSchemaTestCase
 
     public function testSchemaVersionIs16(): void
     {
-        self::assertSame(16, Activation::SCHEMA_VERSION);
+        self::assertSame(17, Activation::SCHEMA_VERSION);
     }
 }
