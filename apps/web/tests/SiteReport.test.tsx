@@ -14,7 +14,7 @@ const mockedUseSiteReport = vi.mocked(useSiteReport);
 
 function populatedReport(): Report {
   return {
-    site: { id: 1, label: 'Acme Co', url: 'https://acme.test', wp_version: '6.9.4' },
+    site: { id: 1, label: 'Acme Co', url: 'https://acme.test', wp_version: '6.9.4', logo_url: null },
     period: { from: '2026-05-17', to: '2026-06-16' },
     overview: {
       updates_applied: 1,
@@ -154,6 +154,19 @@ describe('SiteReport', () => {
     mockReport(populatedReport());
     renderReport();
     expect(screen.getByText('WP File Manager')).toBeInTheDocument();
+  });
+
+  it('shows the maintenance report eyebrow and the site monogram (no logo_url)', () => {
+    mockReport(populatedReport());
+    renderReport();
+    // Eyebrow on the cover band.
+    expect(screen.getByText(/Maintenance report/i)).toBeInTheDocument();
+    // logo_url is null in the fixture, so the monogram (first letter of the
+    // site label "Acme Co" → "A") renders instead of an <img>.
+    expect(screen.getByText('A')).toBeInTheDocument();
+    // The site label is the hero, and there's no "Defyn Digital" branding.
+    expect(screen.getByRole('heading', { name: 'Acme Co' })).toBeInTheDocument();
+    expect(screen.queryByText(/Defyn Digital/i)).not.toBeInTheDocument();
   });
 
   it('shows the reporting period', () => {
