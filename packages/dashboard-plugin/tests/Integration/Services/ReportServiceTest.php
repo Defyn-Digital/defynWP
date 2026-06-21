@@ -67,6 +67,33 @@ final class ReportServiceTest extends AbstractSchemaTestCase
         self::assertSame('2026-06-14 05:35:00', $report['security']['last_scan_at']);
     }
 
+    public function testComposeIncludesSiteLogoUrlFromResolver(): void
+    {
+        $siteId = $this->seedSite(1, 'https://acme.test', 'Acme', '6.9.4');
+        $resolver = new class extends \Defyn\Dashboard\Services\SiteLogoResolver {
+            public function resolve(int $siteId, string $siteUrl): ?string
+            {
+                return 'https://acme.test/icon.png';
+            }
+        };
+        $report = (new ReportService(logoResolver: $resolver))->compose($siteId, 1, '2026-05-01 00:00:00', '2026-05-31 23:59:59');
+        self::assertSame('https://acme.test/icon.png', $report['site']['logo_url']);
+    }
+
+    public function testComposeSiteLogoUrlIsNullWhenResolverReturnsNull(): void
+    {
+        $siteId = $this->seedSite(1, 'https://acme.test', 'Acme', '6.9.4');
+        $resolver = new class extends \Defyn\Dashboard\Services\SiteLogoResolver {
+            public function resolve(int $siteId, string $siteUrl): ?string
+            {
+                return null;
+            }
+        };
+        $report = (new ReportService(logoResolver: $resolver))->compose($siteId, 1, '2026-05-01 00:00:00', '2026-05-31 23:59:59');
+        self::assertArrayHasKey('logo_url', $report['site']);
+        self::assertNull($report['site']['logo_url']);
+    }
+
     public function testComposeIncludesPerformanceLatestAndHistory(): void
     {
         $siteId = $this->seedSite(1, 'https://acme.test', 'Acme', '6.9.4');

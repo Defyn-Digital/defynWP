@@ -779,7 +779,7 @@ handlers.push(
   http.get('*/wp-json/defyn/v1/settings', () => {
     return HttpResponse.json({
       slack_webhook_url: null,
-      report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+      report_branding: { agency_name: '', accent_color: '#26215C', logo_url: '' },
     });
   }),
 
@@ -788,7 +788,7 @@ handlers.push(
     const body = (await request.json()) as { webhook_url?: string | null };
     return HttpResponse.json({
       slack_webhook_url: body.webhook_url ?? null,
-      report_branding: { agency_name: 'Defyn Digital', accent_color: '#26215C', logo_url: '' },
+      report_branding: { agency_name: '', accent_color: '#26215C', logo_url: '' },
     });
   }),
 
@@ -797,7 +797,7 @@ handlers.push(
     const body = (await request.json()) as { agency_name?: string; accent_color?: string; logo_url?: string };
     return HttpResponse.json({
       report_branding: {
-        agency_name: body.agency_name ?? 'Defyn Digital',
+        agency_name: body.agency_name ?? '',
         accent_color: body.accent_color ?? '#26215C',
         logo_url: body.logo_url ?? '',
       },
@@ -989,7 +989,7 @@ handlers.push(
     const siteId = Number(params.id);
     return HttpResponse.json({
       data: {
-        site: { id: siteId, label: 'SmartCoding', url: 'https://smartcoding.test', wp_version: '6.9.4' },
+        site: { id: siteId, label: 'SmartCoding', url: 'https://smartcoding.test', wp_version: '6.9.4', logo_url: null },
         period: { from: '2026-05-01', to: '2026-05-31' },
         overview: {
           updates_applied: 1,

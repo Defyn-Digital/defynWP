@@ -10,7 +10,7 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
     private function sampleReport(): array
     {
         return [
-            'site' => ['id'=>1,'label'=>'Acme','url'=>'https://acme.test','wp_version'=>'6.9.4'],
+            'site' => ['id'=>1,'label'=>'Acme','url'=>'https://acme.test','wp_version'=>'6.9.4','logo_url'=>'https://site.test/icon.png'],
             'period' => ['from'=>'2026-05-16','to'=>'2026-06-15'],
             'overview' => ['updates_applied'=>2,'uptime_range_percent'=>99.7,'open_findings'=>1,'wp_version'=>'6.9.4'],
             'updates' => [
@@ -90,11 +90,42 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
         self::assertNull(ReportPdfService::validateLogoResponse(200, 'image/png', str_repeat('a', 600*1024), 'https://cdn.test/logo.png')); // oversize
     }
 
-    public function testRenderWithLogoEmbedsDataUri(): void
+    public function testRenderWithSiteLogoEmbedsDataUri(): void
     {
+        // logo now comes from the site icon ($report['site']['logo_url']), NOT branding.
         $svc = new ReportPdfService(static fn (string $url): ?string => 'data:image/png;base64,AAAA');
-        $html = $svc->debugHtml($this->sampleReport(), ['agency_name'=>'A','accent_color'=>'#112233','logo_url'=>'https://cdn.test/logo.png']);
-        self::assertStringContainsString('data:image/png;base64,AAAA', $html);
+        $html = $svc->debugHtml($this->sampleReport(), ['agency_name'=>'A','accent_color'=>'#112233','logo_url'=>'']);
+        self::assertStringContainsString('<img src="data:image/png;base64,AAAA', $html);
+    }
+
+    public function testCoverRendersSiteLabelAsHero(): void
+    {
+        $svc = new ReportPdfService(static fn (string $url): ?string => null);
+        $html = $svc->debugHtml($this->sampleReport(), $this->branding());
+        // The site label is the cover hero; the URL renders beneath it.
+        self::assertStringContainsString('Acme', $html);
+        self::assertStringContainsString('https://acme.test', $html);
+    }
+
+    public function testCoverShowsMonogramWhenNoLogo(): void
+    {
+        // logo_url=null → monogram fallback (first letter of the label), no broken <img.
+        $report = $this->sampleReport();
+        $report['site']['logo_url'] = null;
+        $svc = new ReportPdfService(static fn (string $url): ?string => null);
+        $html = $svc->debugHtml($report, $this->branding());
+        // Monogram = first letter of "Acme".
+        self::assertStringContainsString('>A<', $html);
+        // No logo data-URI img was emitted.
+        self::assertStringNotContainsString('<img src="data:image/png;base64,', $html);
+    }
+
+    public function testRenderedHtmlHasNoHardcodedAgencyName(): void
+    {
+        $svc = new ReportPdfService(static fn (string $url): ?string => null);
+        // Branding with an EMPTY agency name must not leak the old hardcoded default.
+        $html = $svc->debugHtml($this->sampleReport(), ['agency_name'=>'','accent_color'=>'#26215C','logo_url'=>'']);
+        self::assertStringNotContainsString('Defyn Digital', $html);
     }
 
     public function testRendersPerformanceSection(): void

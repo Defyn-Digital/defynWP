@@ -19,7 +19,7 @@ describe('useSiteReport', () => {
       http.get('*/wp-json/defyn/v1/sites/:id/report', () => {
         return HttpResponse.json({
           data: {
-            site: { id: 7, label: 'SmartCoding', url: 'https://smartcoding.test', wp_version: '6.9.4' },
+            site: { id: 7, label: 'SmartCoding', url: 'https://smartcoding.test', wp_version: '6.9.4', logo_url: null },
             period: { from: '2026-05-01', to: '2026-05-31' },
             overview: {
               updates_applied: 1,

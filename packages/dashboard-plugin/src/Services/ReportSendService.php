@@ -26,14 +26,20 @@ final class ReportSendService
     /** @param 'manual'|'auto' $method */
     public function send(Report $report, Site $site, string $to, ?string $note, string $method): bool
     {
-        $branding = (new BrandingService())->get($site->userId);
-        $agency   = (string) ($branding['agency_name'] ?? 'Defyn Digital');
-        $host     = esc_html((string) parse_url($site->url, PHP_URL_HOST));
-        $subject  = "{$agency} — Website Maintenance Report ({$report->rangeFrom} – {$report->rangeTo})";
-        $intro    = $note !== null && $note !== '' ? '<p>' . esc_html($note) . '</p>' : '';
-        $bodyHtml = $intro . '<p>Please find attached the website maintenance report for ' . $host
+        $branding  = (new BrandingService())->get($site->userId);
+        $agency    = (string) ($branding['agency_name'] ?? '');
+        $host      = (string) parse_url($site->url, PHP_URL_HOST);
+        // Site-led: the report is about the client's site, so lead with its
+        // label (falling back to the host when no label is set). The agency
+        // only appears when the operator has explicitly configured one.
+        $siteLabel    = $site->label !== '' ? $site->label : $host;
+        $agencySuffix = $agency !== '' ? ' — ' . $agency : '';
+        $subject   = $siteLabel . ' — Website Maintenance Report (' . $report->rangeFrom . ' – ' . $report->rangeTo . ')' . $agencySuffix;
+        $intro     = $note !== null && $note !== '' ? '<p>' . esc_html($note) . '</p>' : '';
+        $signOff   = $agency !== '' ? '<p>— ' . esc_html($agency) . '</p>' : '';
+        $bodyHtml  = $intro . '<p>Please find attached the website maintenance report for ' . esc_html($siteLabel)
             . ', covering ' . esc_html($report->rangeFrom) . ' – ' . esc_html($report->rangeTo) . '.</p>'
-            . '<p>— ' . esc_html($agency) . '</p>';
+            . $signOff;
 
         $path = (new ReportStorage())->path((string) $report->fileName);
         $ok   = ($this->mailer ?? new ReportMailer())->send($to, $subject, $bodyHtml, $path);

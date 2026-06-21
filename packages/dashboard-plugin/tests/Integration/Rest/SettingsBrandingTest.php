@@ -60,7 +60,9 @@ final class SettingsBrandingTest extends AbstractSchemaTestCase
         self::assertArrayHasKey('slack_webhook_url', $data);
 
         self::assertArrayHasKey('report_branding', $data);
-        self::assertSame('Defyn Digital', $data['report_branding']['agency_name']);
+        // Agency name now defaults to empty (no hardcoded "Defyn Digital") — it only
+        // appears when the operator explicitly sets it in Settings → Report Branding.
+        self::assertSame('', $data['report_branding']['agency_name']);
         self::assertSame('#26215C', $data['report_branding']['accent_color']);
         self::assertSame('', $data['report_branding']['logo_url']);
     }

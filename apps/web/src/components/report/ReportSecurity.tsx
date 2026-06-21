@@ -1,3 +1,4 @@
+import { ShieldCheck } from 'lucide-react';
 import type { SiteReport, Vulnerability } from '@/types/api';
 
 interface ReportSecurityProps {
@@ -10,11 +11,11 @@ const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'unknown'] as const
 type Severity = (typeof SEVERITY_ORDER)[number];
 
 const SEVERITY_LABEL_CLASS: Record<Severity, string> = {
-  critical: 'text-red-700 font-semibold',
-  high: 'text-red-600 font-semibold',
-  medium: 'text-amber-600 font-semibold',
-  low: 'text-slate-500 font-semibold',
-  unknown: 'text-slate-400 font-semibold',
+  critical: 'text-destructive font-semibold',
+  high: 'text-destructive font-semibold',
+  medium: 'text-warning font-semibold',
+  low: 'text-muted-foreground font-semibold',
+  unknown: 'text-muted-foreground font-semibold',
 };
 
 function groupBySeverity(vulns: Vulnerability[]): Record<Severity, Vulnerability[]> {
@@ -40,13 +41,13 @@ function SeverityGroup({ severity, vulns }: { severity: Severity; vulns: Vulnera
         {vulns.map((v) => (
           <li
             key={`${v.type}|${v.slug}|${v.source_id}`}
-            className="flex flex-wrap items-baseline gap-x-2 border-b py-2 text-sm text-zinc-800 last:border-b-0"
+            className="flex flex-wrap items-baseline gap-x-2 border-b border-border py-2 text-sm text-foreground last:border-0"
           >
             <span className="font-medium">{v.component_name}</span>
-            <span className="text-xs text-zinc-500">({v.type})</span>
-            <span className="text-zinc-600">{v.installed_version}</span>
-            {v.fixed_in && <span className="text-xs text-zinc-500">→ fix {v.fixed_in}</span>}
-            {v.cve && <span className="font-mono text-xs text-zinc-400">{v.cve}</span>}
+            <span className="text-xs text-muted-foreground">({v.type})</span>
+            <span className="text-muted-foreground">{v.installed_version}</span>
+            {v.fixed_in && <span className="text-xs text-muted-foreground">→ fix {v.fixed_in}</span>}
+            {v.cve && <span className="font-mono text-xs text-muted-foreground">{v.cve}</span>}
           </li>
         ))}
       </ul>
@@ -58,18 +59,30 @@ function SeverityGroup({ severity, vulns }: { severity: Severity; vulns: Vulnera
 export function ReportSecurity({ security }: ReportSecurityProps) {
   const grouped = groupBySeverity(security.open_findings);
 
-  return (
-    <section className="report-section space-y-3">
-      <h2 className="text-lg font-semibold">Security</h2>
+  const hasFindings = security.open_findings.length > 0;
 
-      <p className="text-sm text-zinc-600">
+  return (
+    <section className="report-section rounded-lg border border-border bg-card p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <ShieldCheck className="h-4 w-4 text-primary" />
+        <h2 className="text-base font-semibold text-foreground">Security</h2>
+        <span
+          className={`ml-auto inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            hasFindings ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success'
+          }`}
+        >
+          {hasFindings ? `${security.open_findings.length} open` : 'Clear'}
+        </span>
+      </div>
+
+      <p className="mb-3 text-sm text-muted-foreground">
         {security.last_scan_at === null
           ? 'Never scanned'
           : `Last scan: ${security.last_scan_at}`}
       </p>
 
       {security.open_findings.length === 0 ? (
-        <p className="text-sm text-zinc-500">No open findings.</p>
+        <p className="text-sm text-muted-foreground">No open findings.</p>
       ) : (
         <div>
           {SEVERITY_ORDER.map((sev) => (
@@ -79,11 +92,11 @@ export function ReportSecurity({ security }: ReportSecurityProps) {
       )}
 
       {security.scans.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-zinc-700">Scan history</h3>
+        <div className="mt-4 space-y-2">
+          <h3 className="text-sm font-semibold text-foreground">Scan history</h3>
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b text-left text-xs uppercase tracking-wide text-zinc-500">
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="py-2 pr-3 font-medium">Date</th>
                 <th className="py-2 pr-3 font-medium">Total</th>
                 <th className="py-2 pr-3 font-medium">Critical</th>
@@ -94,13 +107,13 @@ export function ReportSecurity({ security }: ReportSecurityProps) {
             </thead>
             <tbody>
               {security.scans.map((scan, i) => (
-                <tr key={`${scan.scanned_at}|${i}`} className="border-b last:border-b-0">
-                  <td className="py-2 pr-3 text-zinc-700">{scan.scanned_at}</td>
-                  <td className="py-2 pr-3 text-zinc-700">{scan.total}</td>
-                  <td className="py-2 pr-3 text-zinc-700">{scan.critical}</td>
-                  <td className="py-2 pr-3 text-zinc-700">{scan.high}</td>
-                  <td className="py-2 pr-3 text-zinc-700">{scan.medium}</td>
-                  <td className="py-2 text-zinc-700">{scan.low}</td>
+                <tr key={`${scan.scanned_at}|${i}`} className="border-b border-border last:border-0">
+                  <td className="py-2 pr-3 text-foreground">{scan.scanned_at}</td>
+                  <td className="py-2 pr-3 text-foreground">{scan.total}</td>
+                  <td className="py-2 pr-3 text-foreground">{scan.critical}</td>
+                  <td className="py-2 pr-3 text-foreground">{scan.high}</td>
+                  <td className="py-2 pr-3 text-foreground">{scan.medium}</td>
+                  <td className="py-2 text-foreground">{scan.low}</td>
                 </tr>
               ))}
             </tbody>

@@ -80,4 +80,49 @@ final class ReportSendServiceTest extends AbstractSchemaTestCase
         self::assertFalse($ok);
         self::assertSame('ready', (new ReportsRepository())->findByIdForSite($report->id, $site->id)->status);
     }
+
+    public function testSubjectIsSiteLedWhenNoAgencyConfigured(): void
+    {
+        $site = $this->seedSite();
+        $report = $this->seedReport($site->id);
+        $subject = '';
+        $body = '';
+        $svc = new ReportSendService(new ReportMailer(
+            function ($to, $s, $b, $h, $a) use (&$subject, &$body): bool {
+                $subject = $s;
+                $body = $b;
+                return true;
+            }
+        ));
+        $svc->send($report, $site, 'c@acme.com', null, 'manual');
+        // Site-led: leads with the site label, never the hardcoded agency.
+        self::assertStringContainsString('Acme', $subject);
+        self::assertStringStartsWith('Acme', $subject);
+        self::assertStringNotContainsString('Defyn Digital', $subject);
+        self::assertStringNotContainsString('Defyn Digital', $body);
+        // Period info still present.
+        self::assertStringContainsString('2026-05-01', $subject);
+        self::assertStringContainsString('2026-05-31', $subject);
+    }
+
+    public function testAgencyAppearsInSubjectAndBodyWhenConfigured(): void
+    {
+        $site = $this->seedSite();
+        update_user_meta($site->userId, 'defyn_report_agency_name', 'Acme Agency');
+        $report = $this->seedReport($site->id);
+        $subject = '';
+        $body = '';
+        $svc = new ReportSendService(new ReportMailer(
+            function ($to, $s, $b, $h, $a) use (&$subject, &$body): bool {
+                $subject = $s;
+                $body = $b;
+                return true;
+            }
+        ));
+        $svc->send($report, $site, 'c@acme.com', null, 'manual');
+        // Still site-led, with the configured agency surfaced.
+        self::assertStringStartsWith('Acme', $subject);
+        self::assertStringContainsString('Acme Agency', $subject);
+        self::assertStringContainsString('Acme Agency', $body);
+    }
 }
