@@ -1,23 +1,46 @@
 @import "tailwindcss";
 
-/* shadcn/ui design tokens — these get extended in Task 3 when we install shadcn */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
-  --primary: 240 5.9% 10%;
-  --primary-foreground: 0 0% 98%;
-  --border: 240 5.9% 90%;
-  --ring: 240 5.9% 10%;
-  --radius: 0.5rem;
-}
+  /* content surface */
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 239 84% 67%;
 
-.dark {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 240 5.9% 10%;
-  --border: 240 3.7% 15.9%;
-  --ring: 240 4.9% 83.9%;
+  /* brand / accent */
+  --primary: 239 84% 67%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 226 100% 97%;
+  --secondary-foreground: 244 54% 41%;
+  --accent: 226 100% 97%;
+  --accent-foreground: 244 54% 41%;
+
+  /* sidebar (navy rail) */
+  --sidebar: 245 47% 25%;
+  --sidebar-foreground: 245 44% 84%;
+  --sidebar-accent: 239 84% 67%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 246 39% 30%;
+  --sidebar-muted: 246 33% 69%;
+
+  /* semantic status */
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+  --warning: 32 95% 44%;
+  --warning-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --info: 221 83% 53%;
+  --info-foreground: 0 0% 100%;
+
+  --radius: 0.5rem;
 }
 
 body {
