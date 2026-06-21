@@ -22,7 +22,7 @@ final class BrokenLinkScanner
     {
         $start    = $now ?? time();
         $homeUrl  = (string) get_home_url();
-        $homeHost = strtolower((string) (parse_url($homeUrl, PHP_URL_HOST) ?: ''));
+        $homeHost = strtolower((string) (wp_parse_url($homeUrl, PHP_URL_HOST) ?: ''));
 
         $query = new \WP_Query([
             'post_type'      => ['post', 'page'],
@@ -58,7 +58,7 @@ final class BrokenLinkScanner
                     continue;
                 }
                 if (count($findings) >= self::MAX_FINDINGS) { $truncated = true; break 2; }
-                $host = strtolower((string) (parse_url($url, PHP_URL_HOST) ?: ''));
+                $host = strtolower((string) (wp_parse_url($url, PHP_URL_HOST) ?: ''));
                 $findings[] = [
                     'url'             => $url,
                     'status'          => $r['status'],

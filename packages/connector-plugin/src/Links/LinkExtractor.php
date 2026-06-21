@@ -55,10 +55,10 @@ final class LinkExtractor
             }
         }
         if (str_starts_with($href, '//')) {
-            $scheme = parse_url($homeUrl, PHP_URL_SCHEME) ?: 'https';
+            $scheme = parse_url($homeUrl, PHP_URL_SCHEME) ?: 'https'; // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- pure helper, unit-tested without a WP runtime; wp_parse_url is unavailable here and parse_url is safe on PHP 8.1.
             $href   = $scheme . ':' . $href;
         }
-        $parts = parse_url($href);
+        $parts = parse_url($href); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- pure helper, unit-tested without a WP runtime; wp_parse_url is unavailable here and parse_url is safe on PHP 8.1.
         if ($parts === false) {
             return null;
         }
@@ -66,7 +66,7 @@ final class LinkExtractor
             $scheme = strtolower($parts['scheme']);
             return ($scheme === 'http' || $scheme === 'https') ? $this->stripFragment($href) : null;
         }
-        $home = parse_url($homeUrl);
+        $home = parse_url($homeUrl); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- pure helper, unit-tested without a WP runtime; wp_parse_url is unavailable here and parse_url is safe on PHP 8.1.
         if ($home === false || !isset($home['scheme'], $home['host'])) {
             return null;
         }
