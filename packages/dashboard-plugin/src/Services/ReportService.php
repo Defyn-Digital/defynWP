@@ -19,6 +19,7 @@ final class ReportService
         private readonly ?ThemesRepository $themes = null,
         private readonly ?SitePerformanceRepository $performance = null,
         private readonly ?SiteAnalyticsRepository $analytics = null,
+        private readonly ?SiteLogoResolver $logoResolver = null,
     ) {}
 
     /** @return array<string,mixed> */
@@ -28,12 +29,14 @@ final class ReportService
         $activity  = $this->activity ?? new ActivityLogRepository();
         $incidents = $this->incidents ?? new IncidentsRepository();
         $findings  = $this->findings ?? new SiteVulnerabilitiesRepository();
+        $logos     = $this->logoResolver ?? new SiteLogoResolver();
 
         $site     = $sites->findByIdForUser($siteId, $userId); // controller already 404s on null
         $label    = $site?->label ?? '';
         $url      = $site?->url ?? '';
         $wpVer    = $site?->wpVersion ?? '';
         $lastScan = $site?->lastSecurityScanAt;
+        $logoUrl  = $logos->resolve($siteId, $url);
 
         $updates  = $this->buildUpdates($siteId, $fromUtc, $toUtc, $activity);
         $uptime   = $this->buildUptime($siteId, $fromUtc, $toUtc, $incidents);
@@ -42,7 +45,7 @@ final class ReportService
         $analytics   = $this->buildAnalytics($site, $fromUtc, $toUtc);
 
         return [
-            'site'   => ['id' => $siteId, 'label' => $label, 'url' => $url, 'wp_version' => $wpVer],
+            'site'   => ['id' => $siteId, 'label' => $label, 'url' => $url, 'wp_version' => $wpVer, 'logo_url' => $logoUrl],
             'period' => ['from' => substr($fromUtc, 0, 10), 'to' => substr($toUtc, 0, 10)],
             'overview' => [
                 'updates_applied'      => count($updates),
