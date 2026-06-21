@@ -204,7 +204,7 @@ export const reportAnalyticsSchema = z.object({
 export type ReportAnalyticsData = z.infer<typeof reportAnalyticsSchema>;
 
 export const siteReportSchema = z.object({
-  site: z.object({ id: z.number(), label: z.string(), url: z.string(), wp_version: z.string(), logo_url: z.string().nullable() }),
+  site: z.object({ id: z.number(), label: z.string(), url: z.string(), wp_version: z.string(), logo_url: z.string().nullable().optional() }),
   period: z.object({ from: z.string(), to: z.string() }),
   overview: z.object({
     updates_applied: z.number(),
