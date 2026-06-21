@@ -40,25 +40,25 @@ export function AnalyticsTrendSparkline({ history }: AnalyticsTrendSparklineProp
 
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-zinc-700">Sessions trend</h3>
+      <h3 className="text-sm font-semibold text-muted-foreground">Sessions trend</h3>
       <div className="flex items-center gap-4">
         <svg
           viewBox="0 0 200 56"
           width={320}
           height={90}
-          className="rounded border border-zinc-200 bg-zinc-50"
+          className="rounded border border-border bg-muted/30"
           role="img"
           aria-label="Monthly sessions trend"
         >
           <polyline fill="none" stroke={SESSIONS} strokeWidth={2} points={points} />
           {dot && <circle cx={dot.cx} cy={dot.cy} r={2.6} fill={SESSIONS} />}
         </svg>
-        <div className="text-xs leading-relaxed text-zinc-600">
+        <div className="text-xs leading-relaxed text-muted-foreground">
           <div>
             <span className="inline-block h-0.5 w-3 align-middle" style={{ background: SESSIONS }} /> Sessions{' '}
-            <b>{latest.toLocaleString()}</b>
+            <b className="text-foreground">{latest.toLocaleString()}</b>
           </div>
-          <div className="mt-1 text-zinc-400">
+          <div className="mt-1 text-muted-foreground">
             {history.length} months · {first.slice(0, 7)} → {last.slice(0, 7)}
           </div>
         </div>

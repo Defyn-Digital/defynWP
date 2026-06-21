@@ -63,16 +63,16 @@ export function TrendSparkline({ history }: TrendSparklineProps) {
           {mDot && <circle cx={mDot.cx} cy={mDot.cy} r={2.6} fill={MOBILE} />}
           {dDot && <circle cx={dDot.cx} cy={dDot.cy} r={2.6} fill={DESKTOP} />}
         </svg>
-        <div className="text-xs leading-relaxed text-zinc-600">
+        <div className="text-xs leading-relaxed text-muted-foreground">
           <div>
             <span className="inline-block h-0.5 w-3 align-middle" style={{ background: MOBILE }} /> Mobile{' '}
-            <b>{mLast === null ? '—' : mLast}</b>
+            <b className="text-foreground">{mLast === null ? '—' : mLast}</b>
           </div>
           <div>
             <span className="inline-block h-0.5 w-3 align-middle" style={{ background: DESKTOP }} /> Desktop{' '}
-            <b>{dLast === null ? '—' : dLast}</b>
+            <b className="text-foreground">{dLast === null ? '—' : dLast}</b>
           </div>
-          <div className="mt-1 text-zinc-400">
+          <div className="mt-1 text-muted-foreground">
             {first} → {last}
           </div>
         </div>
