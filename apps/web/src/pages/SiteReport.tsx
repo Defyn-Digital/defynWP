@@ -10,6 +10,7 @@ import { ReportAnalytics } from '@/components/report/ReportAnalytics';
 import { ReportUpdates } from '@/components/report/ReportUpdates';
 import { ReportUptime } from '@/components/report/ReportUptime';
 import { ReportSecurity } from '@/components/report/ReportSecurity';
+import { ReportBrokenLinks } from '@/components/report/ReportBrokenLinks';
 import { downloadReportPdf } from '@/lib/downloadReportPdf';
 import { Button } from '@/components/ui/button';
 import '@/components/report/report-print.css';
@@ -121,6 +122,7 @@ export default function SiteReport() {
             <ReportUpdates updates={data.updates} />
             <ReportUptime uptime={data.uptime} />
             <ReportSecurity security={data.security} />
+            <ReportBrokenLinks broken_links={data.broken_links} />
           </div>
         )}
       </div>
