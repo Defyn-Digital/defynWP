@@ -293,6 +293,16 @@ final class RateLimit
     public const AUTO_SEND_LIMIT  = 10;
     public const AUTO_SEND_WINDOW = HOUR_IN_SECONDS;
 
+    // P7.1 — on-demand broken-link scan (enqueues a crawl job). Per-HOUR like
+    // performanceScan. Key: defyn_rl_linksScan_%d_%d.
+    public const LINKS_SCAN_LIMIT  = 6;
+    public const LINKS_SCAN_WINDOW = HOUR_IN_SECONDS;
+
+    // P7.1 — read latest broken-link snapshot. Per-MINUTE read bucket mirroring
+    // performanceRead. Key: defyn_rl_linksRead_%d_%d.
+    public const LINKS_READ_LIMIT  = 30;
+    public const LINKS_READ_WINDOW = MINUTE_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -1722,6 +1732,67 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::AUTO_SEND_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for POST /sites/{id}/links/scan.
+     *
+     * Per-(user, site), 6/HOUR — same weight class as performanceScan (operator-triggered
+     * AS job schedule that enqueues a crawl). Separate bucket
+     * (defyn_rl_linksScan_%d_%d) from every other resource so scanning
+     * can't exhaust any other bucket and vice versa.
+     *
+     * @return true|\WP_Error
+     */
+    public static function linksScan(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+        $key   = sprintf('defyn_rl_linksScan_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+        if ($count >= self::LINKS_SCAN_LIMIT) {
+            return new \WP_Error(
+                'links.rate_limited',
+                'Link scan requested too often. Try again later.',
+                ['status' => 429]
+            );
+        }
+        set_transient($key, $count + 1, self::LINKS_SCAN_WINDOW);
+        return true;
+    }
+
+    /**
+     * Permission callback for GET /sites/{id}/links.
+     *
+     * Per-(user, site), 30/MINUTE — read-only bucket mirroring performanceRead
+     * and other site-detail reads. Distinct prefix `defyn_rl_linksRead_%d_%d`
+     * so reads can't exhaust the scan bucket and vice versa.
+     *
+     * @return true|\WP_Error
+     */
+    public static function linksRead(WP_REST_Request $request)
+    {
+        $authResult = RequireAuth::check($request);
+        if (is_wp_error($authResult)) {
+            return $authResult;
+        }
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $siteId = (int) $request['id'];
+        $key   = sprintf('defyn_rl_linksRead_%d_%d', $userId, $siteId);
+        $count = (int) (get_transient($key) ?: 0);
+        if ($count >= self::LINKS_READ_LIMIT) {
+            return new \WP_Error(
+                'links.rate_limited',
+                'Too many requests. Try again in a minute.',
+                ['status' => 429]
+            );
+        }
+        set_transient($key, $count + 1, self::LINKS_READ_WINDOW);
         return true;
     }
 
