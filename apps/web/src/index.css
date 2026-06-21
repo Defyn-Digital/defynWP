@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/* Tailwind v4's vite plugin does NOT auto-load tailwind.config.ts — this
+   directive opts the legacy JS config in so the design-token color utilities
+   (bg-sidebar, bg-primary, text-muted-foreground, …) actually generate. */
+@config "../tailwind.config.ts";
 
 :root {
   /* content surface */
