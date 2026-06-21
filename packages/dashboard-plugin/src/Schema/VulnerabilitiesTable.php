@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Defyn\Dashboard\Schema;
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom plugin tables: direct queries are required and results are request-scoped.
 
 /** P4.1 — wp_defyn_vulnerabilities: global cached Wordfence vuln DB (NOT per-site). */
 final class VulnerabilitiesTable implements SchemaTable

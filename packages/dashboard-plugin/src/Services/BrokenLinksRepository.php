@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Defyn\Dashboard\Services;
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom plugin tables: direct queries are required and results are request-scoped.
 
 use Defyn\Dashboard\Schema\SiteBrokenLinksTable;
 use Defyn\Dashboard\Schema\SitesTable;

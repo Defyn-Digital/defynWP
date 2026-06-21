@@ -3,7 +3,7 @@
  * Plugin Name:       DefynWP Dashboard
  * Plugin URI:        https://defyn.dev
  * Description:       Central dashboard for managing multiple WordPress sites — the backend brain.
- * Version:           0.27.0
+ * Version:           0.28.0
  * Requires at least: 5.5
  * Requires PHP:      8.1
  * Author:            DefynWP
@@ -18,8 +18,8 @@ if (!defined('ABSPATH')) {
 }
 
 // Composer autoloader (vendor is sibling of this file)
-$autoload = __DIR__ . '/vendor/autoload.php';
-if (!file_exists($autoload)) {
+$defyn_dashboard_autoload = __DIR__ . '/vendor/autoload.php';
+if (!file_exists($defyn_dashboard_autoload)) {
     add_action('admin_notices', static function (): void {
         echo '<div class="notice notice-error"><p>';
         echo '<strong>DefynWP Dashboard:</strong> Composer dependencies missing. ';
@@ -28,7 +28,7 @@ if (!file_exists($autoload)) {
     });
     return;
 }
-require_once $autoload;
+require_once $defyn_dashboard_autoload;
 
 // JWT secret: required for auth REST endpoints in F3a+. Loaded from environment
 // (Bedrock's .env in production; wp-config.php define() in plain WP).
@@ -43,7 +43,7 @@ if (!defined('DEFYN_JWT_SECRET')) {
 }
 
 // Constants used throughout the plugin
-define('DEFYN_DASHBOARD_VERSION', '0.27.0');
+define('DEFYN_DASHBOARD_VERSION', '0.28.0');
 define('DEFYN_DASHBOARD_FILE', __FILE__);
 define('DEFYN_DASHBOARD_DIR', __DIR__);
 

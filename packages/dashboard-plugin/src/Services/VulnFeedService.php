@@ -67,7 +67,7 @@ final class VulnFeedService
             error_log('[defyn] vuln feed: parse error: ' . $e->getMessage()); // never logs the key
         } finally {
             if (is_file($path)) {
-                @unlink($path);
+                @unlink($path); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- removing a plugin-private temp file
             }
         }
     }
@@ -88,13 +88,13 @@ final class VulnFeedService
             'headers'     => ['Authorization' => 'Bearer ' . $key],
         ]);
         if (is_wp_error($response)) {
-            @unlink($tmp);
+            @unlink($tmp); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- removing a plugin-private temp file
             error_log('[defyn] vuln feed: transport error: ' . $response->get_error_message());
             return null;
         }
         $code = (int) wp_remote_retrieve_response_code($response);
         if ($code < 200 || $code >= 300) {
-            @unlink($tmp);
+            @unlink($tmp); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- removing a plugin-private temp file
             error_log('[defyn] vuln feed: non-2xx response: ' . $code); // never logs the key
             return null;
         }

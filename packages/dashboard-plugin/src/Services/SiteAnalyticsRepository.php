@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 namespace Defyn\Dashboard\Services;
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom plugin tables: direct queries are required and results are request-scoped.
 
 use Defyn\Dashboard\Models\SiteAnalytics;
 use Defyn\Dashboard\Schema\SiteAnalyticsTable;
@@ -32,8 +33,8 @@ final class SiteAnalyticsRepository
             'total_users'          => $data['users'] ?? null,
             'screen_page_views'    => $data['pageviews'] ?? null,
             'avg_session_duration' => $data['avg_engagement'] ?? null,
-            'top_pages'            => json_encode(array_values($data['top_pages'] ?? [])),
-            'channels'             => json_encode(array_values($data['channels'] ?? [])),
+            'top_pages'            => wp_json_encode(array_values($data['top_pages'] ?? [])),
+            'channels'             => wp_json_encode(array_values($data['channels'] ?? [])),
             'fetched_at'           => $fetchedAt,
             'created_at'           => $now,
         ]);

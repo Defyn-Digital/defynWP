@@ -33,7 +33,7 @@ final class UrlValidator
             return ValidationResult::invalid('sites.invalid_url', 'URL is not well-formed.');
         }
 
-        $parts = parse_url($url);
+        $parts = parse_url($url); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- pure helper, no WP runtime
         if (($parts['scheme'] ?? '') !== 'https') {
             return ValidationResult::invalid('sites.invalid_url', 'URL must use HTTPS.');
         }

@@ -102,7 +102,7 @@ final class SignedHttpClient
             $serialized = '';
             $wireBody   = null;
         } else {
-            $encoded = json_encode($body, JSON_UNESCAPED_SLASHES);
+            $encoded = wp_json_encode($body, JSON_UNESCAPED_SLASHES);
             if ($encoded === false) {
                 return ['status' => 0, 'body' => [], 'error' => 'Failed to serialize body'];
             }

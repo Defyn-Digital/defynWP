@@ -60,7 +60,7 @@ class Ga4Client
             'timeout'     => 30,
             'redirection' => 0,
             'headers'     => ['Authorization' => 'Bearer ' . $token, 'Content-Type' => 'application/json'],
-            'body'        => json_encode($payload),
+            'body'        => wp_json_encode($payload),
         ]);
         if (is_wp_error($res) || (int) wp_remote_retrieve_response_code($res) !== 200) {
             return null;

@@ -49,7 +49,7 @@ class SitesReportPdfController
         $branding = (new BrandingService())->get($userId);
         $pdf      = (new ReportPdfService())->render($report, $branding);
 
-        $host     = preg_replace('/[^a-z0-9.-]+/i', '-', (string) parse_url($site->url, PHP_URL_HOST)) ?: 'site';
+        $host     = preg_replace('/[^a-z0-9.-]+/i', '-', (string) wp_parse_url($site->url, PHP_URL_HOST)) ?: 'site';
         $filename = "maintenance-report-{$host}-{$range['from_date']}-to-{$range['to_date']}.pdf";
 
         $this->emit($pdf, $filename);   // production: exits; test override: returns

@@ -22,11 +22,11 @@ final class ReportStorage
         // filename + authed-only serving is the real protection).
         $ht = $dir . '/.htaccess';
         if (!file_exists($ht)) {
-            @file_put_contents($ht, "Deny from all\n");
+            @file_put_contents($ht, "Deny from all\n"); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- writing a plugin-private guard file
         }
         $idx = $dir . '/index.html';
         if (!file_exists($idx)) {
-            @file_put_contents($idx, '');
+            @file_put_contents($idx, ''); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- writing a plugin-private guard file
         }
     }
 
@@ -36,7 +36,7 @@ final class ReportStorage
         $this->ensureDir();
         $token = wp_generate_password(32, false, false);
         $name  = "report-{$reportId}-{$token}.pdf";
-        file_put_contents($this->path($name), $bytes);
+        file_put_contents($this->path($name), $bytes); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- writing a plugin-private report file
         return ['file_name' => $name, 'size' => strlen($bytes)];
     }
 
@@ -51,7 +51,7 @@ final class ReportStorage
         if (!is_file($p)) {
             return null;
         }
-        $bytes = file_get_contents($p);
+        $bytes = file_get_contents($p); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading a plugin-private report file
         return $bytes === false ? null : $bytes;
     }
 
@@ -59,7 +59,7 @@ final class ReportStorage
     {
         $p = $this->path($fileName);
         if (is_file($p)) {
-            @unlink($p);
+            @unlink($p); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- removing a plugin-private file
         }
     }
 }
