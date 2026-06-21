@@ -42,10 +42,9 @@ final class ThemesRefreshController
             );
         }
 
-        // wp_update_themes() can silently fail (the transient isn't populated
-        // because pre_set_site_transient_update_themes returned false). When
-        // the refresh failed for any reason, surface 502 so the dashboard
-        // doesn't log a misleading success.
+        // wp_update_themes() can silently fail (the update-check transient was
+        // not populated). When the refresh failed for any reason, surface 502
+        // so the dashboard doesn't log a misleading success.
         $transient = get_site_transient('update_themes');
         if ($transient === false || $transient === null) {
             return ErrorResponse::create(

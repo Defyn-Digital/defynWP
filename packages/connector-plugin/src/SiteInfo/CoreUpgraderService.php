@@ -63,7 +63,7 @@ final class CoreUpgraderService
         }
 
         if (!self::isMinorUpgrade($current, $target) && !$allowMajor) {
-            throw new MajorUpdateBlockedException($current, $target);
+            throw new MajorUpdateBlockedException(esc_html($current), esc_html($target));
         }
 
         $skin     = new CapturingUpgraderSkin();
@@ -72,10 +72,10 @@ final class CoreUpgraderService
 
         if ($result === false) {
             $message = $skin->lastErrorMessage() ?? 'Core_Upgrader returned false without a message.';
-            throw new CoreUpgradeFailedException($message);
+            throw new CoreUpgradeFailedException(esc_html($message));
         }
         if (is_wp_error($result)) {
-            throw new CoreUpgradeFailedException((string) $result->get_error_message());
+            throw new CoreUpgradeFailedException(esc_html((string) $result->get_error_message()));
         }
 
         global $wp_version;

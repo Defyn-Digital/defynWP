@@ -39,13 +39,13 @@ final class ThemeUpgraderService
 
         $themes = wp_get_themes();
         if (!isset($themes[$slug])) {
-            throw new UnknownThemeSlugException($slug);
+            throw new UnknownThemeSlugException(esc_html($slug));
         }
         $previousVersion = (string) $themes[$slug]->get('Version');
 
         $updates = get_site_transient('update_themes');
         if (!isset($updates->response[$slug])) {
-            throw new NoThemeUpdateAvailableException($slug);
+            throw new NoThemeUpdateAvailableException(esc_html($slug));
         }
 
         $skin     = new CapturingUpgraderSkin();
@@ -54,10 +54,10 @@ final class ThemeUpgraderService
 
         if ($result === false) {
             $message = $skin->lastErrorMessage() ?? 'Theme_Upgrader returned false without a message.';
-            throw new ThemeUpgradeFailedException($message);
+            throw new ThemeUpgradeFailedException(esc_html($message));
         }
         if (is_wp_error($result)) {
-            throw new ThemeUpgradeFailedException((string) $result->get_error_message());
+            throw new ThemeUpgradeFailedException(esc_html((string) $result->get_error_message()));
         }
 
         // Re-read the version from disk after the upgrade. In production this

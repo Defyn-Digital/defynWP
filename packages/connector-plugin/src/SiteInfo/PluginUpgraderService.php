@@ -47,12 +47,12 @@ final class PluginUpgraderService
             }
         }
         if ($pluginFile === null) {
-            throw new UnknownSlugException($slug);
+            throw new UnknownSlugException(esc_html($slug));
         }
 
         $updates = get_site_transient('update_plugins');
         if (!isset($updates->response[$pluginFile])) {
-            throw new NoUpdateAvailableException($slug);
+            throw new NoUpdateAvailableException(esc_html($slug));
         }
 
         $skin     = new CapturingUpgraderSkin();
@@ -61,10 +61,10 @@ final class PluginUpgraderService
 
         if ($result === false) {
             $message = $skin->lastErrorMessage() ?? 'Plugin_Upgrader returned false without a message.';
-            throw new UpgradeFailedException($message);
+            throw new UpgradeFailedException(esc_html($message));
         }
         if (is_wp_error($result)) {
-            throw new UpgradeFailedException((string) $result->get_error_message());
+            throw new UpgradeFailedException(esc_html((string) $result->get_error_message()));
         }
 
         // Re-read the version after the upgrade. We use get_plugin_data() to parse
