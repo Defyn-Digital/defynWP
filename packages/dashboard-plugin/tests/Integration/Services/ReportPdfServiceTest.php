@@ -257,6 +257,43 @@ final class ReportPdfServiceTest extends AbstractSchemaTestCase
         $this->assertStringContainsString('stroke="#2563eb"', $svg); // analytics sessions line
     }
 
+    public function testBrokenLinksSectionRendersIssues(): void
+    {
+        $report = $this->sampleReport();
+        $report['broken_links'] = [
+            'state'        => 'issues',
+            'last_scanned' => '2026-06-20 10:00:00',
+            'counts'       => ['broken' => 1, 'warning' => 0, 'total' => 1, 'internal' => 1, 'external' => 0],
+            'items'        => [
+                [
+                    'url'         => 'https://acme.test/missing-page',
+                    'status_code' => 404,
+                    'severity'    => 'broken',
+                    'reason'      => 'HTTP 404',
+                    'link_type'   => 'internal',
+                    'source_url'  => 'https://acme.test/',
+                ],
+            ],
+        ];
+        $html = (new ReportPdfService(static fn ($u): ?string => null))->debugHtml($report, $this->branding());
+        self::assertStringContainsString('Broken links', $html);
+        self::assertStringContainsString('https://acme.test/missing-page', $html);
+        self::assertStringContainsString('broken', $html);
+    }
+
+    public function testBrokenLinksToleratesMissingKey(): void
+    {
+        // sampleReport() has no 'broken_links' key — must render without error
+        $svc = new ReportPdfService(static fn ($u): ?string => null);
+        $html = $svc->debugHtml($this->sampleReport(), $this->branding());
+        // Existing sections still render
+        self::assertStringContainsString('Acme', $html);
+        self::assertStringContainsString('Updates', $html);
+        // Broken links section defaults to not_checked state
+        self::assertStringContainsString('Broken links', $html);
+        self::assertStringContainsString('Not yet checked', $html);
+    }
+
     public function testAnalyticsSparklineAbsentWhenSingleMonth(): void
     {
         $svc = new ReportPdfService();
