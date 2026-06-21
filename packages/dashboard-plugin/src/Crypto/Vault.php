@@ -35,7 +35,7 @@ final class Vault
         $raw = base64_decode($keyBase64, true);
         if ($raw === false || strlen($raw) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
             throw new InvalidArgumentException(
-                'Vault requires a base64-encoded ' . SODIUM_CRYPTO_SECRETBOX_KEYBYTES . '-byte key.'
+                esc_html('Vault requires a base64-encoded ' . SODIUM_CRYPTO_SECRETBOX_KEYBYTES . '-byte key.')
             );
         }
         $this->key = $raw;

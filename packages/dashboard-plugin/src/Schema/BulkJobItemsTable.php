@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 namespace Defyn\Dashboard\Schema;
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom plugin tables: direct queries are required and results are request-scoped.
 
 /**
  * P2.9 — wp_defyn_bulk_job_items (spec § 1).

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 namespace Defyn\Dashboard\Services;
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom plugin tables: direct queries are required and results are request-scoped.
 
 use Defyn\Dashboard\Models\ActivityEvent;
 use Defyn\Dashboard\Schema\ActivityLogTable;
@@ -42,7 +43,7 @@ final class ActivityLogRepository
                 'user_id'    => $userId,
                 'site_id'    => $siteId,
                 'event_type' => $eventType,
-                'details'    => $details === null ? null : json_encode($details, JSON_THROW_ON_ERROR),
+                'details'    => $details === null ? null : wp_json_encode($details, JSON_THROW_ON_ERROR),
                 'ip_address' => $ipAddress,
                 'created_at' => gmdate('Y-m-d H:i:s'),
             ],

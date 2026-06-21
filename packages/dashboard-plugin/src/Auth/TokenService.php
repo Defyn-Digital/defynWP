@@ -37,7 +37,7 @@ final class TokenService
     {
         if (strlen($secret) < self::MIN_SECRET_BYTES) {
             throw new InvalidArgumentException(
-                'JWT secret must be at least ' . self::MIN_SECRET_BYTES . ' bytes.'
+                esc_html('JWT secret must be at least ' . self::MIN_SECRET_BYTES . ' bytes.')
             );
         }
     }
@@ -88,7 +88,7 @@ final class TokenService
         try {
             $decoded = (array) JWT::decode($token, new Key($this->secret, self::ALG));
         } catch (Throwable $e) {
-            throw new InvalidTokenException($e->getMessage(), 0, $e);
+            throw new InvalidTokenException(esc_html($e->getMessage()), 0, $e);
         } finally {
             JWT::$timestamp = null;  // restore real-clock decoding for other callers
         }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 namespace Defyn\Dashboard\Services;
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom plugin tables: direct queries are required and results are request-scoped.
 
 use Defyn\Dashboard\Models\Site;
 use Defyn\Dashboard\Schema\SiteBrokenLinksTable;
@@ -54,9 +55,11 @@ final class SitesRepository
             // 500 with the actual driver message so production misconfigurations
             // surface instead of returning {site_id: 0} forever.
             throw new \RuntimeException(
-                $wpdb->last_error !== ''
-                    ? 'wp_defyn_sites insert failed: ' . $wpdb->last_error
-                    : 'wp_defyn_sites insert failed without a MySQL error message.'
+                esc_html(
+                    $wpdb->last_error !== ''
+                        ? 'wp_defyn_sites insert failed: ' . $wpdb->last_error
+                        : 'wp_defyn_sites insert failed without a MySQL error message.'
+                )
             );
         }
         return (int) $wpdb->insert_id;

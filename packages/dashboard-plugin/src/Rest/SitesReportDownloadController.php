@@ -44,7 +44,7 @@ class SitesReportDownloadController
             return ErrorResponse::create(409, 'reports.not_ready', 'Report file is missing.');
         }
 
-        $host = preg_replace('/[^a-z0-9.-]+/i', '-', (string) parse_url($site->url, PHP_URL_HOST)) ?: 'site';
+        $host = preg_replace('/[^a-z0-9.-]+/i', '-', (string) wp_parse_url($site->url, PHP_URL_HOST)) ?: 'site';
         $this->emit($bytes, "Website-Maintenance-Report-{$host}-{$report->rangeFrom}-to-{$report->rangeTo}.pdf");
         return new WP_REST_Response(null, 200);
     }

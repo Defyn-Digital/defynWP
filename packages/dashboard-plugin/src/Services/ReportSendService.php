@@ -28,7 +28,7 @@ final class ReportSendService
     {
         $branding  = (new BrandingService())->get($site->userId);
         $agency    = (string) ($branding['agency_name'] ?? '');
-        $host      = (string) parse_url($site->url, PHP_URL_HOST);
+        $host      = (string) wp_parse_url($site->url, PHP_URL_HOST);
         // Site-led: the report is about the client's site, so lead with its
         // label (falling back to the host when no label is set). The agency
         // only appears when the operator has explicitly configured one.

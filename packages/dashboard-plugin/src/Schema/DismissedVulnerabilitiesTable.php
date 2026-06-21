@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Defyn\Dashboard\Schema;
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom plugin tables: direct queries are required and results are request-scoped.
 
 /** P4.3b — wp_defyn_dismissed_vulnerabilities: per-site dismissal overlay keyed by the
  *  fingerprint (site_id, type, slug, source_id). The scan snapshot is never modified;

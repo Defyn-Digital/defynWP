@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 namespace Defyn\Dashboard;
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom plugin tables: direct queries are required and results are request-scoped.
 
 /**
  * Removes all DefynWP Dashboard data when the plugin is uninstalled (deleted).
@@ -38,10 +39,10 @@ final class Uninstaller
             );
             foreach ($entries as $f) {
                 if (is_file($f)) {
-                    @unlink($f);
+                    @unlink($f); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- removing plugin-private files on uninstall
                 }
             }
-            @rmdir($dir);
+            @rmdir($dir); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- removing plugin-private directory on uninstall
         }
     }
 }
