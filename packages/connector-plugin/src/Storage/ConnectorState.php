@@ -35,7 +35,7 @@ final class ConnectorState
      */
     public function save(array $data): void
     {
-        update_option(self::OPTION_KEY, json_encode($data, JSON_THROW_ON_ERROR), false);
+        update_option(self::OPTION_KEY, wp_json_encode($data, JSON_THROW_ON_ERROR), false);
     }
 
     /**
