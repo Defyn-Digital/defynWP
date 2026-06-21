@@ -17,6 +17,7 @@ use Defyn\Dashboard\Schema\ConnectionCodesTable;
 use Defyn\Dashboard\Schema\SchemaTable;
 use Defyn\Dashboard\Schema\SchemaVersion;
 use Defyn\Dashboard\Schema\SiteAnalyticsTable;
+use Defyn\Dashboard\Schema\SiteBrokenLinksTable;
 use Defyn\Dashboard\Schema\SitePerformanceTable;
 use Defyn\Dashboard\Schema\SitePluginsTable;
 use Defyn\Dashboard\Schema\SiteThemesTable;
@@ -30,7 +31,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 16;
+    public const SCHEMA_VERSION = 17;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -53,6 +54,7 @@ final class Activation
         ReportsTable::class,
         SitePerformanceTable::class,
         SiteAnalyticsTable::class,
+        SiteBrokenLinksTable::class,
     ];
 
     /** Throttle key for {@see maybeRunSelfHeal} — checked at most once per hour. */
@@ -112,6 +114,9 @@ final class Activation
 
         // P4.1 — add last_security_scan_at to wp_defyn_sites. Guarded ALTER.
         self::addLastSecurityScanAtColumn($wpdb);
+
+        // P7.1 — add last_link_scan_at to wp_defyn_sites. Guarded ALTER.
+        self::addLastLinkScanAtColumn($wpdb);
 
         // P5.3 — add client_email to wp_defyn_sites (report-queue recipient).
         // Guarded ALTER.
@@ -195,6 +200,12 @@ final class Activation
         // P6.2 — ensure the weekly analytics-sync schedule exists on a silent upgrade.
         if (function_exists('as_next_scheduled_action')
             && as_next_scheduled_action(\Defyn\Dashboard\Jobs\AnalyticsSyncAll::HOOK, [], 'defyn') === false) {
+            \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
+        }
+
+        // P7.1 — ensure the weekly broken-link scan schedule exists on a silent upgrade.
+        if (function_exists('as_next_scheduled_action')
+            && as_next_scheduled_action(\Defyn\Dashboard\Jobs\LinkScanAll::HOOK, [], 'defyn') === false) {
             \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
         }
     }
@@ -356,6 +367,17 @@ final class Activation
         }
         // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
         $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN last_security_scan_at DATETIME NULL");
+    }
+
+    private static function addLastLinkScanAtColumn(\wpdb $wpdb): void
+    {
+        $table  = SitesTable::tableName();
+        $exists = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", 'last_link_scan_at'));
+        if ($exists !== null) {
+            return;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+        $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN last_link_scan_at DATETIME NULL");
     }
 
     private static function addClientEmailColumn(\wpdb $wpdb): void

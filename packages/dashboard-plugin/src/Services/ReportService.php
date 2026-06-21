@@ -20,6 +20,7 @@ final class ReportService
         private readonly ?SitePerformanceRepository $performance = null,
         private readonly ?SiteAnalyticsRepository $analytics = null,
         private readonly ?SiteLogoResolver $logoResolver = null,
+        private readonly ?BrokenLinksRepository $brokenLinks = null,
     ) {}
 
     /** @return array<string,mixed> */
@@ -41,8 +42,9 @@ final class ReportService
         $updates  = $this->buildUpdates($siteId, $fromUtc, $toUtc, $activity);
         $uptime   = $this->buildUptime($siteId, $fromUtc, $toUtc, $incidents);
         $security = $this->buildSecurity($siteId, $fromUtc, $toUtc, $findings, $activity, $lastScan);
-        $performance = $this->buildPerformance($siteId, $fromUtc, $toUtc);
-        $analytics   = $this->buildAnalytics($site, $fromUtc, $toUtc);
+        $performance  = $this->buildPerformance($siteId, $fromUtc, $toUtc);
+        $analytics    = $this->buildAnalytics($site, $fromUtc, $toUtc);
+        $brokenLinks  = $this->buildBrokenLinks($siteId, $site);
 
         return [
             'site'   => ['id' => $siteId, 'label' => $label, 'url' => $url, 'wp_version' => $wpVer, 'logo_url' => $logoUrl],
@@ -53,11 +55,12 @@ final class ReportService
                 'open_findings'        => count($security['open_findings']),
                 'wp_version'           => $wpVer,
             ],
-            'updates'  => $updates,
-            'uptime'   => $uptime,
-            'security' => $security,
-            'performance' => $performance,
-            'analytics' => $analytics,
+            'updates'      => $updates,
+            'uptime'       => $uptime,
+            'security'     => $security,
+            'performance'  => $performance,
+            'analytics'    => $analytics,
+            'broken_links' => $brokenLinks,
         ];
     }
 
@@ -109,6 +112,37 @@ final class ReportService
             'channels'  => $snap->channels,
             'history'   => $history,
         ];
+    }
+
+    /**
+     * P7.1 — reads cached broken-link data only (never calls the connector).
+     * States:
+     *   not_checked — last_link_scan_at is null (scan has never run)
+     *   clean       — scanned but zero broken-link rows found
+     *   issues      — scanned and at least one row exists
+     *
+     * @return array<string,mixed>
+     */
+    private function buildBrokenLinks(int $siteId, ?\Defyn\Dashboard\Models\Site $site): array
+    {
+        $repo   = $this->brokenLinks ?? new BrokenLinksRepository();
+        $last   = $site?->lastLinkScanAt;
+        $counts = $repo->countsForSite($siteId);
+        $state  = $last === null ? 'not_checked' : (((int) ($counts['total'] ?? 0)) === 0 ? 'clean' : 'issues');
+        $items  = [];
+        if ($state === 'issues') {
+            foreach ($repo->findTopForReport($siteId, 20) as $r) {
+                $items[] = [
+                    'url'         => $r['url'],
+                    'status_code' => $r['status_code'] ?? null,
+                    'severity'    => $r['severity'],
+                    'reason'      => $r['reason'],
+                    'link_type'   => $r['link_type'],
+                    'source_url'  => $r['source_url'],
+                ];
+            }
+        }
+        return ['state' => $state, 'last_scanned' => $last, 'counts' => $counts, 'items' => $items];
     }
 
     /** @return array<string,mixed> */

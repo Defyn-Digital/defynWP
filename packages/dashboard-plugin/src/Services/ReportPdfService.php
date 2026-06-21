@@ -124,12 +124,13 @@ class ReportPdfService
 
         $cover = $this->coverHtml($accent, $agency, $label, $url, $from, $to, $today, $logoDataUri);
 
-        $overview = $this->overviewHtml($report);
+        $overview    = $this->overviewHtml($report);
         $performance = $this->performanceHtml($report);
-        $analytics = $this->analyticsHtml($report);
-        $updates  = $this->updatesHtml($report);
-        $uptime   = $this->uptimeHtml($report);
-        $security = $this->securityHtml($report);
+        $analytics   = $this->analyticsHtml($report);
+        $updates     = $this->updatesHtml($report);
+        $uptime      = $this->uptimeHtml($report);
+        $security    = $this->securityHtml($report);
+        $brokenLinks = $this->brokenLinksHtml($report);
 
         return <<<HTML
 <html><head><meta charset="utf-8"><style>
@@ -160,6 +161,7 @@ class ReportPdfService
   {$updates}
   {$uptime}
   {$security}
+  {$brokenLinks}
   </div>
 </body></html>
 HTML;
@@ -351,6 +353,47 @@ HTML;
         }
 
         return $this->sectionWithBody('Security', $body);
+    }
+
+    /** @param array<string,mixed> $report */
+    private function brokenLinksHtml(array $report): string
+    {
+        $bl    = $report['broken_links'] ?? [
+            'state'  => 'not_checked',
+            'counts' => ['broken' => 0, 'warning' => 0, 'total' => 0, 'internal' => 0, 'external' => 0],
+            'items'  => [],
+        ];
+        $state = (string) ($bl['state'] ?? 'not_checked');
+
+        if ($state === 'not_checked') {
+            return $this->sectionWithBody('Broken links', '<p class="muted">Not yet checked.</p>');
+        }
+
+        if ($state === 'clean') {
+            return $this->sectionWithBody('Broken links', '<p class="muted">No broken links found.</p>');
+        }
+
+        // state === 'issues'
+        $counts  = $bl['counts'] ?? [];
+        $broken  = (int) ($counts['broken']  ?? 0);
+        $warning = (int) ($counts['warning'] ?? 0);
+        $strip   = '<p>' . $broken . ' broken &middot; ' . $warning . ' warnings</p>';
+
+        $rows = '';
+        foreach (($bl['items'] ?? []) as $item) {
+            $severity   = $this->esc((string) ($item['severity']    ?? ''));
+            $statusCode = $item['status_code'] !== null ? $this->esc((string) $item['status_code']) : '—';
+            $url        = $this->esc((string) ($item['url']         ?? ''));
+            $sourceUrl  = $this->esc((string) ($item['source_url']  ?? ''));
+            $rows .= "<tr><td>{$severity}</td><td>{$statusCode}</td><td>{$url}</td><td>{$sourceUrl}</td></tr>";
+        }
+
+        $table = $rows !== ''
+            ? '<table class="data"><thead><tr><th>Severity</th><th>Status</th><th>Link</th><th>On page</th></tr></thead><tbody>'
+                . $rows . '</tbody></table>'
+            : '';
+
+        return $this->sectionWithBody('Broken links', $strip . $table);
     }
 
     /** @param array<string,mixed> $report */

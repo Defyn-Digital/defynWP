@@ -3,9 +3,11 @@ declare(strict_types=1);
 namespace Defyn\Dashboard\Tests\Integration\Services;
 
 use Defyn\Dashboard\Services\ActivityLogRepository;
+use Defyn\Dashboard\Services\BrokenLinksRepository;
 use Defyn\Dashboard\Services\IncidentsRepository;
 use Defyn\Dashboard\Services\ReportService;
 use Defyn\Dashboard\Services\SitePluginsRepository;
+use Defyn\Dashboard\Services\SitesRepository;
 use Defyn\Dashboard\Services\SiteVulnerabilitiesRepository;
 use Defyn\Dashboard\Tests\Integration\AbstractSchemaTestCase;
 
@@ -17,7 +19,7 @@ final class ReportServiceTest extends AbstractSchemaTestCase
         global $wpdb;
         // phpcs:disable WordPress.DB.PreparedSQL
         $wpdb->query('SET autocommit = 1');
-        foreach (['defyn_sites','defyn_activity_log','defyn_incidents','defyn_site_vulnerabilities','defyn_site_plugins','defyn_site_performance','defyn_site_analytics'] as $t) {
+        foreach (['defyn_sites','defyn_activity_log','defyn_incidents','defyn_site_vulnerabilities','defyn_site_plugins','defyn_site_performance','defyn_site_analytics','defyn_site_broken_links'] as $t) {
             $wpdb->query('DELETE FROM ' . $wpdb->prefix . $t);
         }
         // phpcs:enable WordPress.DB.PreparedSQL
@@ -196,6 +198,60 @@ final class ReportServiceTest extends AbstractSchemaTestCase
         $report2 = (new \Defyn\Dashboard\Services\ReportService())->compose($siteId, 7, '2026-06-05 00:00:00', '2026-06-20 23:59:59'); // non-calendar-month → pending
         self::assertSame('pending', $report2['analytics']['state']);
         self::assertSame([], $report2['analytics']['history']);
+    }
+
+    public function testBrokenLinksNotCheckedWhenNeverScanned(): void
+    {
+        $siteId = $this->seedSite(1, 'https://acme.test', 'Acme', '6.9.4');
+        $report = (new ReportService())->compose($siteId, 1, '2026-06-01 00:00:00', '2026-06-30 23:59:59');
+
+        self::assertSame('not_checked', $report['broken_links']['state']);
+        self::assertSame([], $report['broken_links']['items']);
+        self::assertNull($report['broken_links']['last_scanned']);
+    }
+
+    public function testBrokenLinksCleanWhenScannedZero(): void
+    {
+        $siteId = $this->seedSite(1, 'https://acme.test', 'Acme', '6.9.4');
+        (new SitesRepository())->markLinkScannedAt($siteId, '2026-06-20 10:00:00');
+
+        $report = (new ReportService())->compose($siteId, 1, '2026-06-01 00:00:00', '2026-06-30 23:59:59');
+
+        self::assertSame('clean', $report['broken_links']['state']);
+        self::assertSame([], $report['broken_links']['items']);
+        self::assertSame('2026-06-20 10:00:00', $report['broken_links']['last_scanned']);
+    }
+
+    public function testBrokenLinksIssuesListsBrokenFirst(): void
+    {
+        $siteId  = $this->seedSite(1, 'https://acme.test', 'Acme', '6.9.4');
+        $scanAt  = '2026-06-20 10:00:00';
+        (new SitesRepository())->markLinkScannedAt($siteId, $scanAt);
+        $repo = new BrokenLinksRepository();
+        $repo->upsertForSite($siteId, [
+            'url'         => 'https://acme.test/warning-page',
+            'source_url'  => 'https://acme.test/',
+            'severity'    => 'warning',
+            'reason'      => 'HTTP 301',
+            'link_type'   => 'internal',
+            'status_code' => 301,
+        ], $scanAt);
+        $repo->upsertForSite($siteId, [
+            'url'         => 'https://acme.test/missing',
+            'source_url'  => 'https://acme.test/',
+            'severity'    => 'broken',
+            'reason'      => 'HTTP 404',
+            'link_type'   => 'internal',
+            'status_code' => 404,
+        ], $scanAt);
+
+        $report = (new ReportService())->compose($siteId, 1, '2026-06-01 00:00:00', '2026-06-30 23:59:59');
+
+        self::assertSame('issues', $report['broken_links']['state']);
+        self::assertSame(1, $report['broken_links']['counts']['broken']);
+        self::assertSame(1, $report['broken_links']['counts']['warning']);
+        self::assertSame(2, $report['broken_links']['counts']['total']);
+        self::assertSame('broken', $report['broken_links']['items'][0]['severity']);
     }
 
     private function seedSite(int $userId, string $url, string $label, string $wpVersion): int

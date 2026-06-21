@@ -10,6 +10,7 @@ const PALETTE: Record<OverviewAttentionReason, { className: string; label: strin
   ssl_expiring:        { className: 'bg-amber-100 text-amber-800', label: 'ssl expiring' },
   sync_stale:          { className: 'bg-amber-100 text-amber-800', label: 'sync stale' },
   has_vulnerabilities: { className: 'bg-red-100 text-red-800',     label: 'vulnerable' },
+  has_broken_links:    { className: 'bg-amber-100 text-amber-800', label: 'broken links' },
 }
 
 export function AttentionReasonChip({ reason }: AttentionReasonChipProps) {

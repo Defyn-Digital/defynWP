@@ -139,6 +139,8 @@ final class SiteTest extends TestCase
             'ga4_property_id'             => null,
             // P5.4: per-site auto-send opt-in flag defaults to false.
             'auto_send_reports'           => false,
+            // P7.1: last broken-link scan attempt timestamp (null when never scanned).
+            'last_link_scan_at'           => null,
         ], $site->toJson());
     }
 

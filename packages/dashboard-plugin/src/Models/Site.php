@@ -73,6 +73,8 @@ final class Site
         public readonly ?string $ga4PropertyId = null,
         // P5.4 — per-site opt-in: auto-email the generated monthly report to client_email.
         public readonly bool $autoSendReports = false,
+        // P7.1 — timestamp of the last broken-link scan attempt (internal; set even on failure).
+        public readonly ?string $lastLinkScanAt = null,
     ) {}
 
     /** @param array<string, mixed> $row wpdb result row (all values come back as strings) */
@@ -112,6 +114,7 @@ final class Site
             clientEmail:             isset($row['client_email']) && $row['client_email'] !== null ? (string) $row['client_email'] : null,
             ga4PropertyId:           isset($row['ga4_property_id']) && $row['ga4_property_id'] !== null ? (string) $row['ga4_property_id'] : null,
             autoSendReports:         (bool) (int) ($row['auto_send_reports'] ?? 0),
+            lastLinkScanAt:          isset($row['last_link_scan_at']) ? (string) $row['last_link_scan_at'] : null,
         );
     }
 
@@ -166,6 +169,8 @@ final class Site
             'ga4_property_id'             => $this->ga4PropertyId,
             // P5.4: per-site auto-send opt-in flag.
             'auto_send_reports'           => $this->autoSendReports,
+            // P7.1: last broken-link scan attempt timestamp.
+            'last_link_scan_at'           => $this->lastLinkScanAt,
         ];
     }
 }

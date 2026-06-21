@@ -99,6 +99,12 @@ describe('useSiteReport', () => {
               top_pages: [{ path: '/', title: 'Home', views: 800 }],
               channels: [{ channel: 'Direct', sessions: 600 }],
             },
+            broken_links: {
+              state: 'not_checked',
+              last_scanned: null,
+              counts: { broken: 0, warning: 0, total: 0, internal: 0, external: 0 },
+              items: [],
+            },
           },
           error: null,
         });

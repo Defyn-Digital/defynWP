@@ -88,6 +88,12 @@ function populatedReport(): Report {
       channels: [{ channel: 'Direct', sessions: 600 }],
       history: [],
     },
+    broken_links: {
+      state: 'not_checked' as const,
+      last_scanned: null,
+      counts: { broken: 0, warning: 0, total: 0, internal: 0, external: 0 },
+      items: [],
+    },
   };
 }
 

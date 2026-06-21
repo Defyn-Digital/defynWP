@@ -6,6 +6,7 @@ namespace Defyn\Connector\Rest;
 
 use Defyn\Connector\Rest\CoreRefreshController;
 use Defyn\Connector\Rest\CoreUpdateController;
+use Defyn\Connector\Rest\LinksScanController;
 use Defyn\Connector\Rest\PluginUpdateController;
 use Defyn\Connector\Rest\ThemesController;
 use Defyn\Connector\Rest\ThemesRefreshController;
@@ -106,6 +107,12 @@ final class RestRouter
         register_rest_route(self::NAMESPACE, '/core/update', [
             'methods'             => 'POST',
             'callback'            => [new CoreUpdateController(), 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/links/scan', [
+            'methods'             => 'POST',
+            'callback'            => [new LinksScanController(), 'handle'],
             'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
         ]);
     }

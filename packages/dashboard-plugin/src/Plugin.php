@@ -12,6 +12,8 @@ use Defyn\Dashboard\Jobs\HealthPing;
 use Defyn\Dashboard\Jobs\HealthPingAll;
 use Defyn\Dashboard\Jobs\GenerateMonthlyReportsAll;
 use Defyn\Dashboard\Jobs\GenerateReport;
+use Defyn\Dashboard\Jobs\LinkScan;
+use Defyn\Dashboard\Jobs\LinkScanAll;
 use Defyn\Dashboard\Jobs\PerformanceScan;
 use Defyn\Dashboard\Jobs\PerformanceScanAll;
 use Defyn\Dashboard\Jobs\SecurityScan;
@@ -154,6 +156,14 @@ final class Plugin
         });
         add_action(AnalyticsSync::HOOK, static function (int $siteId): void {
             (new AnalyticsSync())->handle($siteId);
+        });
+
+        // P7.1 — weekly broken-link scan fan-out + per-site leaf job.
+        add_action(LinkScanAll::HOOK, static function (): void {
+            (new LinkScanAll())->handle();
+        });
+        add_action(LinkScan::HOOK, static function (int $siteId): void {
+            (new LinkScan())->handle($siteId);
         });
 
         // P5.3 — monthly client report fan-out + per-report leaf job.
