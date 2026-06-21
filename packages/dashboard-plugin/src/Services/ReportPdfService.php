@@ -69,9 +69,7 @@ class ReportPdfService
      */
     public function render(array $report, array $branding): string
     {
-        $logo = ($branding['logo_url'] ?? '') !== ''
-            ? ($this->logoFetcher)($branding['logo_url'])
-            : null;
+        $logo = $this->resolveSiteLogo($report);
 
         $html = $this->buildHtml($report, $branding, $logo);
 
@@ -94,20 +92,37 @@ class ReportPdfService
      */
     public function debugHtml(array $report, array $branding): string
     {
-        $logo = ($branding['logo_url'] ?? '') !== '' ? ($this->logoFetcher)($branding['logo_url']) : null;
+        return $this->buildHtml($report, $branding, $this->resolveSiteLogo($report));
+    }
 
-        return $this->buildHtml($report, $branding, $logo);
+    /**
+     * Fetch + validate the client site's own icon ($report['site']['logo_url'])
+     * into a data: URI, or null. Best-effort: the fetcher never throws.
+     *
+     * @param array<string,mixed> $report
+     */
+    private function resolveSiteLogo(array $report): ?string
+    {
+        $logoUrl = $report['site']['logo_url'] ?? null;
+
+        return ($logoUrl !== null && $logoUrl !== '') ? ($this->logoFetcher)((string) $logoUrl) : null;
     }
 
     /** @param array<string,mixed> $report */
     private function buildHtml(array $report, array $branding, ?string $logoDataUri): string
     {
         $accent = $this->safeAccent((string) ($branding['accent_color'] ?? '#26215C'));
-        $agency = $this->esc((string) ($branding['agency_name'] ?? 'Defyn Digital'));
-        $url    = $this->esc((string) ($report['site']['url'] ?? ''));
-        $from   = $this->esc((string) ($report['period']['from'] ?? ''));
-        $to     = $this->esc((string) ($report['period']['to'] ?? ''));
-        $logoImg = $logoDataUri !== null ? '<img src="' . $logoDataUri . '" style="max-height:60px;max-width:200px">' : '';
+        $agency = $this->esc((string) ($branding['agency_name'] ?? ''));
+
+        $rawLabel = (string) ($report['site']['label'] ?? '');
+        $rawUrl   = (string) ($report['site']['url'] ?? '');
+        $label = $this->esc($rawLabel !== '' ? $rawLabel : $rawUrl);
+        $url   = $this->esc($rawUrl);
+        $from  = $this->esc((string) ($report['period']['from'] ?? ''));
+        $to    = $this->esc((string) ($report['period']['to'] ?? ''));
+        $today = $this->esc($this->todayYmd());
+
+        $cover = $this->coverHtml($accent, $agency, $label, $url, $from, $to, $today, $logoDataUri);
 
         $overview = $this->overviewHtml($report);
         $performance = $this->performanceHtml($report);
@@ -118,36 +133,102 @@ class ReportPdfService
 
         return <<<HTML
 <html><head><meta charset="utf-8"><style>
-  body { font-family: 'DejaVu Sans', sans-serif; color:#222; font-size:11px; }
-  .cover { text-align:center; padding-top:160px; page-break-after: always; }
-  .band { background: {$accent}; height:8px; }
-  .section { padding:18px 28px; }
-  .section h2 { color:{$accent}; font-size:15px; margin:0 0 10px; }
-  .muted { color:#888; }
+  body { font-family: 'DejaVu Sans', sans-serif; color:#1e293b; font-size:11px; }
+  .cover { background:{$accent}; color:#fff; padding:38px 32px; page-break-after: always; }
+  .cover-rule { border:0; border-top:1px solid rgba(255,255,255,0.25); margin:22px 0 16px; }
+  .cover-pair-label { font-size:9px; text-transform:uppercase; letter-spacing:2px; color:rgba(255,255,255,0.6); }
+  .cover-pair-value { font-size:13px; color:#fff; }
+  .body-pad { padding:24px 28px 8px; }
+  .card { border:1px solid #e2e8f0; border-radius:8px; padding:16px 18px; margin-bottom:16px; }
+  .card h2 { color:{$accent}; font-size:14px; margin:0 0 4px; }
+  .card .divider { border:0; border-top:1px solid #e2e8f0; margin:6px 0 12px; }
+  .muted { color:#64748b; }
   .stats { width:100%; border-collapse:collapse; }
   .stats td { text-align:center; padding:10px; }
   .stat-num { font-size:20px; font-weight:bold; color:{$accent}; }
-  .stat-label { font-size:10px; color:#888; text-transform:uppercase; letter-spacing:1px; }
+  .stat-label { font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:1px; }
+  .kpi { border:1px solid #e2e8f0; border-radius:8px; margin-bottom:16px; }
   table.data { width:100%; border-collapse:collapse; }
-  table.data th { text-align:left; font-size:10px; color:#888; text-transform:uppercase; letter-spacing:1px; border-bottom:2px solid {$accent}; padding:6px 4px; }
+  table.data th { text-align:left; font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:1px; border-bottom:2px solid {$accent}; padding:6px 4px; }
   table.data td { padding:6px 4px; border-bottom:1px solid #eee; }
 </style></head><body>
-  <div class="cover">
-    {$logoImg}
-    <p style="color:{$accent};font-weight:bold;font-size:13px;letter-spacing:2px;">{$agency}</p>
-    <p style="text-transform:uppercase;color:#888;letter-spacing:2px;font-size:11px;">Website Maintenance Report</p>
-    <p style="font-size:18px;font-weight:bold;">{$url}</p>
-    <p style="color:#666;">{$from} &ndash; {$to}</p>
-  </div>
-  <div class="band"></div>
+  {$cover}
+  <div class="body-pad">
   {$overview}
   {$performance}
   {$analytics}
   {$updates}
   {$uptime}
   {$security}
+  </div>
 </body></html>
 HTML;
+    }
+
+    /**
+     * Navy cover band featuring the client SITE: logo (or monogram) + label hero +
+     * URL, then a divider and Period / Prepared labelled pairs. Agency line renders
+     * only when a non-empty agency name was supplied. All values pre-escaped.
+     */
+    private function coverHtml(
+        string $accent,
+        string $agency,
+        string $label,
+        string $url,
+        string $from,
+        string $to,
+        string $today,
+        ?string $logoDataUri
+    ): string {
+        $badge = $logoDataUri !== null
+            ? '<img src="' . $logoDataUri . '" style="width:48px;height:48px;border-radius:8px;object-fit:cover" alt=""/>'
+            : '<div style="width:48px;height:48px;border-radius:8px;background:rgba(255,255,255,0.15);text-align:center;line-height:48px;font-size:24px;font-weight:bold;color:#fff">'
+                . $this->monogram($label) . '</div>';
+
+        $agencyLine = $agency !== ''
+            ? '<p style="margin:14px 0 0;font-size:10px;color:rgba(255,255,255,0.6)">Prepared by ' . $agency . '</p>'
+            : '';
+
+        return <<<HTML
+  <div class="cover">
+    <table style="width:100%;border-collapse:collapse"><tr>
+      <td style="width:48px;vertical-align:middle">{$badge}</td>
+      <td style="vertical-align:middle;padding-left:14px">
+        <p style="margin:0;font-size:9px;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.6)">Website Maintenance Report</p>
+        <p style="margin:2px 0 0;font-size:20px;font-weight:bold;color:#fff">{$label}</p>
+        <p style="margin:2px 0 0;font-size:11px;color:rgba(255,255,255,0.75)">{$url}</p>
+      </td>
+    </tr></table>
+    <hr class="cover-rule"/>
+    <table style="width:100%;border-collapse:collapse"><tr>
+      <td style="width:50%;vertical-align:top">
+        <div class="cover-pair-label">Period</div>
+        <div class="cover-pair-value">{$from} &ndash; {$to}</div>
+      </td>
+      <td style="width:50%;vertical-align:top">
+        <div class="cover-pair-label">Prepared</div>
+        <div class="cover-pair-value">{$today}</div>
+      </td>
+    </tr></table>
+    {$agencyLine}
+  </div>
+HTML;
+    }
+
+    /** First letter of the label (uppercased) for the monogram fallback, or '•'. */
+    private function monogram(string $escapedLabel): string
+    {
+        // $escapedLabel is already HTML-escaped; take the first character safely.
+        $first = mb_substr(html_entity_decode($escapedLabel, ENT_QUOTES, 'UTF-8'), 0, 1);
+        $first = $first === '' ? '•' : mb_strtoupper($first);
+
+        return $this->esc($first);
+    }
+
+    /** Today's date (UTC, Y-m-d) for the "Prepared" cover pair. */
+    private function todayYmd(): string
+    {
+        return function_exists('current_time') ? (string) current_time('Y-m-d') : gmdate('Y-m-d');
     }
 
     /** @param array<string,mixed> $report */
@@ -159,9 +240,10 @@ HTML;
         $openFindings   = (int) ($overview['open_findings'] ?? 0);
         $wpVersion      = $this->esc((string) ($overview['wp_version'] ?? ''));
 
+        // KPI summary strip: the 4 overview stats in a bordered card, no per-stat divider.
         return <<<HTML
-  <div class="section">
-    <h2>Overview</h2>
+  <div class="kpi">
+    <p style="margin:12px 18px 0;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#64748b">Overview</p>
     <table class="stats"><tr>
       <td><div class="stat-num">{$updatesApplied}</div><div class="stat-label">Updates applied</div></td>
       <td><div class="stat-num">{$uptimePercent}</div><div class="stat-label">Uptime</div></td>
@@ -363,7 +445,7 @@ HTML;
     {
         $heading = $this->esc($heading);
 
-        return "  <div class=\"section\">\n    <h2>{$heading}</h2>\n    {$body}\n  </div>\n";
+        return "  <div class=\"card\">\n    <h2>{$heading}</h2>\n    <hr class=\"divider\"/>\n    {$body}\n  </div>\n";
     }
 
     private function formatPercent(float $value): string
