@@ -699,6 +699,24 @@ final class SitesRepository
     }
 
     /**
+     * P7.1 — Record the UTC timestamp at which the broken-link scan last completed
+     * (or last attempted) for a site. Called by BrokenLinkScanService on every scan
+     * attempt, including failure — so the operator can tell "scanned, failed" from
+     * "never scanned".
+     */
+    public function markLinkScannedAt(int $siteId, string $now): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            SitesTable::tableName(),
+            ['last_link_scan_at' => $now],
+            ['id' => $siteId],
+            ['%s'],
+            ['%d'],
+        );
+    }
+
+    /**
      * P2.5 — sites owned by $userId that have at least one attention reason.
      * Capped at 50 rows. Hardcoded thresholds per spec § 3.4.
      *
