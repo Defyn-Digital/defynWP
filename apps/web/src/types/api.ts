@@ -203,6 +203,42 @@ export const reportAnalyticsSchema = z.object({
 });
 export type ReportAnalyticsData = z.infer<typeof reportAnalyticsSchema>;
 
+// P7.1 — Broken-link monitoring schemas.
+export const brokenLinkRowSchema = z.object({
+  url: z.string(),
+  status_code: z.number().int().nullable(),
+  severity: z.enum(['broken', 'warning']),
+  reason: z.enum(['not_found', 'server_error', 'blocked', 'client_error', 'unreachable']),
+  link_type: z.enum(['internal', 'external']),
+  source_url: z.string(),
+  source_title: z.string().nullable(),
+  anchor_text: z.string().nullable(),
+  first_detected_at: z.string(),
+  last_detected_at: z.string(),
+});
+export const brokenLinkCountsSchema = z.object({
+  broken: z.number(), warning: z.number(), total: z.number(), internal: z.number(), external: z.number(),
+});
+export const siteBrokenLinksSchema = z.object({
+  last_link_scan_at: z.string().nullable(),
+  counts: brokenLinkCountsSchema,
+  links: z.array(brokenLinkRowSchema),
+});
+export type SiteBrokenLinks = z.infer<typeof siteBrokenLinksSchema>;
+
+export const reportBrokenLinksSchema = z.object({
+  state: z.enum(['not_checked', 'clean', 'issues']),
+  last_scanned: z.string().nullable(),
+  counts: brokenLinkCountsSchema,
+  items: z.array(z.object({
+    url: z.string(), status_code: z.number().int().nullable(),
+    severity: z.enum(['broken', 'warning']),
+    reason: z.enum(['not_found', 'server_error', 'blocked', 'client_error', 'unreachable']),
+    link_type: z.enum(['internal', 'external']), source_url: z.string(),
+  })),
+});
+export type ReportBrokenLinks = z.infer<typeof reportBrokenLinksSchema>;
+
 export const siteReportSchema = z.object({
   site: z.object({ id: z.number(), label: z.string(), url: z.string(), wp_version: z.string(), logo_url: z.string().nullable().optional() }),
   period: z.object({ from: z.string(), to: z.string() }),
@@ -228,6 +264,7 @@ export const siteReportSchema = z.object({
   }),
   performance: reportPerformanceSchema,
   analytics: reportAnalyticsSchema,
+  broken_links: reportBrokenLinksSchema,
 });
 export type SiteReport = z.infer<typeof siteReportSchema>;
 
@@ -266,6 +303,7 @@ export const overviewAttentionReasonSchema = z.enum([
   'ssl_expiring',
   'sync_stale',
   'has_vulnerabilities',
+  'has_broken_links',
 ]);
 export type OverviewAttentionReason = z.infer<typeof overviewAttentionReasonSchema>;
 

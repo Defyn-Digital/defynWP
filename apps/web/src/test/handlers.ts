@@ -848,6 +848,16 @@ handlers.push(
     return HttpResponse.json({ data: { scheduled: true }, error: null }, { status: 202 });
   }),
 
+  // P7.1 — GET /sites/:id/broken-links — empty, never-scanned by default.
+  http.get('*/wp-json/defyn/v1/sites/:id/broken-links', () =>
+    HttpResponse.json({ data: { last_link_scan_at: null, counts: { broken: 0, warning: 0, total: 0, internal: 0, external: 0 }, links: [] }, error: null }),
+  ),
+
+  // P7.1 — POST /sites/:id/links/scan — 202 scheduled.
+  http.post('*/wp-json/defyn/v1/sites/:id/links/scan', () =>
+    HttpResponse.json({ data: { scheduled: true }, error: null }, { status: 202 }),
+  ),
+
   // P4.2 — GET /security — empty fleet by default; tests override via server.use().
   http.get('*/wp-json/defyn/v1/security', () => {
     return HttpResponse.json({
@@ -1062,6 +1072,15 @@ handlers.push(
           top_pages: [{ path: '/', title: 'Home', views: 800 }],
           channels: [{ channel: 'Direct', sessions: 600 }],
           history: [],
+        },
+        broken_links: {
+          state: 'issues',
+          last_scanned: '2026-05-30 03:00:00',
+          counts: { broken: 1, warning: 1, total: 2, internal: 1, external: 1 },
+          items: [
+            { url: 'https://x.test/dead', status_code: 404, severity: 'broken', reason: 'not_found', link_type: 'external', source_url: 'https://site.test/page' },
+            { url: 'https://api.test/down', status_code: 503, severity: 'warning', reason: 'server_error', link_type: 'external', source_url: 'https://site.test/page' },
+          ],
         },
       },
       error: null,
