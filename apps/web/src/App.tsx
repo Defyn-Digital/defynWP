@@ -15,6 +15,7 @@ import JobDetail from './routes/JobDetail';
 import { Monitoring } from './routes/Monitoring';
 import { Security } from './routes/Security';
 import { Insights } from './routes/Insights';
+import Reports from './routes/Reports';
 import { Settings } from './routes/Settings';
 import { AppShell } from './components/layout/AppShell';
 
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/monitoring" element={<Monitoring />} />
           <Route path="/security" element={<Security />} />
           <Route path="/insights" element={<Insights />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Route>

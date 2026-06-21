@@ -14,9 +14,14 @@ function renderNav(path: string) {
 describe('SidebarNav', () => {
   it('renders every top-level destination, including Sites', () => {
     renderNav('/overview');
-    for (const label of ['Dashboard', 'Sites', 'Monitoring', 'Security', 'Insights', 'Jobs', 'Activity', 'Settings']) {
+    for (const label of ['Dashboard', 'Sites', 'Monitoring', 'Security', 'Insights', 'Reports', 'Jobs', 'Activity', 'Settings']) {
       expect(screen.getByRole('link', { name: new RegExp(label, 'i') })).toBeInTheDocument();
     }
+  });
+
+  it('points Reports at /reports', () => {
+    renderNav('/overview');
+    expect(screen.getByRole('link', { name: /reports/i })).toHaveAttribute('href', '/reports');
   });
 
   it('points Sites at /sites', () => {

@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Globe, Activity, ShieldCheck, BarChart3, ListChecks, History, Settings,
+  LayoutDashboard, Globe, Activity, ShieldCheck, BarChart3, FileText, ListChecks, History, Settings,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -30,6 +30,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'Monitoring', to: '/monitoring', icon: Activity },
       { label: 'Security', to: '/security', icon: ShieldCheck },
       { label: 'Insights', to: '/insights', icon: BarChart3 },
+      { label: 'Reports', to: '/reports', icon: FileText },
     ],
   },
   {
