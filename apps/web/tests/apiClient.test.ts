@@ -107,6 +107,34 @@ describe('apiClient', () => {
     await expect(apiClient.get('/auth/me')).rejects.toMatchObject({ status: 401 });
   });
 
+  it('appends a unique cache-buster query param to GET requests (Kinsta page-cache bypass)', async () => {
+    setAccessToken('t');
+    const seen: (string | null)[] = [];
+    server.use(
+      http.get('*/wp-json/defyn/v1/auth/me', ({ request }) => {
+        seen.push(new URL(request.url).searchParams.get('_cb'));
+        return HttpResponse.json({ id: 1, email: 'x@x.test', display_name: 'X' }, { status: 200 });
+      }),
+    );
+    await apiClient.get('/auth/me');
+    await apiClient.get('/auth/me');
+    expect(seen[0]).toBeTruthy();
+    expect(seen[1]).toBeTruthy();
+    expect(seen[0]).not.toBe(seen[1]); // unique per request → a stale cache entry can never be reused
+  });
+
+  it('does NOT add a cache-buster to mutations (only GETs are page-cached)', async () => {
+    let cb: string | null = 'unset';
+    server.use(
+      http.post('*/wp-json/defyn/v1/auth/login', ({ request }) => {
+        cb = new URL(request.url).searchParams.get('_cb');
+        return HttpResponse.json({ access_token: 'x' }, { status: 200 });
+      }),
+    );
+    await apiClient.post('/auth/login', { email: 'a@b', password: 'p' });
+    expect(cb).toBeNull();
+  });
+
   it('does not infinite-loop on persistent 401 (refresh once, then give up)', async () => {
     setAccessToken('always.expired');
     let meAttempts = 0;

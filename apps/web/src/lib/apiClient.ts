@@ -10,6 +10,22 @@
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api/defyn/v1';
 
+// Kinsta's server page-cache caches token-authenticated REST GETs (no WP login
+// cookie → it treats them as anonymous), serving stale list/overview data after
+// any change. The app already sends `Cache-Control: no-store`, but Kinsta ignores
+// it for these routes — yet it bypasses its cache for URLs carrying a query
+// string. So append a unique cache-buster to every GET. The seed makes URLs
+// unique across page loads; the counter makes them unique within a session — so a
+// stale cache entry can never be reused even if Kinsta keys on the full query.
+const CACHE_BUSTER_PARAM = '_cb';
+const CACHE_BUSTER_SEED = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+let cacheBusterSeq = 0;
+
+function withCacheBuster(path: string): string {
+  const sep = path.includes('?') ? '&' : '?';
+  return `${path}${sep}${CACHE_BUSTER_PARAM}=${CACHE_BUSTER_SEED}${(++cacheBusterSeq).toString(36)}`;
+}
+
 let accessToken: string | null = null;
 
 export function setAccessToken(token: string | null): void {
@@ -51,7 +67,10 @@ async function request<T>(path: string, opts: RequestOptions, isRetry = false): 
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  // GETs get a cache-buster so Kinsta's page-cache never serves them stale; POST/
+  // PUT/PATCH/DELETE are never page-cached, so they go through untouched.
+  const url = opts.method === 'GET' ? withCacheBuster(path) : path;
+  const response = await fetch(`${API_BASE}${url}`, {
     method: opts.method,
     headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
@@ -106,7 +125,7 @@ export const apiClient = {
   async getBlob(path: string): Promise<Blob> {
     const headers: Record<string, string> = {};
     if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
-    const res = await fetch(`${API_BASE}${path}`, { headers, credentials: 'include' });
+    const res = await fetch(`${API_BASE}${withCacheBuster(path)}`, { headers, credentials: 'include' });
     if (!res.ok) throw new Error(`Download failed (${res.status})`);
     return res.blob();
   },
