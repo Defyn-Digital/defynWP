@@ -3,8 +3,8 @@
  * Plugin Name:       DefynWP Connector
  * Plugin URI:        https://defyn.dev
  * Description:       DefynWP — connector agent for managed WordPress sites. Pairs with the central DefynWP Dashboard.
- * Version:           0.1.9
- * Requires at least: 5.5
+ * Version:           0.2.0
+ * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            DefynWP
  * License:           GPL v2 or later
@@ -18,8 +18,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-$autoload = __DIR__ . '/vendor/autoload.php';
-if (!file_exists($autoload)) {
+$defyn_connector_autoload = __DIR__ . '/vendor/autoload.php';
+if (!file_exists($defyn_connector_autoload)) {
     add_action('admin_notices', static function (): void {
         echo '<div class="notice notice-error"><p>';
         echo '<strong>DefynWP Connector:</strong> Composer dependencies missing. ';
@@ -28,7 +28,7 @@ if (!file_exists($autoload)) {
     });
     return;
 }
-require_once $autoload;
+require_once $defyn_connector_autoload;
 
 if (!extension_loaded('sodium')) {
     add_action('admin_notices', static function (): void {
@@ -39,7 +39,7 @@ if (!extension_loaded('sodium')) {
     return;
 }
 
-define('DEFYN_CONNECTOR_VERSION', '0.1.9');
+define('DEFYN_CONNECTOR_VERSION', '0.2.0');
 define('DEFYN_CONNECTOR_FILE', __FILE__);
 define('DEFYN_CONNECTOR_DIR', __DIR__);
 

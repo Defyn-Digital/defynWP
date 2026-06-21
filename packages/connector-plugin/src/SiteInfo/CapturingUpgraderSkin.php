@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace Defyn\Connector\SiteInfo;
 
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 if (!class_exists(\WP_Upgrader_Skin::class)) {
     require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader-skin.php';
 }
