@@ -22,6 +22,8 @@ use Defyn\Dashboard\Rest\SitesReportDownloadController;
 use Defyn\Dashboard\Rest\SitesReportPdfController;
 use Defyn\Dashboard\Rest\SitesReportSendController;
 use Defyn\Dashboard\Rest\SitesReportsController;
+use Defyn\Dashboard\Rest\SitesBrokenLinksController;
+use Defyn\Dashboard\Rest\SitesLinksScanController;
 use Defyn\Dashboard\Rest\SitesPerformanceController;
 use Defyn\Dashboard\Rest\SitesPerformanceScanController;
 use Defyn\Dashboard\Rest\SitesAnalyticsController;
@@ -431,6 +433,20 @@ final class RestRouter
             'methods'             => 'POST',
             'callback'            => [new SitesPerformanceScanController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'performanceScan'],
+        ]);
+
+        // P7.1 — GET /sites/{id}/broken-links (latest scan results, read bucket 30/min)
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/broken-links', [
+            'methods'             => 'GET',
+            'callback'            => [new SitesBrokenLinksController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'linksRead'],
+        ]);
+
+        // P7.1 — POST /sites/{id}/links/scan (enqueue on-demand crawl, 202, 6/hr)
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/links/scan', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesLinksScanController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'linksScan'],
         ]);
 
         // P6.2 — GET /sites/{id}/analytics (latest snapshot + connection, read bucket)
