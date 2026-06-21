@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Outlet } from 'react-router-dom';
 import Login from './routes/Login';
 import Home from './routes/Home';
 import RequireAuth from './routes/RequireAuth';
@@ -16,27 +16,30 @@ import { Monitoring } from './routes/Monitoring';
 import { Security } from './routes/Security';
 import { Insights } from './routes/Insights';
 import { Settings } from './routes/Settings';
+import { AppShell } from './components/layout/AppShell';
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route element={<RequireAuth />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/overview" element={<Overview />} />
-        <Route path="/overview/plugins" element={<OverviewPlugins />} />
-        <Route path="/overview/themes" element={<OverviewThemes />} />
-        <Route path="/sites" element={<SitesList />} />
-        <Route path="/sites/add" element={<SiteAdd />} />
-        <Route path="/sites/:id" element={<SiteDetail />} />
-        <Route path="/sites/:id/report" element={<SiteReport />} />
-        <Route path="/jobs" element={<Jobs />} />
-        <Route path="/jobs/:id" element={<JobDetail />} />
-        <Route path="/activity" element={<Activity />} />
-        <Route path="/monitoring" element={<Monitoring />} />
-        <Route path="/security" element={<Security />} />
-        <Route path="/insights" element={<Insights />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route element={<AppShell><Outlet /></AppShell>}>
+          <Route path="/" element={<Home />} />
+          <Route path="/overview" element={<Overview />} />
+          <Route path="/overview/plugins" element={<OverviewPlugins />} />
+          <Route path="/overview/themes" element={<OverviewThemes />} />
+          <Route path="/sites" element={<SitesList />} />
+          <Route path="/sites/add" element={<SiteAdd />} />
+          <Route path="/sites/:id" element={<SiteDetail />} />
+          <Route path="/sites/:id/report" element={<SiteReport />} />
+          <Route path="/jobs" element={<Jobs />} />
+          <Route path="/jobs/:id" element={<JobDetail />} />
+          <Route path="/activity" element={<Activity />} />
+          <Route path="/monitoring" element={<Monitoring />} />
+          <Route path="/security" element={<Security />} />
+          <Route path="/insights" element={<Insights />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
       </Route>
     </Routes>
   );

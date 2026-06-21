@@ -3,11 +3,7 @@ import { PendingUpdatesWidget } from '@/components/overview/PendingUpdatesWidget
 import { SitesNeedingAttentionWidget } from '@/components/overview/SitesNeedingAttentionWidget'
 import { RecentActivityWidget } from '@/components/overview/RecentActivityWidget'
 import { SyncAllSitesButton } from '@/components/overview/SyncAllSitesButton'
-import { JobsNavLink } from '@/components/nav/JobsNavLink'
-import { MonitoringNavLink } from '@/components/nav/MonitoringNavLink'
-import { SecurityNavLink } from '@/components/nav/SecurityNavLink'
-import { InsightsNavLink } from '@/components/nav/InsightsNavLink'
-import { SettingsNavLink } from '@/components/nav/SettingsNavLink'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { BulkUpdatePluginsButton } from '@/components/overview/BulkUpdatePluginsButton'
 import { BulkUpdateThemesButton } from '@/components/overview/BulkUpdateThemesButton'
 import { formatRelativeTime } from '@/lib/formatRelativeTime'
@@ -50,24 +46,17 @@ export default function Overview() {
 
   return (
     <div className="space-y-4 p-4">
-      <div className="flex items-start justify-between">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-xl font-semibold">Overview</h1>
-          <JobsNavLink />
-          <MonitoringNavLink />
-          <SecurityNavLink />
-          <InsightsNavLink />
-          <SettingsNavLink />
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <p className="text-xs text-muted-foreground">
-            Last refreshed: {formatRelativeTime(data.generated_at)}
-          </p>
-          <SyncAllSitesButton totalSites={data.total_sites} />
-          <BulkUpdatePluginsButton pendingCount={data.pending_updates.plugins} />
-          <BulkUpdateThemesButton pendingCount={data.pending_updates.themes} />
-        </div>
-      </div>
+      <PageHeader
+        title="Overview"
+        subtitle={`Last refreshed: ${formatRelativeTime(data.generated_at)}`}
+        actions={
+          <>
+            <SyncAllSitesButton totalSites={data.total_sites} />
+            <BulkUpdatePluginsButton pendingCount={data.pending_updates.plugins} />
+            <BulkUpdateThemesButton pendingCount={data.pending_updates.themes} />
+          </>
+        }
+      />
 
       <OpenIncidentsWidget openIncidents={data.open_incidents} />
 
