@@ -11,6 +11,7 @@ import { ReportUpdates } from '@/components/report/ReportUpdates';
 import { ReportUptime } from '@/components/report/ReportUptime';
 import { ReportSecurity } from '@/components/report/ReportSecurity';
 import { downloadReportPdf } from '@/lib/downloadReportPdf';
+import { Button } from '@/components/ui/button';
 import '@/components/report/report-print.css';
 
 interface PresetButton {
@@ -40,81 +41,79 @@ export default function SiteReport() {
   const setTo = (to: string) => setRange((prev) => ({ ...prev, to }));
 
   return (
-    <div className="report-print-root min-h-screen bg-zinc-50 p-8">
+    <div className="report-print-root min-h-screen bg-muted/40 p-4 md:p-8">
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Controls — hidden on print via report-print.css */}
-        <div className="report-controls flex flex-wrap items-end gap-3 rounded-md border bg-white p-4">
+        <div className="report-controls flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4">
           <div className="flex flex-wrap gap-2">
             {PRESETS.map(({ preset, label }) => (
-              <button
+              <Button
                 key={preset}
-                type="button"
-                className="rounded-md border px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+                variant="outline"
+                size="sm"
                 onClick={() => setRange(presetRange(preset))}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
 
-          <label className="flex flex-col text-xs text-zinc-500">
+          <label className="flex flex-col text-xs text-muted-foreground">
             From
             <input
               type="date"
               value={range.from}
               onChange={(e) => setFrom(e.target.value)}
-              className="mt-1 rounded-md border px-2 py-1 text-sm text-zinc-800"
+              className="mt-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
             />
           </label>
-          <label className="flex flex-col text-xs text-zinc-500">
+          <label className="flex flex-col text-xs text-muted-foreground">
             To
             <input
               type="date"
               value={range.to}
               onChange={(e) => setTo(e.target.value)}
-              className="mt-1 rounded-md border px-2 py-1 text-sm text-zinc-800"
+              className="mt-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
             />
           </label>
 
-          <button
-            type="button"
-            className="ml-auto rounded-md border px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
             onClick={() => {
               setDownloadError(false);
               downloadReportPdf(siteId, range.from, range.to).catch(() => setDownloadError(true));
             }}
           >
             Download PDF
-          </button>
+          </Button>
 
-          <button
-            type="button"
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800"
-            onClick={() => window.print()}
-          >
+          <Button size="sm" onClick={() => window.print()}>
             Print / Save as PDF
-          </button>
+          </Button>
 
-          <Link
-            to={`/sites/${siteId}`}
-            className="rounded-md border px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
-          >
-            Back to site
-          </Link>
+          <Button variant="outline" size="sm" asChild>
+            <Link to={`/sites/${siteId}`}>Back to site</Link>
+          </Button>
         </div>
 
         {downloadError && (
-          <p className="report-controls text-sm text-red-600">Couldn&apos;t generate the PDF.</p>
+          <p className="report-controls rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            Couldn&apos;t generate the PDF.
+          </p>
         )}
 
-        {isLoading && <p className="text-sm text-zinc-500">Loading report…</p>}
+        {isLoading && <p className="text-sm text-muted-foreground">Loading report…</p>}
 
         {isError && (
-          <p className="text-sm text-red-600">Failed to load the report.</p>
+          <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            Failed to load the report.
+          </p>
         )}
 
         {!isLoading && !isError && data && (
-          <div className="space-y-6">
+          <div className="space-y-6 rounded-lg border border-border bg-card p-6 md:p-8">
             <ReportHeader site={data.site} period={data.period} />
             <ReportOverview overview={data.overview} />
             <ReportPerformance performance={data.performance} />
