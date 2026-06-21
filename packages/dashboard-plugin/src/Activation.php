@@ -202,6 +202,12 @@ final class Activation
             && as_next_scheduled_action(\Defyn\Dashboard\Jobs\AnalyticsSyncAll::HOOK, [], 'defyn') === false) {
             \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
         }
+
+        // P7.1 — ensure the weekly broken-link scan schedule exists on a silent upgrade.
+        if (function_exists('as_next_scheduled_action')
+            && as_next_scheduled_action(\Defyn\Dashboard\Jobs\LinkScanAll::HOOK, [], 'defyn') === false) {
+            \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
+        }
     }
 
     private static function canonicalTableExists(): bool
