@@ -86,6 +86,15 @@ final class RestRouter
             'args'                => AuthLoginController::args(),
         ]);
 
+        // Google Workspace SSO (2026-06-22): verifies a Google OIDC ID token,
+        // gates on hd=defyn.com.au, find-or-creates a WP user, and issues the
+        // same JWT pair as /auth/login. RateLimit::googleAuth is 30/MIN per IP.
+        register_rest_route(self::NAMESPACE, '/auth/google', [
+            'methods'             => 'POST',
+            'callback'            => [new AuthGoogleController(), 'handle'],
+            'permission_callback' => [RateLimit::class, 'googleAuth'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/auth/me', [
             'methods'             => 'GET',
             'callback'            => [new AuthMeController(), 'handle'],
