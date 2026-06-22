@@ -6,7 +6,7 @@ namespace Defyn\Connector\Links;
 /** P7.1 — best-effort HTTP check of a single URL. Never throws. */
 class LinkChecker
 {
-    private const TIMEOUT = 5;
+    private const TIMEOUT = 4;
     private const UA      = 'DefynWP-LinkChecker/1.0 (+https://defyn.dev)';
 
     /** @return array{status:?int, transport_error:bool} */
