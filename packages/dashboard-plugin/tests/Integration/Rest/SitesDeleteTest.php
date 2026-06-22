@@ -67,11 +67,11 @@ final class SitesDeleteTest extends AbstractSchemaTestCase
         self::assertNull((new SitesRepository())->findById($siteId));
     }
 
-    public function testNonOwnerCannotDeleteSite(): void
+    public function testAnyTeamMemberCanDeleteSite(): void
     {
-        // deleteForUser is intentionally kept user-scoped (2026-06-22 SSO spec).
-        // findByIdForUser is team-wide, but deleteForUser still checks user_id.
-        // Net effect: non-owner can find the site but delete returns 0 rows → 404.
+        // deleteForUser is now team-wide (2026-06-22 SSO de-scope).
+        // Both findByIdForUser and deleteForUser filter on id only — any admin
+        // can disconnect any site in the shared fleet.
         $ownerId  = self::factory()->user->create();
         $stranger = self::factory()->user->create();
         $token    = (new TokenService(DEFYN_JWT_SECRET))->issueAccess($stranger);
@@ -81,10 +81,10 @@ final class SitesDeleteTest extends AbstractSchemaTestCase
         $req->set_header('Authorization', 'Bearer ' . $token);
         $r = rest_do_request($req);
 
-        // deleteForUser is scoped — stranger cannot delete owner's site.
-        self::assertSame(404, $r->get_status());
-        // Site still exists.
-        self::assertNotNull((new SitesRepository())->findById($siteId));
+        // Team-wide: stranger successfully disconnects owner's site.
+        self::assertSame(204, $r->get_status());
+        // Row is gone.
+        self::assertNull((new SitesRepository())->findById($siteId));
     }
 
     public function testUnauthenticatedReturns401(): void

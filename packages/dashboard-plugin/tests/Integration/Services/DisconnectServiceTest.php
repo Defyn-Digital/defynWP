@@ -79,15 +79,18 @@ final class DisconnectServiceTest extends AbstractSchemaTestCase
         self::assertNull((new SitesRepository())->findById($siteId));
     }
 
-    public function testNonOwnerCannotDisconnect(): void
+    public function testAnyTeamMemberCanDisconnect(): void
     {
+        // Site created by user 1; user 999 (a different team member) must also be
+        // able to disconnect it in a shared fleet. Previously asserted false —
+        // flipped 2026-06-22 SSO de-scope: deleteForUser is now team-wide.
         $siteId = $this->makeActiveSite();
 
         $mock = new MockHttpClient(fn () => new MockResponse('', ['http_code' => 204]));
 
         $result = (new DisconnectService(new SignedHttpClient($mock)))->disconnect($siteId, 999);
 
-        self::assertFalse($result);
-        self::assertNotNull((new SitesRepository())->findById($siteId));
+        self::assertTrue($result);
+        self::assertNull((new SitesRepository())->findById($siteId));
     }
 }

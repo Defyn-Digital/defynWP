@@ -80,17 +80,20 @@ final class SitesRepository
     }
 
     /**
-     * User-scoped delete. Returns true if a row was deleted (caller is the owner),
-     * false if not found OR not owned. Caller must NOT echo "deleted" on false —
-     * use the same 404 envelope as an unowned-site lookup.
+     * Team-wide delete. Returns true if a row was deleted, false if not found.
+     * Caller must NOT echo "deleted" on false — use the same 404 envelope as a
+     * not-found lookup. The findByIdForUser gate (already team-wide) is the only
+     * ownership check; this method just removes the row unconditionally.
+     *
+     * Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
      */
     public function deleteForUser(int $id, int $userId): bool
     {
         global $wpdb;
         $affected = $wpdb->delete(
             SitesTable::tableName(),
-            ['id' => $id, 'user_id' => $userId],
-            ['%d', '%d'],
+            ['id' => $id],
+            ['%d'],
         );
         return (int) $affected === 1;
     }
@@ -159,14 +162,19 @@ final class SitesRepository
         return array_map('intval', $rows ?: []);
     }
 
+    /**
+     * Team-wide duplicate-URL check. Returns true if ANY site in the shared fleet
+     * matches $url (case-insensitive), regardless of who created it.
+     *
+     * Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+     */
     public function existsForUser(int $userId, string $url): bool
     {
         global $wpdb;
         $table = SitesTable::tableName();
         $count = (int) $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table} WHERE user_id = %d AND LOWER(url) = %s",
-                $userId,
+                "SELECT COUNT(*) FROM {$table} WHERE LOWER(url) = %s",
                 strtolower($url),
             ),
         );
