@@ -39,6 +39,25 @@ final class CorsTest extends WP_UnitTestCase
         self::assertSame(false, $served, 'apply must return the served bool unchanged (false)');
     }
 
+    /**
+     * Task 9: /auth/google is a defyn/v1/* route so Cors::apply must set the
+     * CORS origin header — locking this so a route refactor can't accidentally
+     * move it outside the defyn/v1 namespace and silently break the SPA.
+     */
+    public function testApplyAddsAccessControlAllowOriginHeaderForAuthGoogle(): void
+    {
+        $response = new WP_REST_Response(['access_token' => 'tok'], 200);
+        $request  = new WP_REST_Request('POST', '/defyn/v1/auth/google');
+        $server   = rest_get_server();
+
+        Cors::apply(false, $response, $request, $server);
+
+        $headers = $response->get_headers();
+        self::assertArrayHasKey('Access-Control-Allow-Origin', $headers);
+        self::assertSame(DEFYN_SPA_ORIGIN, $headers['Access-Control-Allow-Origin']);
+        self::assertSame('true', $headers['Access-Control-Allow-Credentials']);
+    }
+
     public function testApplyDoesNotAddHeadersForNonDefynRoutes(): void
     {
         $response = new WP_REST_Response(['ok' => true], 200);
