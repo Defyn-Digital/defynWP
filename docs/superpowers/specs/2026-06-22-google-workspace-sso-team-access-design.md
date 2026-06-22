@@ -11,7 +11,7 @@ Let **anyone with a `@defyn.com.au` Google Workspace account** sign in to the De
 ## Locked decisions (from brainstorm)
 
 1. **Access scope — shared team fleet (Approach C).** A single implicit team = the `defyn.com.au` org. The fleet (sites + all their data) is visible to every authenticated team member. Implemented by **dropping the per-user `WHERE user_id = %d` filter** from fleet queries — not by building a `teams`/`team_id` abstraction (YAGNI for one internal team). `user_id` stays on each row as a **"created by" attribution stamp**.
-2. **Sign-in — Google Workspace SSO.** "Sign in with Google," restricted to the `defyn.com.au` Workspace via the authoritative `hd` claim. Email/password login (`/auth/login`) is **kept as a break-glass fallback**.
+2. **Sign-in — Google Workspace SSO only.** "Sign in with Google," restricted to the `defyn.com.au` Workspace via the authoritative `hd` claim, is the **only** sign-in shown in the app. The email/password form is removed from the UI. `/auth/login` is **retained server-side as a hidden, domain-gated emergency break-glass** (no UI) so a Google outage or a misconfigured client ID cannot permanently lock the whole team out of a production tool that holds client keys.
 3. **Permissions — flat.** Every signed-in teammate is a full admin (connect/update/delete sites, reports, settings). The activity log is the accountability layer. No roles, no approval gate (both noted as future options).
 
 ## Non-goals (explicitly out of scope)
@@ -45,7 +45,7 @@ Let **anyone with a `@defyn.com.au` Google Workspace account** sign in to the De
 
 **Config:** `DEFYN_GOOGLE_CLIENT_ID` env constant, bootstrapped in `defyn-dashboard.php` using the existing optional-load pattern (mirrors `DEFYN_JWT_SECRET`/`DEFYN_VAULT_KEY`): if absent, the plugin still loads and only `/auth/google` fails with `503 auth.google_not_configured` + an admin notice. No client secret is needed (ID-token verification only checks `aud`).
 
-**Break-glass:** `POST /auth/login` (email/password via `PasswordVerifier`/`wp_authenticate`) is unchanged and remains available for the owner.
+**Break-glass (hidden, no UI):** `POST /auth/login` (email/password via `PasswordVerifier`/`wp_authenticate`) is retained and domain-gated, but is NOT surfaced anywhere in the SPA — it exists only as an emergency recovery path if Google SSO is unavailable. (If zero password surface is preferred, the endpoint can be removed entirely, at the cost of having no fallback against a total lockout.)
 
 ---
 
@@ -72,7 +72,7 @@ Let **anyone with a `@defyn.com.au` Google Workspace account** sign in to the De
 ## Section 3 — SPA login screen
 
 - Add a **"Sign in with Google"** button to `routes/Login.tsx` using Google Identity Services (`VITE_GOOGLE_CLIENT_ID`). On the credential callback, call a new `apiClient`/`AuthContext` path `loginWithGoogle(credential)` → `POST /auth/google` → store access token → navigate to `/overview`.
-- The existing **email/password form stays** as a secondary/break-glass option (e.g. below the Google button or behind a "Sign in another way" toggle).
+- The login screen shows **only** the "Sign in with Google" button — the email/password form is removed (clean SSO-only experience). The break-glass endpoint remains server-side but has no UI.
 - The account menu shows the **real person's** name/email (from `/auth/me`, already returns the authenticated user).
 - Visual: clean centered auth card with the Google button primary. (If the user supplies a specific login mockup, match it; otherwise default to the Branded-Navy design-system card.)
 
