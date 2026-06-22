@@ -83,7 +83,7 @@ final class ActivityListTest extends AbstractSchemaTestCase
         return rest_do_request($req);
     }
 
-    public function testReturnsUserScopedFeedNewestFirst(): void
+    public function testReturnsFeedNewestFirst(): void
     {
         $owner    = self::factory()->user->create();
         $stranger = self::factory()->user->create();
@@ -93,6 +93,7 @@ final class ActivityListTest extends AbstractSchemaTestCase
 
         $this->insertEvent($owner,    $ownerSite,    'site.connected', null, '2026-05-29 00:00:00');
         $this->insertEvent($owner,    $ownerSite,    'site.synced',    null, '2026-05-30 00:00:00');
+        // Team-wide: stranger's event is also visible in the fleet-wide feed.
         $this->insertEvent($stranger, $strangerSite, 'site.synced',    null, '2026-05-31 00:00:00');
 
         $response = $this->dispatch('/defyn/v1/activity', $owner);
@@ -100,10 +101,12 @@ final class ActivityListTest extends AbstractSchemaTestCase
         self::assertSame(200, $response->get_status());
         $body = $response->get_data();
         self::assertArrayHasKey('events', $body);
-        self::assertCount(2, $body['events']);
+        // Team-wide: all 3 events (including stranger's) are returned newest first.
+        self::assertCount(3, $body['events']);
         // Newest first.
-        self::assertSame('site.synced',    $body['events'][0]['event_type']);
-        self::assertSame('site.connected', $body['events'][1]['event_type']);
+        self::assertSame('site.synced',    $body['events'][0]['event_type']); // stranger's
+        self::assertSame('site.synced',    $body['events'][1]['event_type']); // owner's
+        self::assertSame('site.connected', $body['events'][2]['event_type']);
         // user_id is never exposed to the SPA.
         self::assertArrayNotHasKey('user_id', $body['events'][0]);
     }

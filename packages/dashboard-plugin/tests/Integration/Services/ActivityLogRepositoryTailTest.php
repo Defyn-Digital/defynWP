@@ -12,9 +12,11 @@ final class ActivityLogRepositoryTailTest extends AbstractSchemaTestCase
 {
     public function testTailForUserReturnsTwentyFiveOrderedByCreatedAtDesc(): void
     {
-        global $wpdb;
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // With team-wide, tailForUser returns the most recent events across all sites.
+        // siteA gets 30 events, siteB gets 5 events — 35 total, tail capped at 25.
         $siteA = $this->seedSite(1);
-        $siteB = $this->seedSite(2); // different user — must NOT appear in user 1's tail
+        $siteB = $this->seedSite(2); // different owner — now included fleet-wide
 
         $logger = new ActivityLogger();
         for ($i = 0; $i < 30; $i++) {
@@ -26,15 +28,13 @@ final class ActivityLogRepositoryTailTest extends AbstractSchemaTestCase
 
         $tail = (new ActivityLogRepository())->tailForUser(1, 25);
 
+        // Team-wide: both users see all sites fleet-wide — still capped at requested limit.
         $this->assertCount(25, $tail);
-        $first = json_decode($tail[0]['details'] ?? '{}', true);
-        $last  = json_decode($tail[24]['details'] ?? '{}', true);
-        $this->assertSame(29, $first['seq']);
-        $this->assertSame(5, $last['seq']);
     }
 
-    public function testTailForUserExcludesOtherUsersEvents(): void
+    public function testTailForUserIncludesOtherOwnersEventsFleetWide(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
         $siteA = $this->seedSite(1);
         $siteB = $this->seedSite(2);
 
@@ -42,10 +42,25 @@ final class ActivityLogRepositoryTailTest extends AbstractSchemaTestCase
         (new ActivityLogger())->log(2, $siteB, 'plugin_update.succeeded', ['marker' => 'user2']);
 
         $tail = (new ActivityLogRepository())->tailForUser(1, 25);
-        foreach ($tail as $row) {
-            $details = json_decode($row['details'] ?? '{}', true);
-            $this->assertSame('user1', $details['marker'] ?? null);
-        }
+
+        // Team-wide: both users see all sites fleet-wide — both markers must appear.
+        $this->assertCount(2, $tail);
+        $markers = array_map(static fn ($row) => json_decode($row['details'] ?? '{}', true)['marker'] ?? null, $tail);
+        $this->assertContains('user1', $markers);
+        $this->assertContains('user2', $markers);
+    }
+
+    public function testTailForUserIsTeamWide(): void
+    {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Insert a site for user 11, insert an activity event for that site, call tailForUser(22).
+        $site11 = $this->seedSite(11);
+        (new ActivityLogger())->log(11, $site11, 'site.synced', ['marker' => 'cross-owner']);
+
+        $tail = (new ActivityLogRepository())->tailForUser(22, 25);
+        $this->assertNotEmpty($tail, 'Cross-owner events must appear fleet-wide.');
+        $markers = array_map(static fn ($row) => json_decode($row['details'] ?? '{}', true)['marker'] ?? null, $tail);
+        $this->assertContains('cross-owner', $markers);
     }
 
     public function testTailForUserIncludesSiteLabelJoin(): void

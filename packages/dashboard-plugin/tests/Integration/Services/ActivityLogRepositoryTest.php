@@ -158,6 +158,7 @@ final class ActivityLogRepositoryTest extends AbstractSchemaTestCase
 
     public function testCountForUser(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
         $siteUser1 = $this->makeSite(1, 'https://a.test');
         $siteUser2 = $this->makeSite(2, 'https://b.test');
 
@@ -166,18 +167,45 @@ final class ActivityLogRepositoryTest extends AbstractSchemaTestCase
         $this->insertRow(2, $siteUser2, 'site.synced');
 
         $repo = new ActivityLogRepository();
-        self::assertSame(2, $repo->countForUser(1, null, null));
-        self::assertSame(1, $repo->countForUser(2, null, null));
+
+        // Team-wide: both users see all sites fleet-wide — all 3 events visible to each.
+        self::assertSame(3, $repo->countForUser(1, null, null));
+        self::assertSame(3, $repo->countForUser(2, null, null));
     }
 
-    public function testEventsForOtherUsersSiteDoNotLeak(): void
+    public function testEventsForOtherUsersSiteAreVisibleFleetWide(): void
     {
-        // Defense in depth: an event with user_id=2 + site_id of user 2's
-        // site must NOT appear for user 1's feed.
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // An event owned by user 2's site IS now visible to user 1 (fleet-wide).
         $siteUser2 = $this->makeSite(2, 'https://b.test');
         $this->insertRow(2, $siteUser2, 'site.synced');
 
         $events = (new ActivityLogRepository())->paginateForUser(1, null, null, 1, 50);
-        self::assertCount(0, $events);
+
+        // Team-wide: both users see all sites fleet-wide.
+        self::assertCount(1, $events);
+    }
+
+    public function testPaginateForUserIsTeamWide(): void
+    {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Insert an event for a site owned by user 11; call paginateForUser(22, ...) and assert it appears.
+        $site11 = $this->makeSite(11, 'https://team11.test');
+        $this->insertRow(11, $site11, 'site.synced', ['marker' => 'cross-owner']);
+
+        $events = (new ActivityLogRepository())->paginateForUser(22, null, null, 1, 50);
+        self::assertCount(1, $events);
+        self::assertSame('site.synced', $events[0]->eventType);
+    }
+
+    public function testCountForUserIsTeamWide(): void
+    {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Insert an event for a site owned by user 11; call countForUser(22, ...) and assert it is counted.
+        $site11 = $this->makeSite(11, 'https://team11b.test');
+        $this->insertRow(11, $site11, 'site.connected');
+
+        $repo = new ActivityLogRepository();
+        self::assertSame(1, $repo->countForUser(22, null, null));
     }
 }

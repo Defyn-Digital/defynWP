@@ -95,7 +95,12 @@ final class ActivityLogRepository
         global $wpdb;
         [$where, $args] = $this->buildWhere($userId, $siteId, $eventType);
         $table = ActivityLogTable::tableName();
+        // phpcs:ignore WordPress.DB.PreparedSQL
         $sql = "SELECT COUNT(*) FROM {$table} a {$where}";
+        if (empty($args)) {
+            // phpcs:ignore WordPress.DB.PreparedSQL
+            return (int) $wpdb->get_var($sql);
+        }
         return (int) $wpdb->get_var($wpdb->prepare($sql, ...$args));
     }
 
@@ -116,17 +121,16 @@ final class ActivityLogRepository
         $activityTable = ActivityLogTable::tableName();
         $sitesTable    = SitesTable::tableName();
 
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT a.id, a.site_id, s.label AS site_label, a.event_type, a.details, a.created_at
              FROM {$activityTable} a
-             LEFT JOIN {$sitesTable} s ON s.id = a.site_id AND s.user_id = %d
-             WHERE EXISTS (
-                SELECT 1 FROM {$sitesTable} s2
-                WHERE s2.id = a.site_id AND s2.user_id = %d
-             )
+             LEFT JOIN {$sitesTable} s ON s.id = a.site_id
+             WHERE a.site_id IS NOT NULL
              ORDER BY a.created_at DESC, a.id DESC
              LIMIT %d",
-            $userId, $userId, $limit
+            $limit
         ), ARRAY_A);
 
         return $rows ?: [];
@@ -197,10 +201,9 @@ final class ActivityLogRepository
      */
     private function buildWhere(int $userId, ?int $siteId, ?string $eventType): array
     {
-        $sitesTable = SitesTable::tableName();
-        // An event belongs to user U if user_id=U OR site_id belongs to one of U's sites.
-        $clauses = ["(a.user_id = %d OR a.site_id IN (SELECT id FROM {$sitesTable} WHERE user_id = %d))"];
-        $args    = [$userId, $userId];
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        $clauses = ['1=1'];
+        $args    = [];
 
         if ($siteId !== null) {
             $clauses[] = "a.site_id = %d";
