@@ -8,7 +8,7 @@ final class BrokenLinkScanner
     public const MAX_POSTS    = 500;
     public const MAX_LINKS    = 3000;
     public const MAX_FINDINGS = 2000;
-    public const MAX_SECONDS  = 90;
+    public const MAX_SECONDS  = 20;
 
     public function __construct(
         private readonly LinkExtractor $extractor = new LinkExtractor(),

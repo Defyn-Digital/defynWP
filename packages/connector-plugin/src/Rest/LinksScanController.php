@@ -13,6 +13,9 @@ final class LinksScanController
 
     public function handle(WP_REST_Request $request): WP_REST_Response
     {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(120);
+        }
         ob_start();
         try {
             $data                = $this->scanner->scan();
