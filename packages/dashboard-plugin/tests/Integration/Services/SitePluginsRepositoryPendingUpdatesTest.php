@@ -56,7 +56,7 @@ final class SitePluginsRepositoryPendingUpdatesTest extends AbstractSchemaTestCa
         $this->assertSame('5.3.1', $akismet['target_version']);
     }
 
-    public function testFindAllPendingUpdatesForUserExcludesOtherUsers(): void
+    public function testFindAllPendingUpdatesForUserIsTeamWide(): void
     {
         $siteA = $this->seedSite(1, 'SmartCoding');
         $siteB = $this->seedSite(2, 'NotMine');
@@ -64,13 +64,21 @@ final class SitePluginsRepositoryPendingUpdatesTest extends AbstractSchemaTestCa
         $this->seedPlugin($siteA, 'akismet', 'Akismet', '5.3', '5.3.1', true);
         $this->seedPlugin($siteB, 'yoast',   'Yoast',   '22.5', '22.6', true);
 
+        // Team-wide: both users see all pending updates regardless of ownership.
         $rows = (new SitePluginsRepository())->findAllPendingUpdatesForUser(1);
+        $this->assertCount(2, $rows); // team-wide: sees all pending updates
+        $rows2 = (new SitePluginsRepository())->findAllPendingUpdatesForUser(2);
+        $this->assertCount(2, $rows2); // team-wide: same result regardless of user id
+    }
+
+    public function testFindAllPendingUpdatesIsTeamWide(): void
+    {
+        $siteA = $this->seedSite(11, 'UserA-Site');
+        $this->seedPlugin($siteA, 'akismet', 'Akismet', '5.3', '5.3.1', true);
+        // User 22 calls the method but gets user 11's pending updates (team-wide)
+        $rows = (new SitePluginsRepository())->findAllPendingUpdatesForUser(22);
         $this->assertCount(1, $rows);
         $this->assertSame('akismet', $rows[0]['slug']);
-
-        $rows2 = (new SitePluginsRepository())->findAllPendingUpdatesForUser(2);
-        $this->assertCount(1, $rows2);
-        $this->assertSame('yoast', $rows2[0]['slug']);
     }
 
     private function seedSite(int $userId, string $label): int
