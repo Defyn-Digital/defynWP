@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Rest;
 
+use Defyn\Dashboard\Auth\DomainPolicy;
 use Defyn\Dashboard\Auth\Exceptions\InvalidCredentialsException;
 use Defyn\Dashboard\Auth\PasswordVerifier;
 use Defyn\Dashboard\Auth\RefreshTokenStore;
@@ -51,6 +52,15 @@ final class AuthLoginController
             // controller, so we never log a rate-limited attempt here.
             (new ActivityLogger())->log(null, null, 'auth.login_failed', ['email' => $email], $ip);
             return ErrorResponse::create(401, 'auth.invalid_credentials', 'Invalid email or password.');
+        }
+
+        // Task 8 (2026-06-22): break-glass login is domain-gated to @defyn.com.au.
+        // Password verification already passed — we reject here (not earlier) so
+        // the response time is indistinguishable from a legitimate domain user
+        // being rejected for a bad password (both take the DB round-trip cost).
+        $user = get_userdata($userId);
+        if (!$user || !DomainPolicy::isAllowedEmail((string) $user->user_email)) {
+            return ErrorResponse::create(403, 'auth.domain_forbidden', 'This account is not permitted to sign in.');
         }
 
         $tokens = new TokenService(DEFYN_JWT_SECRET);

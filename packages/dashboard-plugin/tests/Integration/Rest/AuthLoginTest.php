@@ -31,14 +31,15 @@ final class AuthLoginTest extends WP_UnitTestCase
 
     public function testLoginWithValidCredentialsReturns200AndAccessToken(): void
     {
+        // Task 8: break-glass login is now domain-gated — only @defyn.com.au allowed.
         self::factory()->user->create([
-            'user_email' => 'login@defyn.test',
+            'user_email' => 'breakglass@defyn.com.au',
             'user_pass'  => self::PASSWORD,
         ]);
 
         $request = new WP_REST_Request('POST', '/defyn/v1/auth/login');
         $request->set_header('Content-Type', 'application/json');
-        $request->set_body(json_encode(['email' => 'login@defyn.test', 'password' => self::PASSWORD]));
+        $request->set_body(json_encode(['email' => 'breakglass@defyn.com.au', 'password' => self::PASSWORD]));
 
         $response = rest_do_request($request);
 
@@ -51,13 +52,13 @@ final class AuthLoginTest extends WP_UnitTestCase
     public function testLoginWithBadPasswordReturns401(): void
     {
         self::factory()->user->create([
-            'user_email' => 'login2@defyn.test',
+            'user_email' => 'login2@defyn.com.au',
             'user_pass'  => self::PASSWORD,
         ]);
 
         $request = new WP_REST_Request('POST', '/defyn/v1/auth/login');
         $request->set_header('Content-Type', 'application/json');
-        $request->set_body(json_encode(['email' => 'login2@defyn.test', 'password' => 'wrong']));
+        $request->set_body(json_encode(['email' => 'login2@defyn.com.au', 'password' => 'wrong']));
 
         $response = rest_do_request($request);
 
@@ -76,5 +77,23 @@ final class AuthLoginTest extends WP_UnitTestCase
         $response = rest_do_request($request);
 
         self::assertSame(400, $response->get_status());
+    }
+
+    /**
+     * Task 8: break-glass /auth/login must reject accounts outside @defyn.com.au.
+     */
+    public function testRejectsNonDefynDomainWith403(): void
+    {
+        self::factory()->user->create(['user_email' => 'outsider@gmail.com', 'user_pass' => 'pw']);
+
+        $request = new WP_REST_Request('POST', '/defyn/v1/auth/login');
+        $request->set_header('Content-Type', 'application/json');
+        $request->set_body(json_encode(['email' => 'outsider@gmail.com', 'password' => 'pw']));
+
+        $response = rest_do_request($request);
+
+        self::assertSame(403, $response->get_status());
+        $data = $response->get_data();
+        self::assertSame('auth.domain_forbidden', $data['error']['code']);
     }
 }
