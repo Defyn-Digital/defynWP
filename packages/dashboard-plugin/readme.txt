@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 5.5
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.28.0
+Stable tag: 0.29.0
 License: Proprietary
 License URI: https://defyn.dev/license
 

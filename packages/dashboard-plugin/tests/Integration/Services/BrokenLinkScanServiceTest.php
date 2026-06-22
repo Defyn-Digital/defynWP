@@ -99,11 +99,16 @@ final class BrokenLinkScanServiceTest extends AbstractSchemaTestCase
             "SELECT COUNT(*) FROM {$wpdb->prefix}defyn_activity_log WHERE event_type = 'links.scan_completed'"
         );
         self::assertSame(1, $eventCount, 'Expected exactly ONE links.scan_completed activity event');
+
+        $failedCount = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}defyn_activity_log WHERE event_type = 'links.scan_failed'"
+        );
+        self::assertSame(0, $failedCount, 'No links.scan_failed event should be logged on a successful scan');
     }
 
     /**
      * Connector transport error: scan returns error string.
-     * Expects: zero link rows, last_link_scan_at IS set, ZERO activity rows.
+     * Expects: zero link rows, last_link_scan_at IS set, ONE links.scan_failed row, ZERO links.scan_completed rows.
      */
     public function testConnectorErrorStoresNothingButStillSetsScannedAt(): void
     {
@@ -125,15 +130,20 @@ final class BrokenLinkScanServiceTest extends AbstractSchemaTestCase
         self::assertNotNull($site->lastLinkScanAt, 'last_link_scan_at must be set even when connector errors');
 
         global $wpdb;
-        $eventCount = (int) $wpdb->get_var(
+        $failedCount = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}defyn_activity_log WHERE event_type = 'links.scan_failed'"
+        );
+        self::assertSame(1, $failedCount, 'Expected exactly ONE links.scan_failed activity event on connector error');
+
+        $completedCount = (int) $wpdb->get_var(
             "SELECT COUNT(*) FROM {$wpdb->prefix}defyn_activity_log WHERE event_type = 'links.scan_completed'"
         );
-        self::assertSame(0, $eventCount, 'No activity event should be logged when connector errors');
+        self::assertSame(0, $completedCount, 'No links.scan_completed event should be logged when connector errors');
     }
 
     /**
      * Old connector (no route): 404 response with rest_no_route body.
-     * Expects: same as error case — nothing stored, scannedAt set, no event.
+     * Expects: nothing stored, scannedAt set, ONE links.scan_failed row, ZERO links.scan_completed rows.
      */
     public function testOldConnector404StoresNothing(): void
     {
@@ -155,9 +165,14 @@ final class BrokenLinkScanServiceTest extends AbstractSchemaTestCase
         self::assertNotNull($site->lastLinkScanAt, 'last_link_scan_at must be set even when connector returns 404');
 
         global $wpdb;
-        $eventCount = (int) $wpdb->get_var(
+        $failedCount = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}defyn_activity_log WHERE event_type = 'links.scan_failed'"
+        );
+        self::assertSame(1, $failedCount, 'Expected exactly ONE links.scan_failed activity event when connector returns 404');
+
+        $completedCount = (int) $wpdb->get_var(
             "SELECT COUNT(*) FROM {$wpdb->prefix}defyn_activity_log WHERE event_type = 'links.scan_completed'"
         );
-        self::assertSame(0, $eventCount, 'No activity event should be logged when connector returns 404');
+        self::assertSame(0, $completedCount, 'No links.scan_completed event should be logged when connector returns 404');
     }
 }
