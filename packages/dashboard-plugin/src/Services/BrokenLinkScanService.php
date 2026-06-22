@@ -61,10 +61,14 @@ final class BrokenLinkScanService
         // Always advance "last checked", even on failure.
         $sites->markLinkScannedAt($siteId, $now);
 
-        if (($resp['error'] ?? '') !== ''
-            || (int) ($resp['status'] ?? 0) !== 200
-            || !is_array($resp['body']['links'] ?? null)) {
-            return; // best-effort failure: store nothing, log nothing
+        $err    = (string) ($resp['error'] ?? '');
+        $status = (int) ($resp['status'] ?? 0);
+        if ($err !== '' || $status !== 200 || !is_array($resp['body']['links'] ?? null)) {
+            (new ActivityLogger())->log($site->userId, $siteId, 'links.scan_failed', [
+                'status' => $status,
+                'error'  => substr($err !== '' ? $err : 'unexpected response shape', 0, 500),
+            ]);
+            return;
         }
 
         $repo = $this->repo ?? new BrokenLinksRepository();
