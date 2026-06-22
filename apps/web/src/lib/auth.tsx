@@ -16,6 +16,7 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -42,6 +43,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const loginWithGoogle = React.useCallback(async (credential: string) => {
+    setState((s) => ({ ...s, status: 'authenticating' }));
+    try {
+      const { access_token } = await apiClient.post<LoginResponse>('/auth/google', { credential });
+      setAccessToken(access_token);
+      const user = await apiClient.get<User>('/auth/me');
+      setState({ status: 'authenticated', user });
+    } catch (e) {
+      clearAccessToken();
+      setState({ status: 'unauthenticated', user: null });
+      throw e;
+    }
+  }, []);
+
   const logout = React.useCallback(async () => {
     try {
       await apiClient.post('/auth/logout');
@@ -53,8 +68,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = React.useMemo<AuthContextValue>(
-    () => ({ ...state, login, logout }),
-    [state, login, logout],
+    () => ({ ...state, login, loginWithGoogle, logout }),
+    [state, login, loginWithGoogle, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
