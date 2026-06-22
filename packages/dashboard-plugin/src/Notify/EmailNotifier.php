@@ -8,9 +8,10 @@ use Defyn\Dashboard\Models\Site;
 use Throwable;
 
 /**
- * P3.1 — emails the site owner on incident open/close. Best-effort: a wp_mail
- * failure is swallowed (logged) and never propagates into the HealthService
- * ping loop (guardrail 6). Recipient is the OWNER's user email (guardrail 7).
+ * P3.1 — emails the team-wide alert address on incident open/close. Best-effort:
+ * a wp_mail failure is swallowed (logged) and never propagates into the HealthService
+ * ping loop. Recipient is the shared `defyn_alert_email` option; falls back to
+ * `admin_email` (WP built-in) when the option is empty.
  */
 final class EmailNotifier implements Notifier
 {
@@ -80,7 +81,7 @@ final class EmailNotifier implements Notifier
 
     private function send(Site $site, string $subject, string $body): void
     {
-        $to = $this->ownerEmail($site->userId);
+        $to = $this->alertEmail();
         if ($to === '') {
             return;
         }
@@ -91,10 +92,18 @@ final class EmailNotifier implements Notifier
         }
     }
 
-    private function ownerEmail(int $userId): string
+    /**
+     * Resolves the team-wide monitoring alert recipient.
+     * Reads the shared `defyn_alert_email` option; falls back to the WP
+     * `admin_email` option (the site admin — a sane team default) when unset.
+     */
+    private function alertEmail(): string
     {
-        $user = get_userdata($userId);
-        return ($user && is_email($user->user_email)) ? (string) $user->user_email : '';
+        $email = (string) get_option('defyn_alert_email', '');
+        if ($email === '') {
+            $email = (string) get_option('admin_email', '');
+        }
+        return is_email($email) ? $email : '';
     }
 
     private function humanDuration(int $seconds): string

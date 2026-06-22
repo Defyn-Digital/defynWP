@@ -14,6 +14,8 @@ use WP_REST_Request;
  * Tests call handleGet / handleSet DIRECTLY with a pre-populated
  * _authenticated_user_id param, bypassing the RateLimit permission_callback.
  *
+ * The Slack webhook is now stored as a shared site option (team-wide).
+ *
  * @group integration
  */
 final class SettingsControllerTest extends AbstractSchemaTestCase
@@ -26,6 +28,14 @@ final class SettingsControllerTest extends AbstractSchemaTestCase
         if (!defined('DEFYN_JWT_SECRET')) {
             define('DEFYN_JWT_SECRET', 'test-secret-32-chars-padding-padding');
         }
+
+        delete_option('defyn_slack_webhook_url');
+    }
+
+    protected function tearDown(): void
+    {
+        delete_option('defyn_slack_webhook_url');
+        parent::tearDown();
     }
 
     // -------------------------------------------------------------------------
@@ -120,25 +130,28 @@ final class SettingsControllerTest extends AbstractSchemaTestCase
     }
 
     // -------------------------------------------------------------------------
-    // User isolation — operator A's webhook must not be visible to operator B
+    // Team-wide — webhook set by one user is visible to all team members
     // -------------------------------------------------------------------------
 
-    public function testWebhookIsScopedPerUser(): void
+    public function testWebhookIsSharedAcrossTeamMembers(): void
     {
         $userA = self::factory()->user->create();
         $userB = self::factory()->user->create();
 
-        // Set for A.
+        // User A sets the team-wide webhook.
         $set = new WP_REST_Request('POST', '/defyn/v1/settings/slack-webhook');
         $set->set_param('_authenticated_user_id', $userA);
         $set->set_body(json_encode(['webhook_url' => 'https://hooks.slack.com/services/A/A/a']));
         $set->set_header('Content-Type', 'application/json');
         (new SettingsController())->handleSet($set);
 
-        // B should see null.
+        // User B must see the SAME webhook (team-wide, not per-user).
         $get = new WP_REST_Request('GET', '/defyn/v1/settings');
         $get->set_param('_authenticated_user_id', $userB);
-        self::assertNull((new SettingsController())->handleGet($get)->get_data()['slack_webhook_url']);
+        self::assertSame(
+            'https://hooks.slack.com/services/A/A/a',
+            (new SettingsController())->handleGet($get)->get_data()['slack_webhook_url']
+        );
     }
 
     // -------------------------------------------------------------------------
