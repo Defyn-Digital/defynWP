@@ -80,9 +80,11 @@ final class AuthLoginTest extends WP_UnitTestCase
     }
 
     /**
-     * Task 8: break-glass /auth/login must reject accounts outside @defyn.com.au.
+     * Task 8: break-glass /auth/login must reject accounts outside @defyn.com.au
+     * with a uniform 401 (not 403) so a wrong-domain rejection is indistinguishable
+     * from a bad password — no credential-validity oracle.
      */
-    public function testRejectsNonDefynDomainWith403(): void
+    public function testRejectsNonDefynDomainWithUniform401(): void
     {
         self::factory()->user->create(['user_email' => 'outsider@gmail.com', 'user_pass' => 'pw']);
 
@@ -92,8 +94,8 @@ final class AuthLoginTest extends WP_UnitTestCase
 
         $response = rest_do_request($request);
 
-        self::assertSame(403, $response->get_status());
+        self::assertSame(401, $response->get_status());
         $data = $response->get_data();
-        self::assertSame('auth.domain_forbidden', $data['error']['code']);
+        self::assertSame('auth.invalid_credentials', $data['error']['code']);
     }
 }

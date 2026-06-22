@@ -60,7 +60,8 @@ final class AuthLoginController
         // being rejected for a bad password (both take the DB round-trip cost).
         $user = get_userdata($userId);
         if (!$user || !DomainPolicy::isAllowedEmail((string) $user->user_email)) {
-            return ErrorResponse::create(403, 'auth.domain_forbidden', 'This account is not permitted to sign in.');
+            // Uniform 401 (not 403) so a wrong-domain rejection is indistinguishable from a bad password — no credential-validity oracle.
+            return ErrorResponse::create(401, 'auth.invalid_credentials', 'Invalid email or password.');
         }
 
         $tokens = new TokenService(DEFYN_JWT_SECRET);
