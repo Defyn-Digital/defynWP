@@ -85,4 +85,16 @@ final class RateLimitTest extends WP_UnitTestCase
         self::assertSame(429, $result->get_error_data()['status']);
         self::assertSame('monitoring.rate_limited', $result->get_error_code());
     }
+
+    public function testGoogleAuthLimitsPerIp(): void
+    {
+        $_SERVER['REMOTE_ADDR'] = '203.0.113.9';
+        $req = new \WP_REST_Request('POST', '/defyn/v1/auth/google');
+        for ($i = 0; $i < 30; $i++) {
+            $this->assertTrue(\Defyn\Dashboard\Rest\Middleware\RateLimit::googleAuth($req));
+        }
+        $err = \Defyn\Dashboard\Rest\Middleware\RateLimit::googleAuth($req);
+        $this->assertInstanceOf(\WP_Error::class, $err);
+        $this->assertSame(429, $err->get_error_data()['status']);
+    }
 }
