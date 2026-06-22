@@ -19,6 +19,24 @@ export const handlers = [
     return HttpResponse.json({ access_token: 'fake.access.token' }, { status: 200 });
   }),
 
+  // /auth/google — Google SSO sign-in (2026-06-22).
+  http.post('*/wp-json/defyn/v1/auth/google', async ({ request }) => {
+    const body = (await request.json()) as { credential?: string };
+    if (!body.credential) {
+      return HttpResponse.json(
+        { error: { code: 'auth.google_missing_credential', message: 'A Google credential is required.' } },
+        { status: 400 },
+      );
+    }
+    if (body.credential === 'wrong-domain') {
+      return HttpResponse.json(
+        { error: { code: 'auth.google_domain', message: 'Only defyn.com.au accounts may sign in.' } },
+        { status: 403 },
+      );
+    }
+    return HttpResponse.json({ access_token: 'fake.access.token' }, { status: 200 });
+  }),
+
   // /auth/me returns a fixed user when given any Bearer token.
   http.get('*/wp-json/defyn/v1/auth/me', ({ request }) => {
     const auth = request.headers.get('Authorization') ?? '';
