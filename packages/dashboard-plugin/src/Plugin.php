@@ -30,6 +30,7 @@ use Defyn\Dashboard\Jobs\UpdateSiteCore;
 use Defyn\Dashboard\Jobs\UpdateSitePlugin;
 use Defyn\Dashboard\Jobs\UpdateSiteTheme;
 use Defyn\Dashboard\Rest\RestRouter;
+use Defyn\Dashboard\Services\BrandingService;
 
 /**
  * Singleton bootstrap. Wires up activation hooks now;
@@ -59,6 +60,11 @@ final class Plugin
         // accidentally fire the Uninstaller or fail to re-fire register_activation_hook.
         // Eliminates the manual deact+react step from the upgrade runbook.
         add_action('plugins_loaded', [Activation::class, 'maybeRunSelfHeal']);
+
+        // SSO — one-time migration: copy legacy per-user branding meta (user 1)
+        // into the shared site options so the whole team sees the operator's brand.
+        // Guarded internally by the defyn_branding_migrated option; no-op after first run.
+        add_action('plugins_loaded', [BrandingService::class, 'migrateLegacyToShared']);
 
         add_action('rest_api_init', static function (): void {
             (new RestRouter())->register();
