@@ -169,14 +169,14 @@ final class BrokenLinksRepository
         $bl    = SiteBrokenLinksTable::tableName();
         $sites = SitesTable::tableName();
 
-        $count = $wpdb->get_var($wpdb->prepare(
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        $count = $wpdb->get_var(
             "SELECT COUNT(DISTINCT bl.site_id)
                FROM {$bl} bl
                JOIN {$sites} s ON s.id = bl.site_id
-              WHERE s.user_id=%d
-                AND bl.severity='broken'",
-            $userId
-        ));
+              WHERE bl.severity='broken'"
+        );
 
         return (int) $count;
     }

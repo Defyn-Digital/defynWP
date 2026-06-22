@@ -198,6 +198,31 @@ final class BrokenLinksRepositoryTest extends AbstractSchemaTestCase
         );
     }
 
+    public function testCountSitesWithBrokenLinksIsTeamWide(): void
+    {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Seed a site owned by user 11 with a broken link; query as user 22.
+        $this->seedSite(50, 11);
+        $repo   = new BrokenLinksRepository();
+        $scanAt = '2026-06-22 00:00:00';
+
+        $repo->upsertForSite(50, [
+            'url'         => 'https://team.test/404',
+            'source_url'  => 'https://team.test/',
+            'severity'    => 'broken',
+            'reason'      => 'not_found',
+            'link_type'   => 'external',
+            'status_code' => 404,
+        ], $scanAt);
+
+        // Team-wide: both users see all sites fleet-wide.
+        self::assertSame(
+            1,
+            $repo->countSitesWithBrokenLinksForUser(22),
+            'Cross-owner broken-link count must be visible fleet-wide.'
+        );
+    }
+
     public function testFindForSiteBrokenFirst(): void
     {
         $this->seedSite(1);
