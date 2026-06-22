@@ -94,6 +94,17 @@ if (!defined('DEFYN_GA4_SERVICE_ACCOUNT_JSON')) {
     }
 }
 
+// Google Workspace SSO (2026-06-22): the OAuth client ID used to verify the
+// `aud` of incoming Google ID tokens. Public value (also in the SPA). When
+// absent, /auth/google returns 503 auth.google_not_configured; the plugin still
+// loads and email/password break-glass login is unaffected.
+if (!defined('DEFYN_GOOGLE_CLIENT_ID')) {
+    $envGoogleClientId = getenv('DEFYN_GOOGLE_CLIENT_ID');
+    if ($envGoogleClientId !== false && $envGoogleClientId !== '') {
+        define('DEFYN_GOOGLE_CLIENT_ID', $envGoogleClientId);
+    }
+}
+
 // Action Scheduler: loaded before Plugin::boot() so as_schedule_single_action()
 // and the hook system are available when controllers / Plugin::boot() reference them.
 // Loading is idempotent — if another plugin loaded AS first (its own copy ships
