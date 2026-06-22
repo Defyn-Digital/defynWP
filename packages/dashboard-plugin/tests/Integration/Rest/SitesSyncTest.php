@@ -53,8 +53,9 @@ final class SitesSyncTest extends AbstractSchemaTestCase
         self::assertNotFalse(as_next_scheduled_action(SyncSite::HOOK, [$siteId], 'defyn'));
     }
 
-    public function testNonOwnerReturns404(): void
+    public function testTeamMemberCanSyncSite(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
         $ownerId  = self::factory()->user->create();
         $stranger = self::factory()->user->create();
         $token    = (new TokenService(DEFYN_JWT_SECRET))->issueAccess($stranger);
@@ -64,11 +65,10 @@ final class SitesSyncTest extends AbstractSchemaTestCase
         $req->set_header('Authorization', 'Bearer ' . $token);
         $r = rest_do_request($req);
 
-        self::assertSame(404, $r->get_status());
-        self::assertSame('sites.not_found', $r->get_data()['error']['code']);
+        self::assertSame(202, $r->get_status());
 
-        // No job should have been scheduled for an unauthorized request.
-        self::assertFalse(as_next_scheduled_action(SyncSite::HOOK, [$siteId], 'defyn'));
+        // Job is scheduled — team member access is now granted.
+        self::assertNotFalse(as_next_scheduled_action(SyncSite::HOOK, [$siteId], 'defyn'));
     }
 
     public function testUnauthenticatedReturns401(): void

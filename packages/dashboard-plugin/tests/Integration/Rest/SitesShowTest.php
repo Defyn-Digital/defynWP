@@ -45,7 +45,7 @@ final class SitesShowTest extends AbstractSchemaTestCase
         self::assertArrayNotHasKey('our_private_key', $data);
     }
 
-    public function testReturns404ForOtherUsersSite(): void
+    public function testReturns200ForOtherUsersSite(): void
     {
         $ownerId   = self::factory()->user->create();
         $stranger  = self::factory()->user->create();
@@ -56,8 +56,8 @@ final class SitesShowTest extends AbstractSchemaTestCase
         $req->set_header('Authorization', 'Bearer ' . $token);
         $r = rest_do_request($req);
 
-        self::assertSame(404, $r->get_status());
-        self::assertSame('sites.not_found', $r->get_data()['error']['code']);
+        // findByIdForUser is now team-wide (2026-06-22 SSO): any authenticated user can access any site
+        self::assertSame(200, $r->get_status());
     }
 
     public function testReturns404ForNonExistentId(): void

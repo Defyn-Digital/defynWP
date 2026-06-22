@@ -126,11 +126,11 @@ final class OverviewSyncAllControllerTest extends AbstractSchemaTestCase
         );
     }
 
-    public function testOwnershipScopingExcludesOtherUsersSites(): void
+    public function testTeamWideFleetIncludesAllSites(): void
     {
         $this->seedSite(1);
         $this->seedSite(1);
-        $this->seedSite(2); // user 2's site — must NOT be in user 1's fan-out
+        $this->seedSite(2); // user 2's site — included in fleet-wide fan-out
         $token = $this->token(1);
 
         $request = new WP_REST_Request('POST', '/defyn/v1/overview/sync-all');
@@ -138,7 +138,9 @@ final class OverviewSyncAllControllerTest extends AbstractSchemaTestCase
         $response = rest_do_request($request);
 
         $body = $response->get_data();
-        $this->assertSame(2, $body['scheduled_count']);
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // All 3 sites (2 for user 1 + 1 for user 2) are fanned-out fleet-wide.
+        $this->assertSame(3, $body['scheduled_count']);
     }
 
     public function testFanOutSchedulesSyncSiteJobPerSite(): void

@@ -75,11 +75,8 @@ final class SitesRepository
 
     public function findByIdForUser(int $id, int $userId): ?Site
     {
-        $site = $this->findById($id);
-        if ($site === null || $site->userId !== $userId) {
-            return null;
-        }
-        return $site;
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        return $this->findById($id);
     }
 
     /**
@@ -103,36 +100,35 @@ final class SitesRepository
     {
         global $wpdb;
 
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
         if ($filter === 'has-plugin-updates') {
             $pluginsTable = $wpdb->prefix . 'defyn_site_plugins';
-            $rows = $wpdb->get_results($wpdb->prepare(
+            $rows = $wpdb->get_results(
                 "SELECT s.* FROM {$this->table} s
-                 WHERE s.user_id = %d
-                   AND EXISTS (SELECT 1 FROM {$pluginsTable} sp WHERE sp.site_id = s.id AND sp.update_available = 1)
+                 WHERE EXISTS (SELECT 1 FROM {$pluginsTable} sp WHERE sp.site_id = s.id AND sp.update_available = 1)
                  ORDER BY s.id ASC",
-                $userId
-            ), ARRAY_A);
+                ARRAY_A
+            );
         } elseif ($filter === 'has-theme-updates') {
             $themesTable = $wpdb->prefix . 'defyn_site_themes';
-            $rows = $wpdb->get_results($wpdb->prepare(
+            $rows = $wpdb->get_results(
                 "SELECT s.* FROM {$this->table} s
-                 WHERE s.user_id = %d
-                   AND EXISTS (SELECT 1 FROM {$themesTable} st WHERE st.site_id = s.id AND st.update_available = 1)
+                 WHERE EXISTS (SELECT 1 FROM {$themesTable} st WHERE st.site_id = s.id AND st.update_available = 1)
                  ORDER BY s.id ASC",
-                $userId
-            ), ARRAY_A);
+                ARRAY_A
+            );
         } elseif ($filter === 'has-core-update') {
-            $rows = $wpdb->get_results($wpdb->prepare(
+            $rows = $wpdb->get_results(
                 "SELECT * FROM {$this->table}
-                 WHERE user_id = %d AND core_update_available = 1
+                 WHERE core_update_available = 1
                  ORDER BY id ASC",
-                $userId
-            ), ARRAY_A);
+                ARRAY_A
+            );
         } else {
             // Preserve exact original unfiltered behavior.
             $table = SitesTable::tableName();
             $rows = $wpdb->get_results(
-                $wpdb->prepare("SELECT * FROM {$table} WHERE user_id = %d ORDER BY id ASC", $userId),
+                "SELECT * FROM {$table} ORDER BY id ASC",
                 ARRAY_A,
             );
         }
@@ -481,14 +477,14 @@ final class SitesRepository
         $sitesTable   = SitesTable::tableName();
         $pluginsTable = $wpdb->prefix . 'defyn_site_plugins';
 
-        return (int) $wpdb->get_var($wpdb->prepare(
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        return (int) $wpdb->get_var(
             "SELECT COUNT(*)
              FROM {$pluginsTable} sp
              INNER JOIN {$sitesTable} s ON s.id = sp.site_id
-             WHERE s.user_id = %d
-               AND sp.update_available = 1",
-            $userId
-        ));
+             WHERE sp.update_available = 1"
+        );
     }
 
     /**
@@ -500,14 +496,14 @@ final class SitesRepository
         $sitesTable  = SitesTable::tableName();
         $themesTable = $wpdb->prefix . 'defyn_site_themes';
 
-        return (int) $wpdb->get_var($wpdb->prepare(
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        return (int) $wpdb->get_var(
             "SELECT COUNT(*)
              FROM {$themesTable} st
              INNER JOIN {$sitesTable} s ON s.id = st.site_id
-             WHERE s.user_id = %d
-               AND st.update_available = 1",
-            $userId
-        ));
+             WHERE st.update_available = 1"
+        );
     }
 
     /**
@@ -519,15 +515,15 @@ final class SitesRepository
         global $wpdb;
         $sitesTable = SitesTable::tableName();
 
-        return (int) $wpdb->get_var($wpdb->prepare(
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        return (int) $wpdb->get_var(
             "SELECT COUNT(*)
              FROM {$sitesTable}
-             WHERE user_id = %d
-               AND core_update_available = 1
+             WHERE core_update_available = 1
                AND core_update_version IS NOT NULL
-               AND SUBSTRING_INDEX(wp_version, '.', 2) = SUBSTRING_INDEX(core_update_version, '.', 2)",
-            $userId
-        ));
+               AND SUBSTRING_INDEX(wp_version, '.', 2) = SUBSTRING_INDEX(core_update_version, '.', 2)"
+        );
     }
 
     /**
@@ -538,15 +534,15 @@ final class SitesRepository
         global $wpdb;
         $sitesTable = SitesTable::tableName();
 
-        return (int) $wpdb->get_var($wpdb->prepare(
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        return (int) $wpdb->get_var(
             "SELECT COUNT(*)
              FROM {$sitesTable}
-             WHERE user_id = %d
-               AND core_update_available = 1
+             WHERE core_update_available = 1
                AND core_update_version IS NOT NULL
-               AND SUBSTRING_INDEX(wp_version, '.', 2) != SUBSTRING_INDEX(core_update_version, '.', 2)",
-            $userId
-        ));
+               AND SUBSTRING_INDEX(wp_version, '.', 2) != SUBSTRING_INDEX(core_update_version, '.', 2)"
+        );
     }
 
     /**
@@ -561,21 +557,22 @@ final class SitesRepository
         $pluginsTable = $wpdb->prefix . 'defyn_site_plugins';
         $themesTable  = $wpdb->prefix . 'defyn_site_themes';
 
-        return (int) $wpdb->get_var($wpdb->prepare(
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        return (int) $wpdb->get_var(
             "SELECT COUNT(DISTINCT site_id) FROM (
                 SELECT sp.site_id FROM {$pluginsTable} sp
                   INNER JOIN {$sitesTable} s ON s.id = sp.site_id
-                  WHERE s.user_id = %d AND sp.update_available = 1
+                  WHERE sp.update_available = 1
                 UNION
                 SELECT st.site_id FROM {$themesTable} st
                   INNER JOIN {$sitesTable} s ON s.id = st.site_id
-                  WHERE s.user_id = %d AND st.update_available = 1
+                  WHERE st.update_available = 1
                 UNION
                 SELECT id FROM {$sitesTable}
-                  WHERE user_id = %d AND core_update_available = 1
-             ) AS combined",
-            $userId, $userId, $userId
-        ));
+                  WHERE core_update_available = 1
+             ) AS combined"
+        );
     }
 
     /**
@@ -593,10 +590,8 @@ final class SitesRepository
         global $wpdb;
         $sitesTable = SitesTable::tableName();
 
-        return (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$sitesTable} WHERE user_id = %d",
-            $userId
-        ));
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$sitesTable}");
     }
 
     /**
@@ -734,7 +729,9 @@ final class SitesRepository
         $vulnTable         = SiteVulnerabilitiesTable::tableName();
         $brokenLinksTable  = SiteBrokenLinksTable::tableName();
 
-        $rows = $this->wpdb->get_results($this->wpdb->prepare(
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        $rows = $this->wpdb->get_results(
             "SELECT
                 s.id,
                 s.url,
@@ -751,12 +748,11 @@ final class SitesRepository
                 CASE WHEN EXISTS (SELECT 1 FROM {$vulnTable} sv WHERE sv.site_id = s.id) THEN 1 ELSE 0 END AS has_vulnerabilities,
                 CASE WHEN EXISTS (SELECT 1 FROM {$brokenLinksTable} bl WHERE bl.site_id = s.id AND bl.severity = 'broken') THEN 1 ELSE 0 END AS has_broken_links
              FROM {$sitesTable} s
-             WHERE s.user_id = %d
              HAVING is_offline = 1 OR is_ssl_expiring = 1 OR is_sync_stale = 1 OR has_failed_update = 1 OR has_vulnerabilities = 1 OR has_broken_links = 1
              ORDER BY s.last_contact_at ASC
              LIMIT 50",
-            $userId
-        ), ARRAY_A);
+            ARRAY_A
+        );
 
         $out = [];
         foreach ($rows ?? [] as $row) {

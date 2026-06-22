@@ -51,8 +51,9 @@ final class SitesPingTest extends AbstractSchemaTestCase
         self::assertNotFalse(as_next_scheduled_action(HealthPing::HOOK, [$siteId], 'defyn'));
     }
 
-    public function testNonOwnerReturns404(): void
+    public function testTeamMemberCanPingSite(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
         $ownerId  = self::factory()->user->create();
         $stranger = self::factory()->user->create();
         $token    = (new TokenService(DEFYN_JWT_SECRET))->issueAccess($stranger);
@@ -62,10 +63,9 @@ final class SitesPingTest extends AbstractSchemaTestCase
         $req->set_header('Authorization', 'Bearer ' . $token);
         $r = rest_do_request($req);
 
-        self::assertSame(404, $r->get_status());
-        self::assertSame('sites.not_found', $r->get_data()['error']['code']);
+        self::assertSame(202, $r->get_status());
 
-        self::assertFalse(as_next_scheduled_action(HealthPing::HOOK, [$siteId], 'defyn'));
+        self::assertNotFalse(as_next_scheduled_action(HealthPing::HOOK, [$siteId], 'defyn'));
     }
 
     public function testUnauthenticatedReturns401(): void

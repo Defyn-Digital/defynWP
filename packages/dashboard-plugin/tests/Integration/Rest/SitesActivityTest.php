@@ -100,8 +100,10 @@ final class SitesActivityTest extends AbstractSchemaTestCase
         self::assertSame(2, $body['total']);
     }
 
-    public function testNonOwnerGets404(): void
+    public function testAnyTeamMemberCanAccessSiteActivity(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Any authenticated user can access any site's activity.
         $owner    = self::factory()->user->create();
         $stranger = self::factory()->user->create();
         $site     = $this->makeSite($owner);
@@ -110,9 +112,8 @@ final class SitesActivityTest extends AbstractSchemaTestCase
 
         $response = $this->dispatch('/defyn/v1/sites/' . $site . '/activity', $stranger);
 
-        self::assertSame(404, $response->get_status());
-        $body = $response->get_data();
-        self::assertSame('sites.not_found', $body['error']['code']);
+        // Team-wide: stranger can access owner's site — returns 200 not 404.
+        self::assertSame(200, $response->get_status());
     }
 
     public function testPagination(): void

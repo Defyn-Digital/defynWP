@@ -54,12 +54,14 @@ final class SitesAlertsMuteControllerTest extends AbstractSchemaTestCase
         self::assertTrue($res->get_data()['alerts_muted']);
         self::assertTrue($sites->findById($id)->alertsMuted);
 
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // User 999 can also mute any site's alerts.
         $req2 = new WP_REST_Request('POST', "/defyn/v1/sites/{$id}/alerts/mute");
         $req2->set_param('_authenticated_user_id', 999);
         $req2->set_param('id', $id);
         $req2->set_body(json_encode(['muted' => true]));
         $req2->set_header('Content-Type', 'application/json');
-        self::assertSame(404, (new SitesAlertsMuteController())->handle($req2)->get_status());
+        self::assertSame(200, (new SitesAlertsMuteController())->handle($req2)->get_status());
     }
 
     public function testHappyPath200OnMute(): void
@@ -85,15 +87,17 @@ final class SitesAlertsMuteControllerTest extends AbstractSchemaTestCase
         $this->assertFalse($response->get_data()['alerts_muted']);
     }
 
-    public function testNotOwnedReturns404(): void
+    public function testAnyTeamMemberCanMuteAlerts(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Any team member can mute alerts on any site.
         $otherUserId = self::factory()->user->create();
         $siteId      = $this->seedSite($otherUserId);
 
         $response = rest_do_request($this->buildRequest($siteId, ['muted' => true]));
 
-        $this->assertSame(404, $response->get_status());
-        $this->assertSame('sites.not_found', $response->get_data()['error']['code']);
+        // Team-wide: any user can mute — returns 200 not 404.
+        $this->assertSame(200, $response->get_status());
     }
 
     public function testInvalidPayloadReturns400(): void
