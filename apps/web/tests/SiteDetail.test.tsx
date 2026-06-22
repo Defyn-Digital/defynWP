@@ -119,8 +119,10 @@ describe('SiteDetail runtime info', () => {
     ];
     renderAt(1);
 
-    expect(await screen.findByText(/6\.9\.4/)).toBeInTheDocument();
-    expect(screen.getByText(/8\.2\.27/)).toBeInTheDocument();
+    // wp_version and php_version each appear in both SiteRuntimeInfo <dd> and
+    // SiteCoreCard <p> (added in P2.4); findAllByText handles multiple matches.
+    expect((await screen.findAllByText(/6\.9\.4/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/8\.2\.27/).length).toBeGreaterThan(0);
     expect(screen.queryAllByText(/Twenty Twenty-Four/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/10 installed, 5 active/i)).toBeInTheDocument();
     expect(screen.getByText(/2 installed, 1 active/i)).toBeInTheDocument();
@@ -171,7 +173,9 @@ describe('SiteDetail runtime info', () => {
 
     renderAt(1);
 
-    expect(await screen.findByText(/6\.8\.0/)).toBeInTheDocument();
+    // wp_version appears in both SiteRuntimeInfo <dd> and SiteCoreCard <p> (added
+    // in P2.4); findAllByText handles multiple matches — assert at least one present.
+    expect((await screen.findAllByText(/6\.8\.0/)).length).toBeGreaterThan(0);
     // Scope each negative assertion to SiteRuntimeInfo's <dt> rows. Page-wide
     // queryByText also matches the SitePluginsPanel heading ("Plugins") and any
     // other "SSL" / "Active theme" text added after this test was written.

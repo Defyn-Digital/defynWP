@@ -45,18 +45,21 @@ describe('SiteCoreCard', () => {
   });
 
   it('idle update-available renders version diff + Update button', async () => {
+    // Use a genuine minor bump from the seeded site's wp_version (6.9.4).
+    // 7.0.1 would be a MAJOR bump (different major segment), routing the component
+    // to the isBlockedMajor branch which hides the Update button. 6.9.5 shares the
+    // same major+minor (6.9) so isMinorBump() returns true → Update button shown.
     mockSiteCoreState[1] = {
       core_update_available: true,
-      core_update_version: '7.0.1',
+      core_update_version: '6.9.5',
       core_update_state: 'idle',
       last_core_update_error: null,
       last_core_update_attempt_at: null,
-      is_minor_update: true,
       is_auto_update_enabled: false,
     };
     wrap(1);
 
-    await waitFor(() => expect(screen.getByRole('button', { name: /Update to 7\.0\.1/i })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: /Update to 6\.9\.5/i })).toBeInTheDocument());
     expect(screen.queryByText(/Update available/i)).toBeInTheDocument();
   });
 
@@ -77,9 +80,12 @@ describe('SiteCoreCard', () => {
 
   it('failed state renders red banner + Retry button + tooltip on hover', async () => {
     const user = userEvent.setup();
+    // Use a genuine minor bump (6.9.5 from seeded wp_version 6.9.4) so the component
+    // reaches the minor/failed code path where "Retry update" button is rendered.
+    // 7.0.1 is a MAJOR bump → isBlockedMajor branch → no Retry button.
     mockSiteCoreState[1] = {
       core_update_available: true,
-      core_update_version: '7.0.1',
+      core_update_version: '6.9.5',
       core_update_state: 'failed',
       last_core_update_error: 'Disk full at /tmp during package extract',
       last_core_update_attempt_at: '2026-06-07 09:00:00',
