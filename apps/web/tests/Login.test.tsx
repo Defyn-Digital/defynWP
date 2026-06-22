@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -6,6 +6,33 @@ import { AuthProvider } from '@/lib/auth';
 import Login from '@/routes/Login';
 import { server } from '@/test/setup';
 import { http, HttpResponse } from 'msw';
+
+// Mock @react-oauth/google so tests don't need a real Google OAuth flow.
+// GoogleOAuthProvider is a no-op wrapper; GoogleLogin renders buttons that
+// fire onSuccess / onError deterministically.
+vi.mock('@react-oauth/google', () => ({
+  GoogleOAuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  GoogleLogin: ({
+    onSuccess,
+    onError,
+  }: {
+    onSuccess: (cred: { credential: string }) => void;
+    onError: () => void;
+  }) => (
+    <>
+      <button onClick={() => onSuccess({ credential: 'google-credential' })}>
+        Sign in with Google
+      </button>
+      <button onClick={() => onError()}>Trigger Google error</button>
+    </>
+  ),
+}));
+
+const navigateMock = vi.fn();
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
+  return { ...actual, useNavigate: () => navigateMock };
+});
 
 function renderLogin() {
   return render(
@@ -17,69 +44,40 @@ function renderLogin() {
   );
 }
 
-describe('Login route', () => {
-  it('renders email + password fields and a submit button', () => {
+describe('Login route (Google SSO)', () => {
+  it('renders a "Sign in with Google" button', () => {
     renderLogin();
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument();
   });
 
-  it('shows client-side validation when email is invalid', async () => {
+  it('signs in with Google and navigates home on success', async () => {
     renderLogin();
-    await userEvent.type(screen.getByLabelText(/email/i), 'not-an-email');
-    await userEvent.type(screen.getByLabelText(/password/i), 'password123');
-    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
-    expect(await screen.findByText(/valid email/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /sign in with google/i }));
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/'));
   });
 
-  it('shows the backend error message on auth.invalid_credentials', async () => {
+  it('shows a server error when Google sign-in returns domain rejection', async () => {
     server.use(
-      http.post('*/wp-json/defyn/v1/auth/login', () =>
+      http.post('*/wp-json/defyn/v1/auth/google', () =>
         HttpResponse.json(
-          { error: { code: 'auth.invalid_credentials', message: 'Invalid email or password.' } },
-          { status: 401 },
+          {
+            error: {
+              code: 'auth.google_domain',
+              message: 'Only defyn.com.au accounts may sign in.',
+            },
+          },
+          { status: 403 },
         ),
       ),
     );
     renderLogin();
-    await userEvent.type(screen.getByLabelText(/email/i), 'admin@defyn.test');
-    await userEvent.type(screen.getByLabelText(/password/i), 'wrong');
-    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
-    expect(await screen.findByText(/invalid email or password/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /sign in with google/i }));
+    expect(await screen.findByText(/only defyn\.com\.au accounts/i)).toBeInTheDocument();
   });
 
-  it('shows a rate-limit banner on auth.rate_limited', async () => {
-    server.use(
-      http.post('*/wp-json/defyn/v1/auth/login', () =>
-        HttpResponse.json(
-          { error: { code: 'auth.rate_limited', message: 'Too many login attempts. Try again in a minute.' } },
-          { status: 429 },
-        ),
-      ),
-    );
+  it('shows a fallback error when Google fires onError', async () => {
     renderLogin();
-    await userEvent.type(screen.getByLabelText(/email/i), 'admin@defyn.test');
-    await userEvent.type(screen.getByLabelText(/password/i), 'p');
-    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
-    expect(await screen.findByText(/too many login attempts/i)).toBeInTheDocument();
-  });
-
-  it('disables submit while authenticating', async () => {
-    let resolveLogin: ((v: unknown) => void) | null = null;
-    server.use(
-      http.post('*/wp-json/defyn/v1/auth/login', () =>
-        new Promise((resolve) => {
-          resolveLogin = (v) => resolve(v as Response);
-        }),
-      ),
-    );
-    renderLogin();
-    await userEvent.type(screen.getByLabelText(/email/i), 'admin@defyn.test');
-    await userEvent.type(screen.getByLabelText(/password/i), 'pass');
-    const submit = screen.getByRole('button', { name: /sign in/i });
-    await userEvent.click(submit);
-    await waitFor(() => expect(submit).toBeDisabled());
-    resolveLogin!(HttpResponse.json({ access_token: 'x' }, { status: 200 }));
+    await userEvent.click(screen.getByRole('button', { name: /trigger google error/i }));
+    expect(await screen.findByText(/google sign-in was cancelled or failed/i)).toBeInTheDocument();
   });
 });
