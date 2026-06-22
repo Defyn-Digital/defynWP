@@ -101,7 +101,7 @@ final class OverviewPendingThemeUpdatesControllerTest extends AbstractSchemaTest
         $this->assertSame('overview.rate_limited', $resp->get_data()['error']['code'] ?? null);
     }
 
-    public function testOwnershipScopingExcludesOtherUsersSites(): void
+    public function testTeamWideFleetIncludesAllSites(): void
     {
         $siteOther = $this->seedSite(2, 'NotMine');
         $this->seedTheme($siteOther, 'kadence', 'Kadence', '1.1.40', '1.2.0', true);
@@ -112,7 +112,10 @@ final class OverviewPendingThemeUpdatesControllerTest extends AbstractSchemaTest
         $response = rest_do_request($request);
 
         $this->assertSame(200, $response->get_status());
-        $this->assertSame([], $response->get_data()['pending_updates']);
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // User 2's pending theme update is now visible fleet-wide to user 1.
+        $this->assertCount(1, $response->get_data()['pending_updates']);
+        $this->assertSame('kadence', $response->get_data()['pending_updates'][0]['slug']);
     }
 
     private function seedSite(int $userId, string $label): int

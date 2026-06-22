@@ -95,11 +95,23 @@ final class SitesThemesIndexTest extends AbstractSchemaTestCase
         self::assertNull($data['last_synced_at']);
     }
 
-    public function testNotOwnedReturns404(): void
+    public function testAnyTeamMemberCanViewSiteThemes(): void
     {
-        $response = rest_do_request($this->signed('GET', "/defyn/v1/sites/99999/themes"));
-        self::assertSame(404, $response->get_status());
-        self::assertSame('sites.not_found', $response->get_data()['error']['code']);
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        global $wpdb;
+        $otherUserId = self::factory()->user->create();
+        $wpdb->insert($wpdb->prefix . 'defyn_sites', [
+            'user_id'    => $otherUserId,
+            'url'        => 'https://other.test',
+            'label'      => 'Other',
+            'status'     => 'active',
+            'created_at' => '2026-06-06 00:00:00',
+            'updated_at' => '2026-06-06 00:00:00',
+        ]);
+        $otherSiteId = (int) $wpdb->insert_id;
+
+        $response = rest_do_request($this->signed('GET', "/defyn/v1/sites/{$otherSiteId}/themes"));
+        self::assertSame(200, $response->get_status());
     }
 
     public function testUnauthenticatedReturns401(): void

@@ -98,7 +98,7 @@ final class ThemesRepositoryPendingUpdatesTest extends AbstractSchemaTestCase
         $this->assertSame('Astra', $rows[1]['theme_name']);
     }
 
-    public function testFindAllPendingUpdatesForUserExcludesOtherUsers(): void
+    public function testFindAllPendingUpdatesForUserIsTeamWide(): void
     {
         global $wpdb;
         $now = gmdate('Y-m-d H:i:s');
@@ -144,13 +144,41 @@ final class ThemesRepositoryPendingUpdatesTest extends AbstractSchemaTestCase
             'updated_at'       => $now,
         ]);
 
+        // Team-wide: both users see all pending updates regardless of ownership.
         $rowsForUser1 = $this->repo->findAllPendingUpdatesForUser(1);
         $rowsForUser2 = $this->repo->findAllPendingUpdatesForUser(2);
 
-        $this->assertCount(1, $rowsForUser1);
-        $this->assertSame('astra', $rowsForUser1[0]['slug']);
-        $this->assertCount(1, $rowsForUser2);
-        $this->assertSame('kadence', $rowsForUser2[0]['slug']);
+        $this->assertCount(2, $rowsForUser1); // team-wide: sees all pending updates
+        $this->assertCount(2, $rowsForUser2); // team-wide: same regardless of user id
+    }
+
+    public function testFindAllPendingUpdatesIsTeamWide(): void
+    {
+        global $wpdb;
+        $now = gmdate('Y-m-d H:i:s');
+        $wpdb->insert("{$wpdb->prefix}defyn_sites", [
+            'user_id'    => 11,
+            'url'        => 'https://userA.test',
+            'label'      => 'UserA',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $siteId = (int) $wpdb->insert_id;
+        $wpdb->insert("{$wpdb->prefix}defyn_site_themes", [
+            'site_id'          => $siteId,
+            'slug'             => 'astra',
+            'name'             => 'Astra',
+            'version'          => '4.6.3',
+            'update_available' => 1,
+            'update_version'   => '4.7.0',
+            'last_seen_at'     => $now,
+            'created_at'       => $now,
+            'updated_at'       => $now,
+        ]);
+        // User 22 calls the method but gets user 11's pending updates (team-wide)
+        $rows = $this->repo->findAllPendingUpdatesForUser(22);
+        $this->assertCount(1, $rows);
+        $this->assertSame('astra', $rows[0]['slug']);
     }
 
     public function testFindAllPendingUpdatesForUserExcludesRowsWithoutAvailableUpdate(): void

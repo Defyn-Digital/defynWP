@@ -132,10 +132,13 @@ final class OverviewBulkUpdateThemesControllerTest extends AbstractSchemaTestCas
         $this->assertSame('bulk.rate_limited', $resp->get_data()['error']['code'] ?? null);
     }
 
-    public function testSkipsPairsNotOwnedOrWithoutUpdate(): void
+    public function testSkipsPairsWithoutUpdate(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // site_not_owned is no longer a valid skip reason. findByIdForUser finds the
+        // siteOtherUsr site, but it has no 'astra' theme → skipped as theme_not_found.
         $siteOwned    = $this->seedSite(1, 'Owned');
-        $siteOtherUsr = $this->seedSite(2, 'NotMine');
+        $siteOtherUsr = $this->seedSite(2, 'NotMine'); // team-wide: site found, but has no 'astra'
         // Owned site has only 'astra' with no update available
         $this->seedTheme($siteOwned, 'astra', 'Astra', '4.7.0', null, false);
 
@@ -144,7 +147,7 @@ final class OverviewBulkUpdateThemesControllerTest extends AbstractSchemaTestCas
         $request->set_header('Authorization', 'Bearer ' . $token);
         $request->set_header('Content-Type', 'application/json');
         $request->set_body(json_encode(['updates' => [
-            ['site_id' => $siteOtherUsr, 'slug' => 'astra'],          // site_not_owned
+            ['site_id' => $siteOtherUsr, 'slug' => 'astra'],          // team-wide: site found, no theme → theme_not_found
             ['site_id' => $siteOwned,    'slug' => 'missing-theme'],  // theme_not_found
             ['site_id' => $siteOwned,    'slug' => 'astra'],          // no_update_available
         ]]));
@@ -161,7 +164,8 @@ final class OverviewBulkUpdateThemesControllerTest extends AbstractSchemaTestCas
         foreach ($body['skipped_pairs'] as $skipped) {
             $reasonsBySlug[$skipped['slug'] . ':' . $skipped['site_id']] = $skipped['reason'];
         }
-        $this->assertSame('site_not_owned',      $reasonsBySlug['astra:' . $siteOtherUsr]);
+        // Team-wide: site found but no 'astra' theme on siteOtherUsr → theme_not_found.
+        $this->assertSame('theme_not_found',     $reasonsBySlug['astra:' . $siteOtherUsr]);
         $this->assertSame('theme_not_found',     $reasonsBySlug['missing-theme:' . $siteOwned]);
         $this->assertSame('no_update_available', $reasonsBySlug['astra:' . $siteOwned]);
     }
