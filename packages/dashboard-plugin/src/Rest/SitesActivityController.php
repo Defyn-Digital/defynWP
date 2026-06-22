@@ -11,13 +11,12 @@ use WP_REST_Request;
 use WP_REST_Response;
 
 /**
- * GET /defyn/v1/sites/{id}/activity — per-site activity feed, user-scoped.
+ * GET /defyn/v1/sites/{id}/activity — per-site activity feed.
  *
- * Mirrors ActivityListController (Task 4) but adds an ownership gate first:
- * if the site doesn't exist OR isn't owned by the authenticated user, returns
- * 404 `sites.not_found` (anti-enumeration — same pattern as SitesShowController
- * and SitesDeleteController). The repo's user-scoping subquery still applies
- * as defense in depth.
+ * Mirrors ActivityListController (Task 4) but adds an existence gate first:
+ * if the site doesn't exist, returns 404 `sites.not_found` (same pattern as
+ * SitesShowController and SitesDeleteController). The fleet is now shared
+ * across all authenticated team members; `findByIdForUser` only checks existence.
  *
  * Envelope: { events: [...], total: int, page: int, per_page: int }.
  */

@@ -40,7 +40,7 @@ final class SecurityScanAllController
             // Refresh the global feed ONCE before the fan-out (best-effort, no-ops without a key).
             $this->feed->refreshIfStale();
 
-            $sites = $this->sites->findAllForUser($userId); // user-scoped — NOT findAllSchedulable()
+            $sites = $this->sites->findAllForUser($userId); // team-wide — all sites for this operator
             $ids   = array_map(static fn ($s) => $s->id, $sites);
 
             if (function_exists('as_schedule_single_action')) {
