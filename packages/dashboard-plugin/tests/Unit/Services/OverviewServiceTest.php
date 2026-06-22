@@ -104,7 +104,9 @@ final class OverviewServiceTest extends AbstractSchemaTestCase
         $result = (new OverviewService())->compose(1);
 
         $this->assertArrayHasKey('total_sites', $result);
-        $this->assertSame(3, $result['total_sites']);
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // All 4 sites (including the "other user's" one) are now visible.
+        $this->assertSame(4, $result['total_sites']);
     }
 
     public function testComposeIncludesOpenIncidentsForUser(): void
