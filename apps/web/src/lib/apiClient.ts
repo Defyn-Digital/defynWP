@@ -102,16 +102,34 @@ async function request<T>(path: string, opts: RequestOptions, isRetry = false): 
   return data as T;
 }
 
+// Single-flight refresh guard. When the 15-minute access token expires, the SPA
+// usually has several queries in flight at once (overview widgets, sites, the
+// jobs-count badge poll, …). Each gets a 401 and would independently POST
+// /auth/refresh. But the refresh token is ROTATING and single-use: the first
+// refresh revokes the old jti, so every other concurrent refresh spends an
+// already-revoked token → the server returns auth.refresh_revoked → the user is
+// logged out every ~15 minutes. Sharing one in-flight refresh promise across all
+// concurrent 401s means the refresh token is rotated exactly once per expiry.
+let refreshInFlight: Promise<boolean> | null = null;
+
 /** Try to refresh the access token. Returns true on success, false on failure. */
-async function tryRefresh(): Promise<boolean> {
-  try {
-    const data = await request<{ access_token: string }>('/auth/refresh', { method: 'POST' });
-    setAccessToken(data.access_token);
-    return true;
-  } catch {
-    clearAccessToken();
-    return false;
+function tryRefresh(): Promise<boolean> {
+  if (refreshInFlight) {
+    return refreshInFlight;
   }
+  refreshInFlight = (async () => {
+    try {
+      const data = await request<{ access_token: string }>('/auth/refresh', { method: 'POST' });
+      setAccessToken(data.access_token);
+      return true;
+    } catch {
+      clearAccessToken();
+      return false;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
 }
 
 export const apiClient = {
