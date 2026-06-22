@@ -86,10 +86,10 @@ final class BulkJobsRepository
     {
         global $wpdb;
         $table = BulkJobsTable::tableName();
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
         $row   = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$table} WHERE id = %d AND user_id = %d",
-            $jobId,
-            $userId
+            "SELECT * FROM {$table} WHERE id = %d",
+            $jobId
         ), ARRAY_A);
         return is_array($row) ? $row : null;
     }
@@ -283,13 +283,13 @@ final class BulkJobsRepository
         $jobs      = BulkJobsTable::tableName();
         $statusSql = $this->statusFilterSql($statusFilter);
 
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
         // phpcs:ignore WordPress.DB.PreparedSQL — $statusSql is a fixed fragment chosen below.
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT j.* FROM {$jobs} j
-             WHERE j.user_id = %d {$statusSql}
+             WHERE 1=1 {$statusSql}
              ORDER BY j.created_at DESC, j.id DESC
              LIMIT %d OFFSET %d",
-            $userId,
             $limit,
             $offset
         ), ARRAY_A);
@@ -302,11 +302,11 @@ final class BulkJobsRepository
         $jobs      = BulkJobsTable::tableName();
         $statusSql = $this->statusFilterSql($statusFilter);
 
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
         // phpcs:ignore WordPress.DB.PreparedSQL — $statusSql is a fixed fragment chosen below.
-        return (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$jobs} j WHERE j.user_id = %d {$statusSql}",
-            $userId
-        ));
+        return (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$jobs} j WHERE 1=1 {$statusSql}"
+        );
     }
 
     /**

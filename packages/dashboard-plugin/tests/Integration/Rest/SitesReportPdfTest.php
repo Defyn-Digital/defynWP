@@ -54,25 +54,15 @@ final class SitesReportPdfTest extends AbstractSchemaTestCase
     }
 
     // -------------------------------------------------------------------------
-    // 404 — site owned by a different user. Also proves the escaped-dot route
-    // RESOLVES to the controller (status 404 sites.not_found, NOT rest_no_route).
+    // 404 — non-existent site. Also proves the escaped-dot route RESOLVES to the
+    // controller (status 404 sites.not_found, NOT rest_no_route).
+    // Note: findByIdForUser is now team-wide (2026-06-22 SSO), so using a truly
+    // non-existent ID (999999) is the correct way to assert 404.
     // -------------------------------------------------------------------------
 
-    public function testNonOwnedSiteReturns404(): void
+    public function testNonExistentSiteReturns404(): void
     {
-        global $wpdb;
-        $otherUser = self::factory()->user->create();
-        $wpdb->insert($wpdb->prefix . 'defyn_sites', [
-            'user_id'    => $otherUser,
-            'url'        => 'https://other.test',
-            'label'      => 'Other',
-            'status'     => 'active',
-            'created_at' => '2026-06-15 00:00:00',
-            'updated_at' => '2026-06-15 00:00:00',
-        ]);
-        $otherSiteId = (int) $wpdb->insert_id;
-
-        $response = rest_do_request($this->signed('GET', "/defyn/v1/sites/{$otherSiteId}/report.pdf"));
+        $response = rest_do_request($this->signed('GET', '/defyn/v1/sites/999999/report.pdf'));
 
         self::assertSame(404, $response->get_status());
         self::assertSame('sites.not_found', $response->get_data()['error']['code']);

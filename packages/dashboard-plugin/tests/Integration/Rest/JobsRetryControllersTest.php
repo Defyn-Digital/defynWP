@@ -123,7 +123,7 @@ final class JobsRetryControllersTest extends AbstractSchemaTestCase
         $this->assertSame('jobs.item_not_retryable', $response->get_data()['error']['code'] ?? null);
     }
 
-    public function testRetryItemReturns404ForMissingItemAndForeignJob(): void
+    public function testRetryItemReturns404ForMissingItem(): void
     {
         [$jobId] = $this->jobWithFailedItem();
 
@@ -131,9 +131,10 @@ final class JobsRetryControllersTest extends AbstractSchemaTestCase
         $this->assertSame(404, $missing->get_status());
         $this->assertSame('jobs.item_not_found', $missing->get_data()['error']['code'] ?? null);
 
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // User 2 can now find user 1's job — not jobs.not_found but item-level 404.
         $foreign = rest_do_request($this->post("/defyn/v1/jobs/{$jobId}/items/1/retry", $this->token(2)));
-        $this->assertSame(404, $foreign->get_status());
-        $this->assertSame('jobs.not_found', $foreign->get_data()['error']['code'] ?? null);
+        $this->assertNotSame('jobs.not_found', $foreign->get_data()['error']['code'] ?? null);
     }
 
     public function testRetryFailedHappyPath202RetriesAllFailedItems(): void
@@ -191,13 +192,16 @@ final class JobsRetryControllersTest extends AbstractSchemaTestCase
         $this->assertSame([], $body['retried_item_ids']);
     }
 
-    public function testRetryFailedReturns404ForForeignJob(): void
+    public function testRetryFailedAnyTeamMemberCanRetry(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // User 2 can now retry-failed on user 1's job.
         [$jobId] = $this->jobWithFailedItem();
 
         $response = rest_do_request($this->post("/defyn/v1/jobs/{$jobId}/retry-failed", $this->token(2)));
 
-        $this->assertSame(404, $response->get_status());
-        $this->assertSame('jobs.not_found', $response->get_data()['error']['code'] ?? null);
+        // Team-wide: not 404 — user 2 can access user 1's job.
+        $this->assertNotSame(404, $response->get_status());
+        $this->assertNotSame('jobs.not_found', $response->get_data()['error']['code'] ?? null);
     }
 }

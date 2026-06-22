@@ -124,16 +124,17 @@ final class JobsDetailControllerTest extends AbstractSchemaTestCase
         $this->assertSame('jobs.not_found', $response->get_data()['error']['code'] ?? null);
     }
 
-    public function testForeignJobReturns404NotFound(): void
+    public function testAnyTeamMemberCanViewAnyJob(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // User 2's job is now visible to user 1 (team-wide fleet).
         $jobId = $this->repo->createJob(2, 'plugin_update', 1, 0, '2026-06-09 21:00:00');
         $this->repo->createItems($jobId, [['site_id' => 1, 'slug' => 'a']], '2026-06-09 21:00:00');
 
-        // Guardrail #7: foreign job is indistinguishable from missing (404, not 403).
         $response = rest_do_request($this->detailRequest($jobId, $this->token(1)));
 
-        $this->assertSame(404, $response->get_status());
-        $this->assertSame('jobs.not_found', $response->get_data()['error']['code'] ?? null);
+        // Team-wide: user 1 can view user 2's job — returns 200 not 404.
+        $this->assertSame(200, $response->get_status());
     }
 
     public function testHappyPathPluginJobResolvesResourceFields(): void
