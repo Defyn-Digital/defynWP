@@ -163,7 +163,15 @@ final class PluginUpdateLockTest extends WP_UnitTestCase
     {
         $controller = new PluginUpdateController(
             new PluginUpgraderService(
-                static fn () => new class { public function upgrade(string $pluginFile) { return true; } }
+                static fn () => new class { public function upgrade(string $pluginFile) { return true; } },
+                // The stub upgrader never rewrites fake-plugin.php on disk, so the
+                // real reader would see 1.0.0 unchanged and the new no-op guard
+                // would (correctly) throw. Inject a reader that simulates the
+                // on-disk bump so this lock test stays a happy-path 200.
+                static fn (string $slug, string $pluginFile, string $previousVersion): string => '2.0.0',
+                // No-op transient refresher so the manually-seeded update_plugins
+                // transient survives (the real wp_update_plugins() would clobber it).
+                static function (): void {}
             )
         );
         add_action('rest_api_init', static function () use ($controller): void {
@@ -183,7 +191,11 @@ final class PluginUpdateLockTest extends WP_UnitTestCase
                 static function (\Defyn\Connector\SiteInfo\CapturingUpgraderSkin $skin) {
                     $skin->error('Synthetic test failure.');
                     return new class { public function upgrade(string $pluginFile) { return false; } };
-                }
+                },
+                null, // reader unreached (false path throws first)
+                // No-op refresher so the seeded transient survives → the failure
+                // path is reached (502), not a spurious 409 no_update_available.
+                static function (): void {}
             )
         );
         add_action('rest_api_init', static function () use ($controller): void {

@@ -40,7 +40,11 @@ final class CoreUpdateAllowMajorTest extends WP_UnitTestCase
                 return true;
             }
         };
-        return new CoreUpdateController(new CoreUpgraderService($factory));
+        // No-op refresher so the seeded (major-bump) update_core transient
+        // survives instead of being clobbered by the real wp_version_check().
+        return new CoreUpdateController(
+            new CoreUpgraderService($factory, static function (): void {})
+        );
     }
 
     public function testAllowMajorBodyParamPassesThroughToServiceAndSucceeds(): void

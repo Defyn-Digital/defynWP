@@ -90,9 +90,14 @@ final class PluginUpdateTest extends WP_UnitTestCase
         $this->seedUpdateAvailable('fake-plugin/fake-plugin.php', '2.0.0');
 
         // Swap the controller's service for one whose upgrader stub returns true.
+        // The stub never rewrites fake-plugin.php (stays 1.0.0), so inject a
+        // reader that simulates the on-disk bump and a no-op refresher so the
+        // seeded transient survives.
         $controller = new PluginUpdateController(
             new \Defyn\Connector\SiteInfo\PluginUpgraderService(
-                static fn () => new class { public function upgrade(string $pluginFile) { return true; } }
+                static fn () => new class { public function upgrade(string $pluginFile) { return true; } },
+                static fn (string $slug, string $pluginFile, string $previousVersion): string => '2.0.0',
+                static function (): void {}
             )
         );
         register_rest_route('defyn-connector/v1', '/plugins/(?P<slug>[a-z0-9-]{1,80})/update', [
@@ -108,6 +113,7 @@ final class PluginUpdateTest extends WP_UnitTestCase
         $this->assertTrue($data['success']);
         $this->assertSame('fake-plugin', $data['slug']);
         $this->assertSame('1.0.0', $data['previous_version']);
+        $this->assertSame('2.0.0', $data['new_version']);
         $this->assertIsInt($data['server_time']);
     }
 
@@ -137,7 +143,9 @@ final class PluginUpdateTest extends WP_UnitTestCase
                         echo "Plugin_Upgrader: doing the thing\n";
                         return true;
                     }
-                }
+                },
+                static fn (string $slug, string $pluginFile, string $previousVersion): string => '2.0.0',
+                static function (): void {}
             )
         );
         register_rest_route('defyn-connector/v1', '/plugins/(?P<slug>[a-z0-9-]{1,80})/update', [
@@ -174,7 +182,9 @@ final class PluginUpdateTest extends WP_UnitTestCase
                 static function (\Defyn\Connector\SiteInfo\CapturingUpgraderSkin $skin) {
                     $skin->error('Could not copy file. /wp-content/upgrade/fake-plugin/fake-plugin.php');
                     return new class { public function upgrade(string $pluginFile) { return false; } };
-                }
+                },
+                null,
+                static function (): void {}
             )
         );
         register_rest_route('defyn-connector/v1', '/plugins/(?P<slug>[a-z0-9-]{1,80})/update', [
@@ -211,7 +221,9 @@ final class PluginUpdateTest extends WP_UnitTestCase
                     {
                         throw new \RuntimeException('boom');
                     }
-                }
+                },
+                null,
+                static function (): void {}
             )
         );
         register_rest_route('defyn-connector/v1', '/plugins/(?P<slug>[a-z0-9-]{1,80})/update', [

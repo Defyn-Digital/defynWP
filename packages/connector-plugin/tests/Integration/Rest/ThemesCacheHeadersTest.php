@@ -72,7 +72,11 @@ final class ThemesCacheHeadersTest extends WP_UnitTestCase
 
         $controller = new \Defyn\Connector\Rest\ThemeUpdateController(
             new \Defyn\Connector\SiteInfo\ThemeUpgraderService(
-                fn () => new class { public function upgrade(string $stylesheet) { return true; } }
+                fn () => new class { public function upgrade(string $stylesheet) { return true; } },
+                // Stub never rewrites style.css; simulate the on-disk bump + a
+                // no-op refresher so the seeded update_themes transient survives.
+                fn (string $slug, string $prev): string => $prev . '.1',
+                static function (): void {}
             )
         );
         register_rest_route('defyn-connector/v1', '/themes/(?P<slug>[a-z0-9-]{1,80})/update', [

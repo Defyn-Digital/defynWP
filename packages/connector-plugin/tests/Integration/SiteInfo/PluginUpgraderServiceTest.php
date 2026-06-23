@@ -31,8 +31,13 @@ final class PluginUpgraderServiceTest extends WP_UnitTestCase
     {
         // hello.php is shipped with WP for tests as a single-file plugin (no folder),
         // so its slug under our strtok-based folder resolution is "hello.php".
-        // No update_plugins transient → no update available
-        $service = new PluginUpgraderService(fn () => $this->fail('upgrader factory should not be called'));
+        // No update_plugins transient → no update available. The no-op refresher
+        // keeps wp_update_plugins() from making a real network call mid-test.
+        $service = new PluginUpgraderService(
+            fn () => $this->fail('upgrader factory should not be called'),
+            null,
+            $this->noopRefresher()
+        );
 
         $this->expectException(NoUpdateAvailableException::class);
         $this->expectExceptionMessage('hello.php');
@@ -43,10 +48,14 @@ final class PluginUpgraderServiceTest extends WP_UnitTestCase
     {
         $this->seedUpdateAvailable('hello.php', '1.7.3');
 
-        $service = new PluginUpgraderService(function (CapturingUpgraderSkin $skin) {
-            $skin->error('Could not copy file.');
-            return new class { public function upgrade(string $pluginFile) { return false; } };
-        });
+        $service = new PluginUpgraderService(
+            function (CapturingUpgraderSkin $skin) {
+                $skin->error('Could not copy file.');
+                return new class { public function upgrade(string $pluginFile) { return false; } };
+            },
+            null,
+            $this->noopRefresher()
+        );
 
         $this->expectException(UpgradeFailedException::class);
         $this->expectExceptionMessage('Could not copy file.');
@@ -57,11 +66,15 @@ final class PluginUpgraderServiceTest extends WP_UnitTestCase
     {
         $this->seedUpdateAvailable('hello.php', '1.7.3');
 
-        $service = new PluginUpgraderService(fn () => new class {
-            public function upgrade(string $pluginFile) {
-                return new \WP_Error('download_failed', 'HTTP 404 from update_uri.');
-            }
-        });
+        $service = new PluginUpgraderService(
+            fn () => new class {
+                public function upgrade(string $pluginFile) {
+                    return new \WP_Error('download_failed', 'HTTP 404 from update_uri.');
+                }
+            },
+            null,
+            $this->noopRefresher()
+        );
 
         $this->expectException(UpgradeFailedException::class);
         $this->expectExceptionMessage('HTTP 404 from update_uri.');
@@ -72,12 +85,17 @@ final class PluginUpgraderServiceTest extends WP_UnitTestCase
     {
         $this->seedUpdateAvailable('hello.php', '1.7.3');
 
-        // Stub returns true; reading the new version after the call would normally
-        // require WP to have actually swapped files. For the test we just verify
-        // shape + that previous_version came from get_plugins() BEFORE the call.
-        $service = new PluginUpgraderService(fn () => new class {
-            public function upgrade(string $pluginFile) { return true; }
-        });
+        // Stub returns true. In production the upgrader swaps files and the
+        // version reader picks up the new version off disk; here we inject a
+        // reader that returns a BUMPED version (1.7.2 → 1.7.3) so the happy path
+        // exercises the new "version advanced" success branch.
+        $service = new PluginUpgraderService(
+            fn () => new class {
+                public function upgrade(string $pluginFile) { return true; }
+            },
+            fn (string $slug, string $pluginFile, string $previousVersion): string => '1.7.3',
+            $this->noopRefresher()
+        );
 
         $before = time();
         $result = $service->upgrade('hello.php');
@@ -86,39 +104,79 @@ final class PluginUpgraderServiceTest extends WP_UnitTestCase
         $this->assertTrue($result['success']);
         $this->assertSame('hello.php', $result['slug']);
         $this->assertSame('1.7.2', $result['previous_version']); // hello.php ships at 1.7.2 in wp-phpunit fixtures
-        $this->assertSame('1.7.2', $result['new_version']); // stub didn't change files, so re-read returns the same
+        $this->assertSame('1.7.3', $result['new_version']); // injected reader simulates the on-disk bump
         $this->assertIsInt($result['server_time']);
         $this->assertGreaterThanOrEqual($before, $result['server_time']);
         $this->assertLessThanOrEqual($after, $result['server_time']);
     }
 
     /**
-     * Regression for the v0.2.3 cache-refresh fix. After a successful upgrade,
-     * upgrade() now calls wp_clean_plugins_cache(true), clearstatcache(), and
+     * Regression for the v0.2.3 cache-refresh fix. The default version reader
+     * calls wp_clean_plugins_cache(true), clearstatcache(), and
      * opcache_invalidate() before re-reading the version with get_plugin_data().
-     * Those calls run for real here (no stub), so this guards that the shape
-     * survives the refresh and that re-reading after wp_clean_plugins_cache()
-     * still resolves the version from disk.
+     * Here we let the DEFAULT reader run for real (no injected reader) against
+     * hello.php — but inject a fresher previous version onto disk is impossible,
+     * so we assert the real reader resolves hello.php's shipped 1.7.2 header.
+     * Because that equals previous (the stub never swaps files), the no-op guard
+     * fires and we get an UpgradeFailedException — proving the default reader is
+     * wired and the guard catches a genuine on-disk no-op.
      */
-    public function testUpgradeWithCacheRefreshStillReturnsExpectedShape(): void
+    public function testUpgradeWithDefaultReaderDetectsNoOpAndThrows(): void
     {
         $this->seedUpdateAvailable('hello.php', '1.7.3');
 
-        $service = new PluginUpgraderService(fn () => new class {
-            public function upgrade(string $pluginFile) { return true; }
-        });
+        $service = new PluginUpgraderService(
+            fn () => new class {
+                public function upgrade(string $pluginFile) { return true; }
+            },
+            null, // exercise the REAL default version reader (cache-refresh path)
+            $this->noopRefresher()
+        );
 
-        $result = $service->upgrade('hello.php');
+        $this->expectException(UpgradeFailedException::class);
+        $this->expectExceptionMessage('version did not change');
+        $service->upgrade('hello.php');
+    }
 
-        $this->assertTrue($result['success']);
-        $this->assertSame('hello.php', $result['slug']);
-        $this->assertArrayHasKey('previous_version', $result);
-        $this->assertArrayHasKey('new_version', $result);
-        // Stub didn't swap files; after the cache flush the re-read still finds
-        // hello.php's shipped header (1.7.2), never an empty string.
-        $this->assertSame('1.7.2', $result['previous_version']);
-        $this->assertSame('1.7.2', $result['new_version']);
-        $this->assertNotSame('', $result['new_version']);
+    /**
+     * The false-success bug from cuscal.com: the upgrader returns true but the
+     * version on disk never advanced. With a stub reader returning the SAME
+     * version as before, the no-op guard must throw with diagnostics rather than
+     * report a false success the dashboard would record as "updated".
+     */
+    public function testUpgradeThrowsWhenVersionDidNotChange(): void
+    {
+        $this->seedUpdateAvailable('hello.php', '1.7.3');
+
+        $service = new PluginUpgraderService(
+            fn () => new class {
+                public function upgrade(string $pluginFile) { return true; }
+            },
+            // Reader returns the previous version unchanged → simulates a silent
+            // no-op filesystem that wrote nothing.
+            fn (string $slug, string $pluginFile, string $previousVersion): string => $previousVersion,
+            $this->noopRefresher()
+        );
+
+        try {
+            $service->upgrade('hello.php');
+            $this->fail('Expected UpgradeFailedException for unchanged version');
+        } catch (UpgradeFailedException $e) {
+            $this->assertStringContainsString('version did not change', $e->getMessage());
+            $this->assertStringContainsString('upgrader_errors=none', $e->getMessage());
+        }
+    }
+
+    /**
+     * A no-op transient refresher so tests keep their manually-seeded
+     * update_plugins transient (the real wp_update_plugins() would clobber it
+     * and/or hit api.wordpress.org).
+     *
+     * @return callable(): void
+     */
+    private function noopRefresher(): callable
+    {
+        return static function (): void {};
     }
 
     /**

@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.2.3
+Stable tag: 0.2.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -39,6 +39,9 @@ No. It only responds to signed requests from the specific DefynWP Dashboard inst
 The plugin's stored state (including the Ed25519 keypair) is removed from `wp_options` via `uninstall.php`.
 
 == Changelog ==
+
+= 0.2.4 =
+* Fix: force direct filesystem + refresh update list before upgrading; verify the version actually changed and fail with diagnostics instead of reporting a false success. On some hosts WordPress's filesystem-method ownership probe yields a degraded handle whose writes silently no-op, so `Plugin_Upgrader`/`Theme_Upgrader` returned success without writing the new files (e.g. reported `3.5.0 → 3.5.0`). The connector now forces the in-process "direct" filesystem with relaxed credentials (as ManageWP/MainWP/WP-CLI do) and refreshes the update transient before each upgrade, then verifies the on-disk version advanced — if it did not, the upgrade fails with a diagnostic message (`fs_method`, dir-writable, upgrader errors) instead of recording a false success. Core keeps the filesystem fix but skips the version-advanced check (the in-process `$wp_version` global never refreshes mid-request).
 
 = 0.2.3 =
 * Fix: refresh plugin/theme caches after an upgrade so the reported version is accurate immediately. After `Plugin_Upgrader`/`Theme_Upgrader` rewrites the files, the connector now flushes WordPress's plugin/theme cache (`wp_clean_plugins_cache`/`wp_clean_themes_cache`), PHP's stat cache, and opcache for the affected file before re-reading the header — previously it read the stale OLD version (e.g. reported `3.5.0 → 3.5.0` after a real 3.5.0→3.5.1 update) and the site kept showing "update available" for a while.

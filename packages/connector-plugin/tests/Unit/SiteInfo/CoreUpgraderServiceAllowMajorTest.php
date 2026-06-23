@@ -46,7 +46,8 @@ final class CoreUpgraderServiceAllowMajorTest extends WP_UnitTestCase
                 return true;
             }
         };
-        $service = new CoreUpgraderService($factory);
+        // No-op refresher so the seeded major-bump transient survives the call.
+        $service = new CoreUpgraderService($factory, static function (): void {});
 
         // Should NOT throw -- allowMajor=true permits the bump.
         $result = $service->upgrade(true);

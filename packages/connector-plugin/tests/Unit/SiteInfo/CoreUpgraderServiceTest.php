@@ -22,7 +22,10 @@ final class CoreUpgraderServiceTest extends WP_UnitTestCase
 
     public function testUpgradeWithNoUpdateThrowsNoCoreUpdateAvailable(): void
     {
-        $service = new CoreUpgraderService(fn () => $this->fail('factory should not be called'));
+        $service = new CoreUpgraderService(
+            fn () => $this->fail('factory should not be called'),
+            $this->noopRefresher()
+        );
 
         $this->expectException(NoCoreUpdateAvailableException::class);
         $service->upgrade();
@@ -35,7 +38,10 @@ final class CoreUpgraderServiceTest extends WP_UnitTestCase
         $target = ((int) $maj + 1) . '.0';
         $this->seedUpdateAvailable($target);
 
-        $service = new CoreUpgraderService(fn () => $this->fail('factory should not be called'));
+        $service = new CoreUpgraderService(
+            fn () => $this->fail('factory should not be called'),
+            $this->noopRefresher()
+        );
 
         $this->expectException(MajorUpdateBlockedException::class);
         $this->expectExceptionMessage($target);
@@ -49,12 +55,15 @@ final class CoreUpgraderServiceTest extends WP_UnitTestCase
         $target = $maj . '.' . $min . '.1';
         $this->seedUpdateAvailable($target);
 
-        $service = new CoreUpgraderService(function (CapturingUpgraderSkin $skin) {
-            $skin->error('Could not copy file. /wp-admin/index.php');
-            return new class {
-                public function upgrade($update) { return false; }
-            };
-        });
+        $service = new CoreUpgraderService(
+            function (CapturingUpgraderSkin $skin) {
+                $skin->error('Could not copy file. /wp-admin/index.php');
+                return new class {
+                    public function upgrade($update) { return false; }
+                };
+            },
+            $this->noopRefresher()
+        );
 
         $this->expectException(CoreUpgradeFailedException::class);
         $this->expectExceptionMessage('Could not copy file');
@@ -68,11 +77,14 @@ final class CoreUpgraderServiceTest extends WP_UnitTestCase
         $target = $maj . '.' . $min . '.1';
         $this->seedUpdateAvailable($target);
 
-        $service = new CoreUpgraderService(fn () => new class {
-            public function upgrade($update) {
-                return new \WP_Error('download_failed', 'HTTP 404 from downloads.wordpress.org.');
-            }
-        });
+        $service = new CoreUpgraderService(
+            fn () => new class {
+                public function upgrade($update) {
+                    return new \WP_Error('download_failed', 'HTTP 404 from downloads.wordpress.org.');
+                }
+            },
+            $this->noopRefresher()
+        );
 
         $this->expectException(CoreUpgradeFailedException::class);
         $this->expectExceptionMessage('HTTP 404');
@@ -86,9 +98,15 @@ final class CoreUpgraderServiceTest extends WP_UnitTestCase
         $target = $maj . '.' . $min . '.1';
         $this->seedUpdateAvailable($target);
 
-        $service = new CoreUpgraderService(fn () => new class {
-            public function upgrade($update) { return true; }
-        });
+        // Core deliberately has NO version-advanced guard: $wp_version stays at
+        // the OLD value for the rest of this request even after a successful
+        // upgrade, so new_version === current here is correct, not a no-op.
+        $service = new CoreUpgraderService(
+            fn () => new class {
+                public function upgrade($update) { return true; }
+            },
+            $this->noopRefresher()
+        );
 
         $before = time();
         $result = $service->upgrade();
@@ -100,6 +118,14 @@ final class CoreUpgraderServiceTest extends WP_UnitTestCase
         $this->assertIsInt($result['server_time']);
         $this->assertGreaterThanOrEqual($before, $result['server_time']);
         $this->assertLessThanOrEqual($after, $result['server_time']);
+    }
+
+    /**
+     * @return callable(): void
+     */
+    private function noopRefresher(): callable
+    {
+        return static function (): void {};
     }
 
     private function seedUpdateAvailable(string $target): void

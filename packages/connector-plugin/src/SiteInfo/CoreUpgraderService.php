@@ -22,12 +22,19 @@ final class CoreUpgraderService
     /** @var callable(CapturingUpgraderSkin): object */
     private $upgraderFactory;
 
+    /** @var callable(): void */
+    private $transientRefresher;
+
     /**
      * @param callable(CapturingUpgraderSkin): object|null $upgraderFactory
+     * @param callable(): void|null                        $transientRefresher
      */
-    public function __construct(?callable $upgraderFactory = null)
-    {
-        $this->upgraderFactory = $upgraderFactory ?? self::defaultUpgraderFactory();
+    public function __construct(
+        ?callable $upgraderFactory = null,
+        ?callable $transientRefresher = null
+    ) {
+        $this->upgraderFactory    = $upgraderFactory ?? self::defaultUpgraderFactory();
+        $this->transientRefresher = $transientRefresher ?? self::defaultTransientRefresher();
     }
 
     /**
@@ -38,6 +45,11 @@ final class CoreUpgraderService
         if (!function_exists('get_core_updates')) {
             require_once ABSPATH . 'wp-admin/includes/update.php';
         }
+
+        // Refresh the update_core transient BEFORE reading it so the package URL
+        // we hand Core_Upgrader is current — never trust the cached transient on
+        // a destructive code path. Injectable so tests keep their seeded transient.
+        ($this->transientRefresher)();
 
         $current = (string) get_bloginfo('version');
         $updates = get_core_updates(['available' => true, 'dismissed' => false]);
@@ -66,9 +78,29 @@ final class CoreUpgraderService
             throw new MajorUpdateBlockedException(esc_html($current), esc_html($target));
         }
 
-        $skin     = new CapturingUpgraderSkin();
-        $upgrader = ($this->upgraderFactory)($skin);
-        $result   = $upgrader->upgrade($matching);
+        // Force the in-process "direct" filesystem with relaxed ownership — the
+        // same fix as PluginUpgraderService/ThemeUpgraderService. Some hosts'
+        // get_filesystem_method() probe yields a degraded handle whose writes
+        // silently no-op while the upgrader still returns success. This is the
+        // valuable part of the fix for core. Guarded so the stub path stays a
+        // no-op. (Core deliberately has NO version-advanced guard — see below.)
+        $forceDirect = static fn (): string => 'direct';
+        $allowCreds  = static fn () => true;
+        if (function_exists('add_filter')) {
+            add_filter('filesystem_method', $forceDirect, 999);
+            add_filter('request_filesystem_credentials', $allowCreds, 999);
+        }
+
+        try {
+            $skin     = new CapturingUpgraderSkin();
+            $upgrader = ($this->upgraderFactory)($skin);
+            $result   = $upgrader->upgrade($matching);
+        } finally {
+            if (function_exists('remove_filter')) {
+                remove_filter('filesystem_method', $forceDirect, 999);
+                remove_filter('request_filesystem_credentials', $allowCreds, 999);
+            }
+        }
 
         if ($result === false) {
             $message = $skin->lastErrorMessage() ?? 'Core_Upgrader returned false without a message.';
@@ -84,8 +116,17 @@ final class CoreUpgraderService
         // on disk, but the running PHP process keeps the OLD $wp_version in memory;
         // wp_version_check() polls wordpress.org and wouldn't change the in-process
         // value either. So there's no stale-header re-read to fix the way there is
-        // for plugins/themes. We clear PHP's stat cache anyway (guarded, no-op under
-        // test) so any subsequent stat-based read on this request sees fresh disk.
+        // for plugins/themes.
+        //
+        // CRITICAL: this is also why core OMITS the "version did not change → throw"
+        // guard that plugins/themes use. Because $wp_version stays at the OLD value
+        // for the rest of this request even after a genuinely successful core update,
+        // an equality guard ($newVersion === $current) would FALSE-POSITIVE on EVERY
+        // successful core update and report failure. The force-direct filesystem fix
+        // above is the part that actually matters for core's silent-no-op problem.
+        //
+        // We clear PHP's stat cache anyway (guarded, no-op under test) so any
+        // subsequent stat-based read on this request sees fresh disk.
         clearstatcache();
 
         global $wp_version;
@@ -130,6 +171,21 @@ final class CoreUpgraderService
                 require_once ABSPATH . 'wp-admin/includes/class-core-upgrader.php';
             }
             return new \Core_Upgrader($skin);
+        };
+    }
+
+    /** @return callable(): void */
+    private static function defaultTransientRefresher(): callable
+    {
+        return static function (): void {
+            if (!function_exists('wp_version_check')) {
+                if (defined('ABSPATH')) {
+                    require_once ABSPATH . 'wp-admin/includes/update.php';
+                }
+            }
+            if (function_exists('wp_version_check')) {
+                wp_version_check([], true);
+            }
         };
     }
 }

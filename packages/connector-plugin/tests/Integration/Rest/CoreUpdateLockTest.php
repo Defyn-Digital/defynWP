@@ -154,7 +154,10 @@ final class CoreUpdateLockTest extends WP_UnitTestCase
                 return new class { public function upgrade($update) { return false; } };
             };
 
-        $controller = new CoreUpdateController(new CoreUpgraderService($factory));
+        // No-op refresher so the seeded update_core transient survives.
+        $controller = new CoreUpdateController(
+            new CoreUpgraderService($factory, static function (): void {})
+        );
         add_action('rest_api_init', static function () use ($controller): void {
             register_rest_route('defyn-connector/v1', '/core/update', [
                 'methods'             => 'POST',

@@ -74,7 +74,8 @@ final class CoreUpdateTest extends WP_UnitTestCase
 
         $controller = new CoreUpdateController(
             new CoreUpgraderService(
-                fn () => new class { public function upgrade($update) { return true; } }
+                fn () => new class { public function upgrade($update) { return true; } },
+                static function (): void {} // no-op refresher keeps the seeded update_core transient
             )
         );
         register_rest_route('defyn-connector/v1', '/core/update', [
@@ -105,7 +106,8 @@ final class CoreUpdateTest extends WP_UnitTestCase
                 function (CapturingUpgraderSkin $skin) {
                     $skin->error('Could not copy file. /wp-admin/index.php');
                     return new class { public function upgrade($update) { return false; } };
-                }
+                },
+                static function (): void {} // no-op refresher keeps the seeded update_core transient
             )
         );
         register_rest_route('defyn-connector/v1', '/core/update', [
@@ -143,7 +145,8 @@ final class CoreUpdateTest extends WP_UnitTestCase
                     {
                         throw new \RuntimeException('boom');
                     }
-                }
+                },
+                static function (): void {} // no-op refresher keeps the seeded update_core transient
             )
         );
         register_rest_route('defyn-connector/v1', '/core/update', [
@@ -185,7 +188,8 @@ final class CoreUpdateTest extends WP_UnitTestCase
                         echo "\n<p>HTML noise the dashboard never sees</p>";
                         return true;
                     }
-                }
+                },
+                static function (): void {} // no-op refresher keeps the seeded update_core transient
             )
         );
         register_rest_route('defyn-connector/v1', '/core/update', [

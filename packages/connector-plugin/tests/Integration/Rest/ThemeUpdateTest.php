@@ -63,9 +63,13 @@ final class ThemeUpdateTest extends WP_UnitTestCase
         $stylesheet = (string) get_stylesheet();
         $this->seedUpdateAvailable($stylesheet, '99.9');
 
+        // The stub never rewrites style.css, so inject a reader returning a
+        // bumped version and a no-op refresher so the seeded transient survives.
         $controller = new ThemeUpdateController(
             new ThemeUpgraderService(
-                fn () => new class { public function upgrade(string $stylesheet) { return true; } }
+                fn () => new class { public function upgrade(string $stylesheet) { return true; } },
+                fn (string $slug, string $prev): string => $prev . '.1',
+                static function (): void {}
             )
         );
         register_rest_route('defyn-connector/v1', '/themes/(?P<slug>[a-z0-9-]{1,80})/update', [
@@ -94,7 +98,9 @@ final class ThemeUpdateTest extends WP_UnitTestCase
                 function (CapturingUpgraderSkin $skin) {
                     $skin->error('Could not copy file. /wp-content/upgrade/theme/index.php');
                     return new class { public function upgrade(string $stylesheet) { return false; } };
-                }
+                },
+                null,
+                static function (): void {}
             )
         );
         register_rest_route('defyn-connector/v1', '/themes/(?P<slug>[a-z0-9-]{1,80})/update', [
@@ -130,7 +136,9 @@ final class ThemeUpdateTest extends WP_UnitTestCase
                     {
                         throw new \RuntimeException('boom');
                     }
-                }
+                },
+                null,
+                static function (): void {}
             )
         );
         register_rest_route('defyn-connector/v1', '/themes/(?P<slug>[a-z0-9-]{1,80})/update', [
@@ -180,7 +188,9 @@ final class ThemeUpdateTest extends WP_UnitTestCase
                         echo "\n<p>HTML noise the dashboard never sees</p>";
                         return true;
                     }
-                }
+                },
+                fn (string $slug, string $prev): string => $prev . '.1',
+                static function (): void {}
             )
         );
         register_rest_route('defyn-connector/v1', '/themes/(?P<slug>[a-z0-9-]{1,80})/update', [

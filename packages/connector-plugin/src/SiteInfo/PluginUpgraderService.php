@@ -19,12 +19,25 @@ final class PluginUpgraderService
     /** @var callable(CapturingUpgraderSkin): object */
     private $upgraderFactory;
 
+    /** @var callable(string $slug, string $pluginFile, string $previousVersion): string */
+    private $versionReader;
+
+    /** @var callable(): void */
+    private $transientRefresher;
+
     /**
-     * @param callable(CapturingUpgraderSkin): object|null $upgraderFactory
+     * @param callable(CapturingUpgraderSkin): object|null                      $upgraderFactory
+     * @param callable(string, string, string): string|null                     $versionReader
+     * @param callable(): void|null                                             $transientRefresher
      */
-    public function __construct(?callable $upgraderFactory = null)
-    {
-        $this->upgraderFactory = $upgraderFactory ?? self::defaultUpgraderFactory();
+    public function __construct(
+        ?callable $upgraderFactory = null,
+        ?callable $versionReader = null,
+        ?callable $transientRefresher = null
+    ) {
+        $this->upgraderFactory    = $upgraderFactory ?? self::defaultUpgraderFactory();
+        $this->versionReader      = $versionReader ?? self::defaultVersionReader();
+        $this->transientRefresher = $transientRefresher ?? self::defaultTransientRefresher();
     }
 
     /**
@@ -50,14 +63,40 @@ final class PluginUpgraderService
             throw new UnknownSlugException(esc_html($slug));
         }
 
+        // Refresh the update transient BEFORE the existence check so the package
+        // URL we hand the upgrader is current (robust remote tools — ManageWP,
+        // MainWP, WP-CLI — all refresh before installing). A genuinely
+        // up-to-date plugin still drops out of $updates->response here and 409s.
+        ($this->transientRefresher)();
+
         $updates = get_site_transient('update_plugins');
         if (!isset($updates->response[$pluginFile])) {
             throw new NoUpdateAvailableException(esc_html($slug));
         }
 
-        $skin     = new CapturingUpgraderSkin();
-        $upgrader = ($this->upgraderFactory)($skin);
-        $result   = $upgrader->upgrade($pluginFile);
+        // Force WordPress to use the in-process "direct" filesystem with relaxed
+        // ownership — exactly what ManageWP/MainWP/WP-CLI do. Without this, some
+        // hosts' get_filesystem_method() ownership probe yields a degraded handle
+        // whose writes silently no-op while the upgrader still returns success
+        // (the false-success bug seen on cuscal.com: 3.5.0 → 3.5.0). Guarded with
+        // function_exists so the stub-factory unit path stays a no-op.
+        $forceDirect = static fn (): string => 'direct';
+        $allowCreds  = static fn () => true;
+        if (function_exists('add_filter')) {
+            add_filter('filesystem_method', $forceDirect, 999);
+            add_filter('request_filesystem_credentials', $allowCreds, 999);
+        }
+
+        try {
+            $skin     = new CapturingUpgraderSkin();
+            $upgrader = ($this->upgraderFactory)($skin);
+            $result   = $upgrader->upgrade($pluginFile);
+        } finally {
+            if (function_exists('remove_filter')) {
+                remove_filter('filesystem_method', $forceDirect, 999);
+                remove_filter('request_filesystem_credentials', $allowCreds, 999);
+            }
+        }
 
         if ($result === false) {
             $message = $skin->lastErrorMessage() ?? 'Plugin_Upgrader returned false without a message.';
@@ -67,29 +106,33 @@ final class PluginUpgraderService
             throw new UpgradeFailedException(esc_html((string) $result->get_error_message()));
         }
 
-        // Re-read the version after the upgrade. We use get_plugin_data() to parse
-        // just the one plugin's header instead of rescanning every plugin in
-        // wp-content/plugins/ via get_plugins(). In production this picks up the
-        // new version from disk; under test the stub doesn't actually swap files,
-        // so we'll see the same version back.
-        //
-        // BUT: Plugin_Upgrader::upgrade() has just rewritten the plugin's files,
-        // and WordPress (plus PHP's stat cache and opcache) may still be holding
-        // the OLD header in memory. Without flushing those caches, get_plugin_data()
-        // re-reads the stale version (e.g. reports 3.5.0 after a real 3.5.0→3.5.1
-        // upgrade) and the site keeps showing "update available". Refresh all three
-        // caches before the re-read. Calls are function_exists-guarded so the unit
-        // tests (which inject a stub factory and run without a full WP) stay no-ops.
-        $fullPath = WP_PLUGIN_DIR . '/' . $pluginFile;
-        if (function_exists('wp_clean_plugins_cache')) {
-            wp_clean_plugins_cache(true); // clears plugin cache + the update_plugins transient so "update available" clears
+        // Re-read the version after the upgrade. The default reader (below)
+        // flushes WP's plugin cache, PHP's stat cache, and opcache, then parses
+        // just the one plugin's header via get_plugin_data() — so it picks up the
+        // freshly written version from disk. The read is injectable so tests can
+        // simulate a real version bump (the stub upgrader never swaps files).
+        $newVersion = ($this->versionReader)($slug, $pluginFile, $previousVersion);
+
+        // The upgrader returned success but the version on disk did not advance —
+        // the new files were not actually written (silent no-op filesystem). Fail
+        // loudly with diagnostics instead of reporting a false success the
+        // dashboard would trust and record as "updated".
+        if (
+            $newVersion === $previousVersion
+            || ($newVersion !== '' && $previousVersion !== '' && version_compare($newVersion, $previousVersion, '<='))
+        ) {
+            $method   = function_exists('get_filesystem_method') ? (string) get_filesystem_method([], '', true) : 'unknown';
+            $writable = (defined('WP_PLUGIN_DIR') && is_writable(WP_PLUGIN_DIR)) ? 'yes' : 'no';
+            $skinErrs = $skin->errors();
+            $detail   = $skinErrs !== [] ? implode(' | ', array_slice($skinErrs, -3)) : 'none';
+            throw new UpgradeFailedException(esc_html(sprintf(
+                'Upgrade reported success but version did not change (stayed %s). fs_method=%s plugins_dir_writable=%s upgrader_errors=%s',
+                $previousVersion,
+                $method,
+                $writable,
+                $detail
+            )));
         }
-        clearstatcache(true, $fullPath);
-        if (function_exists('opcache_invalidate')) {
-            @opcache_invalidate($fullPath, true);
-        }
-        $pluginData = get_plugin_data($fullPath, false, false);
-        $newVersion = (string) ($pluginData['Version'] ?? $previousVersion);
 
         return [
             'success'          => true,
@@ -121,6 +164,39 @@ final class PluginUpgraderService
                 require_once ABSPATH . 'wp-admin/includes/class-plugin-upgrader.php';
             }
             return new \Plugin_Upgrader($skin);
+        };
+    }
+
+    /**
+     * Reads the plugin's version off disk AFTER the upgrade, flushing every
+     * cache layer first so we never re-read a stale header (the v0.2.3 fix,
+     * preserved here verbatim and made injectable for tests).
+     *
+     * @return callable(string $slug, string $pluginFile, string $previousVersion): string
+     */
+    private static function defaultVersionReader(): callable
+    {
+        return static function (string $slug, string $pluginFile, string $previousVersion): string {
+            $fullPath = WP_PLUGIN_DIR . '/' . $pluginFile;
+            if (function_exists('wp_clean_plugins_cache')) {
+                wp_clean_plugins_cache(true); // clears plugin cache + the update_plugins transient so "update available" clears
+            }
+            clearstatcache(true, $fullPath);
+            if (function_exists('opcache_invalidate')) {
+                @opcache_invalidate($fullPath, true);
+            }
+            $pluginData = get_plugin_data($fullPath, false, false);
+            return (string) ($pluginData['Version'] ?? $previousVersion);
+        };
+    }
+
+    /** @return callable(): void */
+    private static function defaultTransientRefresher(): callable
+    {
+        return static function (): void {
+            if (function_exists('wp_update_plugins')) {
+                wp_update_plugins();
+            }
         };
     }
 }

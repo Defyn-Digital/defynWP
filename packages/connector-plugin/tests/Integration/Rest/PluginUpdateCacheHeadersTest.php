@@ -113,7 +113,11 @@ final class PluginUpdateCacheHeadersTest extends WP_UnitTestCase
         // route registered by RestRouter::register() above.
         $controller = new PluginUpdateController(
             new PluginUpgraderService(
-                static fn () => new class { public function upgrade(string $pluginFile) { return true; } }
+                static fn () => new class { public function upgrade(string $pluginFile) { return true; } },
+                // Stub never rewrites fake-plugin.php (stays 1.0.0); simulate the
+                // on-disk bump + no-op refresher so the seeded transient survives.
+                static fn (string $slug, string $pluginFile, string $previousVersion): string => '2.0.0',
+                static function (): void {}
             )
         );
         register_rest_route('defyn-connector/v1', '/plugins/(?P<slug>[a-z0-9-]{1,80})/update', [

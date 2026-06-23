@@ -72,7 +72,8 @@ final class CoreCacheHeadersTest extends WP_UnitTestCase
 
         $controller = new \Defyn\Connector\Rest\CoreUpdateController(
             new \Defyn\Connector\SiteInfo\CoreUpgraderService(
-                fn () => new class { public function upgrade($update) { return true; } }
+                fn () => new class { public function upgrade($update) { return true; } },
+                static function (): void {} // no-op refresher keeps the seeded update_core transient
             )
         );
         add_action('rest_api_init', static function () use ($controller): void {

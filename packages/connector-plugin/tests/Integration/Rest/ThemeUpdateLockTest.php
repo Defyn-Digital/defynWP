@@ -162,7 +162,12 @@ final class ThemeUpdateLockTest extends WP_UnitTestCase
     {
         $controller = new ThemeUpdateController(
             new ThemeUpgraderService(
-                static fn () => new class { public function upgrade(string $stylesheet) { return true; } }
+                static fn () => new class { public function upgrade(string $stylesheet) { return true; } },
+                // Stub never rewrites style.css → inject a bumped reader so the
+                // happy path stays a 200, and a no-op refresher so the seeded
+                // update_themes transient survives.
+                static fn (string $slug, string $prev): string => $prev . '.1',
+                static function (): void {}
             )
         );
         add_action('rest_api_init', static function () use ($controller): void {
@@ -182,7 +187,9 @@ final class ThemeUpdateLockTest extends WP_UnitTestCase
                 static function (\Defyn\Connector\SiteInfo\CapturingUpgraderSkin $skin) {
                     $skin->error('Synthetic test failure.');
                     return new class { public function upgrade(string $stylesheet) { return false; } };
-                }
+                },
+                null,
+                static function (): void {}
             )
         );
         add_action('rest_api_init', static function () use ($controller): void {
