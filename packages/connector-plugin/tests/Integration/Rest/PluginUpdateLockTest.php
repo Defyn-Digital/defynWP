@@ -77,6 +77,16 @@ final class PluginUpdateLockTest extends WP_UnitTestCase
         );
 
         // Seed the update_plugins transient so the service finds an update.
+        $this->seedUpdateAvailable();
+    }
+
+    /**
+     * Stand up the update_plugins transient so the service finds an update for
+     * fake-plugin. Extracted so testLockReleasedOnSuccess can re-seed after the
+     * v0.2.3 cache-clear wipes the transient on the first successful upgrade.
+     */
+    private function seedUpdateAvailable(): void
+    {
         $update = new \stdClass();
         $update->response = [
             'fake-plugin/fake-plugin.php' => (object) [
@@ -112,7 +122,14 @@ final class PluginUpdateLockTest extends WP_UnitTestCase
         // Lock must be cleared after the happy path.
         $this->assertFalse(get_transient('defyn_connector_upgrade_in_flight'));
 
-        // Second call lands clean (no 409 collision).
+        // v0.2.3: a successful upgrade now calls wp_clean_plugins_cache(true),
+        // which deletes the update_plugins transient so the site stops showing
+        // "update available". A naive immediate retry therefore correctly finds
+        // no update available (409 plugins.no_update_available) — NOT a lock
+        // collision (409 plugins.update_in_progress). Re-seed the transient to
+        // simulate a fresh update surfacing, then confirm the second call lands
+        // clean with no LOCK collision (the point of this test).
+        $this->seedUpdateAvailable();
         $res2 = $this->sendSigned('fake-plugin');
         $this->assertSame(200, $res2->get_status());
     }

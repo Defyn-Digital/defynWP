@@ -93,6 +93,35 @@ final class PluginUpgraderServiceTest extends WP_UnitTestCase
     }
 
     /**
+     * Regression for the v0.2.3 cache-refresh fix. After a successful upgrade,
+     * upgrade() now calls wp_clean_plugins_cache(true), clearstatcache(), and
+     * opcache_invalidate() before re-reading the version with get_plugin_data().
+     * Those calls run for real here (no stub), so this guards that the shape
+     * survives the refresh and that re-reading after wp_clean_plugins_cache()
+     * still resolves the version from disk.
+     */
+    public function testUpgradeWithCacheRefreshStillReturnsExpectedShape(): void
+    {
+        $this->seedUpdateAvailable('hello.php', '1.7.3');
+
+        $service = new PluginUpgraderService(fn () => new class {
+            public function upgrade(string $pluginFile) { return true; }
+        });
+
+        $result = $service->upgrade('hello.php');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('hello.php', $result['slug']);
+        $this->assertArrayHasKey('previous_version', $result);
+        $this->assertArrayHasKey('new_version', $result);
+        // Stub didn't swap files; after the cache flush the re-read still finds
+        // hello.php's shipped header (1.7.2), never an empty string.
+        $this->assertSame('1.7.2', $result['previous_version']);
+        $this->assertSame('1.7.2', $result['new_version']);
+        $this->assertNotSame('', $result['new_version']);
+    }
+
+    /**
      * Stand up the update_plugins transient shape WP expects so
      * isset($updates->response[$pluginFile]) is true.
      *

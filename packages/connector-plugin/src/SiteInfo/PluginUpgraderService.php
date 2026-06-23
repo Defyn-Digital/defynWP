@@ -72,7 +72,23 @@ final class PluginUpgraderService
         // wp-content/plugins/ via get_plugins(). In production this picks up the
         // new version from disk; under test the stub doesn't actually swap files,
         // so we'll see the same version back.
-        $pluginData = get_plugin_data(WP_PLUGIN_DIR . '/' . $pluginFile, false, false);
+        //
+        // BUT: Plugin_Upgrader::upgrade() has just rewritten the plugin's files,
+        // and WordPress (plus PHP's stat cache and opcache) may still be holding
+        // the OLD header in memory. Without flushing those caches, get_plugin_data()
+        // re-reads the stale version (e.g. reports 3.5.0 after a real 3.5.0→3.5.1
+        // upgrade) and the site keeps showing "update available". Refresh all three
+        // caches before the re-read. Calls are function_exists-guarded so the unit
+        // tests (which inject a stub factory and run without a full WP) stay no-ops.
+        $fullPath = WP_PLUGIN_DIR . '/' . $pluginFile;
+        if (function_exists('wp_clean_plugins_cache')) {
+            wp_clean_plugins_cache(true); // clears plugin cache + the update_plugins transient so "update available" clears
+        }
+        clearstatcache(true, $fullPath);
+        if (function_exists('opcache_invalidate')) {
+            @opcache_invalidate($fullPath, true);
+        }
+        $pluginData = get_plugin_data($fullPath, false, false);
         $newVersion = (string) ($pluginData['Version'] ?? $previousVersion);
 
         return [

@@ -78,6 +78,16 @@ final class CoreUpgraderService
             throw new CoreUpgradeFailedException(esc_html((string) $result->get_error_message()));
         }
 
+        // Unlike plugins/themes, core does NOT re-read a file header here — the
+        // post-upgrade version comes from the $wp_version global (and get_bloginfo
+        // as a fallback). Core_Upgrader has just rewritten wp-includes/version.php
+        // on disk, but the running PHP process keeps the OLD $wp_version in memory;
+        // wp_version_check() polls wordpress.org and wouldn't change the in-process
+        // value either. So there's no stale-header re-read to fix the way there is
+        // for plugins/themes. We clear PHP's stat cache anyway (guarded, no-op under
+        // test) so any subsequent stat-based read on this request sees fresh disk.
+        clearstatcache();
+
         global $wp_version;
         $newVersion = (string) ($wp_version ?? get_bloginfo('version'));
         if ($newVersion === '') {

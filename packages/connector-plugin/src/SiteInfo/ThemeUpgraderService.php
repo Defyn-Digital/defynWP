@@ -63,7 +63,21 @@ final class ThemeUpgraderService
         // Re-read the version from disk after the upgrade. In production this
         // picks up the new version; under test the stub didn't swap files, so
         // we'll see the same version back.
-        wp_clean_themes_cache();
+        //
+        // Theme_Upgrader::upgrade() has just rewritten the theme's files, but
+        // WordPress's theme cache, PHP's stat cache, and opcache may still hold
+        // the OLD style.css header — so wp_get_theme() would report the stale
+        // version and the site would keep showing "update available". Flush all
+        // three before the re-read. Calls are function_exists-guarded so the
+        // unit tests (stub factory, no full WP) stay no-ops.
+        $styleSheetPath = get_theme_root($slug) . '/' . $slug . '/style.css';
+        if (function_exists('wp_clean_themes_cache')) {
+            wp_clean_themes_cache(); // clears theme cache + the update_themes transient so "update available" clears
+        }
+        clearstatcache(true, $styleSheetPath);
+        if (function_exists('opcache_invalidate')) {
+            @opcache_invalidate($styleSheetPath, true);
+        }
         $newVersion = (string) wp_get_theme($slug)->get('Version');
         if ($newVersion === '') {
             $newVersion = $previousVersion;
