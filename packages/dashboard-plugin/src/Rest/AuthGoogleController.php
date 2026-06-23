@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Rest;
 
+use Defyn\Dashboard\Auth\GoogleConfig;
 use Defyn\Dashboard\Auth\GoogleIdTokenVerifier;
 use Defyn\Dashboard\Auth\UserProvisioner;
 use Defyn\Dashboard\Auth\RefreshTokenStore;
@@ -31,7 +32,8 @@ final class AuthGoogleController
 
     public function handle(WP_REST_Request $request): WP_REST_Response
     {
-        if (!defined('DEFYN_GOOGLE_CLIENT_ID')) {
+        $clientId = GoogleConfig::clientId();
+        if ($clientId === '') {
             return ErrorResponse::create(503, 'auth.google_not_configured', 'Google sign-in is not configured.');
         }
 
@@ -41,7 +43,7 @@ final class AuthGoogleController
             return ErrorResponse::create(400, 'auth.google_missing_credential', 'A Google credential is required.');
         }
 
-        $verifier = $this->verifier ?? new GoogleIdTokenVerifier((string) DEFYN_GOOGLE_CLIENT_ID);
+        $verifier = $this->verifier ?? new GoogleIdTokenVerifier($clientId);
         try {
             $claims = $verifier->verify($credential);
         } catch (GoogleAuthException $e) {
