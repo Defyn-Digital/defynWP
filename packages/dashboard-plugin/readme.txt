@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 5.5
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.30.0
+Stable tag: 0.30.1
 License: Proprietary
 License URI: https://defyn.dev/license
 
@@ -39,6 +39,11 @@ No. It only signs and sends requests to the specific managed sites you connect t
 The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_refresh_tokens`, `wp_defyn_activity_log`, `wp_defyn_site_plugins`) and stored options are removed via `uninstall.php`.
 
 == Changelog ==
+
+= 0.30.1 =
+* Self-service Google Client ID config: the Google OAuth Client ID can now be set from wp-admin (Settings → DefynWP) instead of only the DEFYN_GOOGLE_CLIENT_ID environment constant — for hosts (e.g. Kinsta Managed WordPress) with no env-var UI. The env constant still takes precedence when set.
+* New GoogleConfig resolver (env constant first, wp-admin option fallback) backs both the /auth/google login flow and the new public GET /defyn/v1/auth/config endpoint that serves the non-secret Client ID to the SPA before login.
+* No schema change.
 
 = 0.12.0 =
 * Monitoring alerting expansion & config (P3.3): schema v9 → v10 adds wp_defyn_sites.alerts_muted + ssl_alert_sent_at. Slack alerts via a new SlackNotifier behind a MultiNotifier composite (email always + Slack when the operator configures a webhook); the webhook lives in per-operator user_meta (defyn_slack_webhook_url), host-allowlisted to hooks.slack.com.
