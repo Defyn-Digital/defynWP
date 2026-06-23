@@ -88,8 +88,10 @@ final class SitesCoreRefreshTest extends AbstractSchemaTestCase
         self::assertSame((string) $ctx['siteId'], (string) $event['site_id']);
     }
 
-    public function testOwnerScoped404(): void
+    public function testTeamMemberCanRefreshAnySite(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Any team member can trigger a core refresh on any site.
         $ownerId  = self::factory()->user->create();
         $stranger = self::factory()->user->create();
         $sites    = new SitesRepository();
@@ -108,9 +110,9 @@ final class SitesCoreRefreshTest extends AbstractSchemaTestCase
         $req->set_header('Authorization', 'Bearer ' . $jwt);
         $res = rest_do_request($req);
 
-        self::assertSame(404, $res->get_status());
-        self::assertSame('sites.not_found', $res->get_data()['error']['code']);
-        self::assertFalse(as_next_scheduled_action(self::REFRESH_HOOK, [$siteId], 'defyn'));
+        // Team-wide: stranger can refresh — returns 202 not 404.
+        self::assertSame(202, $res->get_status());
+        self::assertNotFalse(as_next_scheduled_action(self::REFRESH_HOOK, [$siteId], 'defyn'));
     }
 
     public function testSeventhCallReturns429(): void

@@ -79,9 +79,12 @@ final class OverviewControllerTest extends AbstractSchemaTestCase
         $this->assertSame('overview.rate_limited', $resp->get_data()['error']['code']);
     }
 
-    public function testOwnershipScopingExcludesOtherUsersSites(): void
+    public function testTeamWideFleetIncludesAllSites(): void
     {
+        // Seed a site for user 2 and one for user 1.
+        // With team-wide fleet both are visible to any authenticated user.
         $this->seedSite(2);
+        $this->seedSite(1);
         $token = $this->token(1);
 
         $request = new WP_REST_Request('GET', '/defyn/v1/overview');
@@ -90,7 +93,11 @@ final class OverviewControllerTest extends AbstractSchemaTestCase
 
         $this->assertSame(200, $response->get_status());
         $body = $response->get_data();
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Neither site has plugins seeded, so the fleet-wide plugin count is 0.
         $this->assertSame(0, $body['pending_updates']['plugins']);
+        // Neither site triggers attention criteria (no stale sync / failed update /
+        // SSL expiry), so the fleet attention list is empty.
         $this->assertSame([], $body['sites_needing_attention']);
     }
 

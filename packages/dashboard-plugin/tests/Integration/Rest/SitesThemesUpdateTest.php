@@ -90,11 +90,42 @@ final class SitesThemesUpdateTest extends AbstractSchemaTestCase
         $this->assertSame(1, $count);
     }
 
-    public function testSiteNotOwnedReturns404(): void
+    public function testTeamMemberCanUpdateTheme(): void
     {
-        $response = rest_do_request($this->signed('POST', "/defyn/v1/sites/99999/themes/twentytwentyfive/update"));
-        $this->assertSame(404, $response->get_status());
-        $this->assertSame('sites.not_found', $response->get_data()['error']['code']);
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        global $wpdb;
+        $otherUserId = self::factory()->user->create();
+        $wpdb->insert($wpdb->prefix . 'defyn_sites', [
+            'user_id'         => $otherUserId,
+            'url'             => 'https://other.test',
+            'label'           => 'Other',
+            'status'          => 'active',
+            'site_public_key' => base64_encode(random_bytes(32)),
+            'our_public_key'  => base64_encode(random_bytes(32)),
+            'created_at'      => '2026-06-06 00:00:00',
+            'updated_at'      => '2026-06-06 00:00:00',
+        ]);
+        $otherSiteId = (int) $wpdb->insert_id;
+
+        $wpdb->insert(SiteThemesTable::tableName(), [
+            'site_id'                => $otherSiteId,
+            'slug'                   => 'twentytwentyfive',
+            'name'                   => 'Twenty Twenty-Five',
+            'version'                => '1.2',
+            'parent_slug'            => null,
+            'is_active'              => 1,
+            'update_available'       => 1,
+            'update_version'         => '1.3',
+            'update_state'           => 'idle',
+            'last_update_error'      => null,
+            'last_update_attempt_at' => null,
+            'last_seen_at'           => '2026-06-06 05:00:00',
+            'created_at'             => '2026-06-05 09:00:00',
+            'updated_at'             => '2026-06-06 05:00:00',
+        ]);
+
+        $response = rest_do_request($this->signed('POST', "/defyn/v1/sites/{$otherSiteId}/themes/twentytwentyfive/update"));
+        $this->assertSame(202, $response->get_status());
     }
 
     public function testThemeNotInInventoryReturns404(): void

@@ -27,14 +27,15 @@ final class SitesListTest extends AbstractSchemaTestCase
         do_action('rest_api_init');
     }
 
-    public function testListReturnsOnlyOwnerSites(): void
+    public function testListReturnsAllSitesTeamWide(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
         $owner    = self::factory()->user->create();
         $stranger = self::factory()->user->create();
         $repo = new SitesRepository();
         $repo->insertPending($owner,    'https://a.test', '', 'P', 'E');
         $repo->insertPending($owner,    'https://b.test', '', 'P', 'E');
-        $repo->insertPending($stranger, 'https://c.test', '', 'P', 'E');
+        $repo->insertPending($stranger, 'https://c.test', '', 'P', 'E'); // now visible to owner too
 
         $token = (new TokenService(DEFYN_JWT_SECRET))->issueAccess($owner);
         $req = new WP_REST_Request('GET', '/defyn/v1/sites');
@@ -44,8 +45,8 @@ final class SitesListTest extends AbstractSchemaTestCase
         self::assertSame(200, $r->get_status());
         $data = $r->get_data();
         self::assertArrayHasKey('sites', $data);
-        self::assertCount(2, $data['sites']);
-        self::assertSame(['https://a.test', 'https://b.test'], array_map(fn ($s) => $s['url'], $data['sites']));
+        // Team-wide: all 3 sites returned regardless of owner.
+        self::assertCount(3, $data['sites']);
     }
 
     public function testEmptyListReturnsEmptyArray(): void

@@ -1,6 +1,14 @@
 import { http, HttpResponse } from 'msw';
 
 export const handlers = [
+  // GET /auth/config — returns the Google OAuth client id for the Login screen.
+  http.get('*/wp-json/defyn/v1/auth/config', () =>
+    HttpResponse.json(
+      { google_client_id: 'test-client-id.apps.googleusercontent.com', error: null },
+      { status: 200 },
+    ),
+  ),
+
   // Default: login succeeds with a fake access token.
   http.post('*/wp-json/defyn/v1/auth/login', async ({ request }) => {
     const body = (await request.json()) as { email?: string; password?: string };
@@ -14,6 +22,24 @@ export const handlers = [
       return HttpResponse.json(
         { error: { code: 'auth.invalid_credentials', message: 'Invalid email or password.' } },
         { status: 401 },
+      );
+    }
+    return HttpResponse.json({ access_token: 'fake.access.token' }, { status: 200 });
+  }),
+
+  // /auth/google — Google SSO sign-in (2026-06-22).
+  http.post('*/wp-json/defyn/v1/auth/google', async ({ request }) => {
+    const body = (await request.json()) as { credential?: string };
+    if (!body.credential) {
+      return HttpResponse.json(
+        { error: { code: 'auth.google_missing_credential', message: 'A Google credential is required.' } },
+        { status: 400 },
+      );
+    }
+    if (body.credential === 'wrong-domain') {
+      return HttpResponse.json(
+        { error: { code: 'auth.google_domain', message: 'Only defyn.com.au accounts may sign in.' } },
+        { status: 403 },
       );
     }
     return HttpResponse.json({ access_token: 'fake.access.token' }, { status: 200 });

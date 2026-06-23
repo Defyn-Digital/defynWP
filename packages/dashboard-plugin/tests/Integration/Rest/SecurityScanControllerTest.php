@@ -74,15 +74,27 @@ final class SecurityScanControllerTest extends AbstractSchemaTestCase
     }
 
     // -------------------------------------------------------------------------
-    // 2. 404: non-owned / non-existent site
+    // 2. 202: any team member can trigger a security scan
     // -------------------------------------------------------------------------
 
-    public function testNotOwnedSiteReturns404(): void
+    public function testAnyTeamMemberCanTriggerSecurityScan(): void
     {
-        $response = rest_do_request($this->signed('POST', '/defyn/v1/sites/99999/security/scan'));
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        global $wpdb;
+        $otherUserId = self::factory()->user->create();
+        $wpdb->insert($wpdb->prefix . 'defyn_sites', [
+            'user_id'    => $otherUserId,
+            'url'        => 'https://other.test',
+            'label'      => 'Other',
+            'status'     => 'active',
+            'created_at' => '2026-06-15 00:00:00',
+            'updated_at' => '2026-06-15 00:00:00',
+        ]);
+        $otherSiteId = (int) $wpdb->insert_id;
 
-        self::assertSame(404, $response->get_status());
-        self::assertSame('sites.not_found', $response->get_data()['error']['code']);
+        $response = rest_do_request($this->signed('POST', "/defyn/v1/sites/{$otherSiteId}/security/scan"));
+
+        self::assertSame(202, $response->get_status());
     }
 
     // -------------------------------------------------------------------------

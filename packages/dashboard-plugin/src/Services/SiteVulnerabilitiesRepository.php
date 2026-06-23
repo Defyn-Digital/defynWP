@@ -96,27 +96,25 @@ final class SiteVulnerabilitiesRepository
         $sites     = SitesTable::tableName();
         $dismissed = DismissedVulnerabilitiesTable::tableName();
 
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
         $rows = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT s.id AS site_id, s.label AS label, s.url AS url,
-                        s.last_security_scan_at AS last_security_scan_at,
-                        SUM(CASE WHEN sv.severity = 'critical' THEN 1 ELSE 0 END) AS critical,
-                        SUM(CASE WHEN sv.severity = 'high'     THEN 1 ELSE 0 END) AS high,
-                        SUM(CASE WHEN sv.severity = 'medium'   THEN 1 ELSE 0 END) AS medium,
-                        SUM(CASE WHEN sv.severity = 'low'      THEN 1 ELSE 0 END) AS low,
-                        COUNT(sv.id) AS total
-                 FROM {$sites} s
-                 LEFT JOIN {$sv} sv ON sv.site_id = s.id
-                     AND NOT EXISTS (
-                         SELECT 1 FROM {$dismissed} d
-                         WHERE d.site_id = sv.site_id AND d.type = sv.type
-                           AND d.slug = sv.slug AND d.source_id = sv.source_id
-                     )
-                 WHERE s.user_id = %d
-                 GROUP BY s.id, s.label, s.url, s.last_security_scan_at
-                 ORDER BY s.id ASC",
-                $userId
-            ),
+            "SELECT s.id AS site_id, s.label AS label, s.url AS url,
+                    s.last_security_scan_at AS last_security_scan_at,
+                    SUM(CASE WHEN sv.severity = 'critical' THEN 1 ELSE 0 END) AS critical,
+                    SUM(CASE WHEN sv.severity = 'high'     THEN 1 ELSE 0 END) AS high,
+                    SUM(CASE WHEN sv.severity = 'medium'   THEN 1 ELSE 0 END) AS medium,
+                    SUM(CASE WHEN sv.severity = 'low'      THEN 1 ELSE 0 END) AS low,
+                    COUNT(sv.id) AS total
+             FROM {$sites} s
+             LEFT JOIN {$sv} sv ON sv.site_id = s.id
+                 AND NOT EXISTS (
+                     SELECT 1 FROM {$dismissed} d
+                     WHERE d.site_id = sv.site_id AND d.type = sv.type
+                       AND d.slug = sv.slug AND d.source_id = sv.source_id
+                 )
+             GROUP BY s.id, s.label, s.url, s.last_security_scan_at
+             ORDER BY s.id ASC",
             ARRAY_A
         );
 

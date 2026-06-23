@@ -94,12 +94,12 @@ final class IncidentsRepository
         global $wpdb;
         $i = IncidentsTable::tableName();
         $s = SitesTable::tableName();
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT i.site_id AS site_id, i.started_at AS started_at, i.ended_at AS ended_at
              FROM `{$i}` i INNER JOIN `{$s}` s ON s.id = i.site_id
-             WHERE s.user_id = %d AND (i.ended_at IS NULL OR i.ended_at >= %s)
+             WHERE (i.ended_at IS NULL OR i.ended_at >= %s)
              ORDER BY i.started_at ASC",
-            $userId,
             $sinceUtc
         ), ARRAY_A) ?: [];
 
@@ -137,13 +137,15 @@ final class IncidentsRepository
         global $wpdb;
         $i = IncidentsTable::tableName();
         $s = SitesTable::tableName();
-        $rows = $wpdb->get_results($wpdb->prepare(
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        $rows = $wpdb->get_results(
             "SELECT i.site_id AS site_id, s.label AS site_label, i.started_at AS started_at
              FROM `{$i}` i INNER JOIN `{$s}` s ON s.id = i.site_id
-             WHERE s.user_id = %d AND i.ended_at IS NULL
+             WHERE i.ended_at IS NULL
              ORDER BY i.started_at ASC",
-            $userId
-        ), ARRAY_A) ?: [];
+            ARRAY_A
+        ) ?: [];
         return array_map(static fn ($r) => [
             'site_id'    => (int) $r['site_id'],
             'site_label' => (string) $r['site_label'],

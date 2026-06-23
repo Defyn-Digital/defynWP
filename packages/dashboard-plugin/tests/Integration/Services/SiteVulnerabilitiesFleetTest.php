@@ -29,7 +29,7 @@ final class SiteVulnerabilitiesFleetTest extends AbstractSchemaTestCase
         $atRisk      = $this->seedSite(1, 'https://a.test', 'Acme', '2026-06-15 02:00:00');
         $clean       = $this->seedSite(1, 'https://b.test', 'Beta', '2026-06-15 02:00:00');
         $neverScan   = $this->seedSite(1, 'https://c.test', 'Gamma', null);
-        $otherUsers  = $this->seedSite(2, 'https://x.test', 'NotMine', '2026-06-15 02:00:00');
+        $otherOwner  = $this->seedSite(2, 'https://x.test', 'NotMine', '2026-06-15 02:00:00');
 
         $this->repo->replaceForSite($atRisk, [
             $this->finding('wordfence', 'crit', 'critical'),
@@ -37,11 +37,13 @@ final class SiteVulnerabilitiesFleetTest extends AbstractSchemaTestCase
             $this->finding('wpforms', 'high', 'high'),
             $this->finding('akismet', 'low', 'low'),
         ], '2026-06-15 02:00:00');
-        $this->repo->replaceForSite($otherUsers, [$this->finding('x', 'crit', 'critical')], '2026-06-15 02:00:00');
+        $this->repo->replaceForSite($otherOwner, [$this->finding('x', 'crit', 'critical')], '2026-06-15 02:00:00');
 
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
         $rows = $this->repo->findFleetSummariesForUser(1);
 
-        self::assertCount(3, $rows, 'only user 1 sites; other user excluded');
+        // Team-wide: both users see all sites fleet-wide.
+        self::assertCount(4, $rows, 'team-wide: all 4 sites visible regardless of owner');
         $by = [];
         foreach ($rows as $r) { $by[$r['site_id']] = $r; }
 
@@ -57,6 +59,19 @@ final class SiteVulnerabilitiesFleetTest extends AbstractSchemaTestCase
 
         self::assertSame(0, $by[$neverScan]['total']);
         self::assertNull($by[$neverScan]['last_security_scan_at'], 'never-scanned = null scan time');
+
+        self::assertSame(1, $by[$otherOwner]['critical'], 'other-owner site is now visible fleet-wide');
+    }
+
+    public function testFindFleetSummariesIsTeamWide(): void
+    {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Seed one site owned by user 11; call findFleetSummariesForUser(22).
+        $siteId = $this->seedSite(11, 'https://cross.test', 'CrossSite', '2026-06-22 02:00:00');
+
+        $result = $this->repo->findFleetSummariesForUser(22);
+        self::assertCount(1, $result);
+        self::assertSame($siteId, $result[0]['site_id']);
     }
 
     /** @return array<string,mixed> */

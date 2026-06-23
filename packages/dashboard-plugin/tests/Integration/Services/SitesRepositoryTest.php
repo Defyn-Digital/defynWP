@@ -50,33 +50,75 @@ final class SitesRepositoryTest extends AbstractSchemaTestCase
     {
         $id = $this->repo->insertPending(7, 'https://owner.test', '', 'P', 'E');
 
-        $hit  = $this->repo->findByIdForUser($id, 7);
-        $miss = $this->repo->findByIdForUser($id, 999);
+        $hit     = $this->repo->findByIdForUser($id, 7);
+        // Team-wide: any userId can find any site.
+        $alsoHit = $this->repo->findByIdForUser($id, 999);
 
         self::assertNotNull($hit);
         self::assertSame($id, $hit->id);
-        self::assertNull($miss);
+        self::assertNotNull($alsoHit);
     }
 
-    public function testFindAllForUserReturnsOnlyThatUsersSites(): void
+    public function testFindAllForUserReturnsAllSitesTeamWide(): void
     {
         $this->repo->insertPending(7, 'https://a.test', '', 'P', 'E');
         $this->repo->insertPending(7, 'https://b.test', '', 'P', 'E');
         $this->repo->insertPending(8, 'https://c.test', '', 'P', 'E');
 
+        // Team-wide: all 3 sites visible regardless of which userId is passed.
         $sites = $this->repo->findAllForUser(7);
+        self::assertCount(3, $sites);
 
-        self::assertCount(2, $sites);
-        self::assertSame(['https://a.test', 'https://b.test'], array_map(fn ($s) => $s->url, $sites));
+        $sites2 = $this->repo->findAllForUser(8);
+        self::assertCount(3, $sites2);
     }
 
-    public function testExistsForUserCheckIsCaseInsensitiveAndUserScoped(): void
+    public function testFleetIsTeamWideAcrossUsers(): void
     {
+        $siteId = $this->repo->insertPending(11, 'https://userA.test', 'A', 'PUB', 'ENC');
+        // User 22 can find user 11's site
+        $this->assertNotNull($this->repo->findByIdForUser($siteId, 22));
+        // User 22's findAll returns it
+        $sites = $this->repo->findAllForUser(22);
+        $this->assertCount(1, $sites);
+        $this->assertSame($siteId, $sites[0]->id);
+        // countAllForUser also returns it
+        $this->assertSame(1, $this->repo->countAllForUser(22));
+    }
+
+    public function testExistsForUserCheckIsCaseInsensitiveAndTeamWide(): void
+    {
+        // Seeded under user A (user 7).
         $this->repo->insertPending(7, 'https://Foo.Example', '', 'P', 'E');
 
-        self::assertTrue($this->repo->existsForUser(7, 'https://foo.example'));   // case-insensitive
-        self::assertFalse($this->repo->existsForUser(8, 'https://foo.example'));  // user-scoped
+        // Case-insensitive match still works.
+        self::assertTrue($this->repo->existsForUser(7, 'https://foo.example'));
+        // Team-wide: a different user (user 8) now ALSO sees the URL as taken.
+        // (Previously assertFalse for user 8 — flipped 2026-06-22 SSO de-scope.)
+        self::assertTrue($this->repo->existsForUser(8, 'https://foo.example'));
+        // A completely different URL is not found by anyone.
         self::assertFalse($this->repo->existsForUser(7, 'https://other.test'));
+    }
+
+    public function testDeleteForUserIsTeamWide(): void
+    {
+        // Seed under user A (user 1).
+        $idA = $this->repo->insertPending(1, 'https://del-a.test', '', 'P', 'E');
+        // Seed under user B (user 2).
+        $idB = $this->repo->insertPending(2, 'https://del-b.test', '', 'P', 'E');
+
+        // User B can delete user A's site (team-wide — any admin can delete any site).
+        self::assertTrue($this->repo->deleteForUser($idA, 2));
+        self::assertNull($this->repo->findById($idA));
+
+        // User A can delete user B's site too.
+        self::assertTrue($this->repo->deleteForUser($idB, 1));
+        self::assertNull($this->repo->findById($idB));
+    }
+
+    public function testDeleteForUserReturnsFalseForMissingSite(): void
+    {
+        self::assertFalse($this->repo->deleteForUser(99999, 1));
     }
 
     public function testMarkActiveUpdatesStatusAndKeysAndContactTimestamp(): void

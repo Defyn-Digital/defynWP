@@ -110,14 +110,26 @@ final class SitesVulnerabilitiesTest extends AbstractSchemaTestCase
     }
 
     // -------------------------------------------------------------------------
-    // 3. 404 when site belongs to a different user (or does not exist)
+    // 3. 200 when site belongs to a different team member
     // -------------------------------------------------------------------------
 
-    public function testNotOwnedSiteReturns404(): void
+    public function testAnyTeamMemberCanViewSiteVulnerabilities(): void
     {
-        $response = rest_do_request($this->signed('GET', '/defyn/v1/sites/99999/vulnerabilities'));
-        self::assertSame(404, $response->get_status());
-        self::assertSame('sites.not_found', $response->get_data()['error']['code']);
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        global $wpdb;
+        $otherUserId = self::factory()->user->create();
+        $wpdb->insert($wpdb->prefix . 'defyn_sites', [
+            'user_id'    => $otherUserId,
+            'url'        => 'https://other.test',
+            'label'      => 'Other',
+            'status'     => 'active',
+            'created_at' => '2026-06-15 00:00:00',
+            'updated_at' => '2026-06-15 00:00:00',
+        ]);
+        $otherSiteId = (int) $wpdb->insert_id;
+
+        $response = rest_do_request($this->signed('GET', "/defyn/v1/sites/{$otherSiteId}/vulnerabilities"));
+        self::assertSame(200, $response->get_status());
     }
 
     // -------------------------------------------------------------------------

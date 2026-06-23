@@ -303,6 +303,14 @@ final class RateLimit
     public const LINKS_READ_LIMIT  = 30;
     public const LINKS_READ_WINDOW = MINUTE_IN_SECONDS;
 
+    // Google SSO sign-in (2026-06-22): per-IP, 10/MIN — auth endpoints warrant
+    // stricter limits than read-only polls; 10 leaves room for concurrent team
+    // sign-ins without being 6× looser than the 5/min password-login bucket.
+    // Keyed on REMOTE_ADDR only (same as login()), never a spoofable header.
+    // Distinct prefix `defyn_rl_google_<ip>`.
+    public const GOOGLE_AUTH_LIMIT  = 10;
+    public const GOOGLE_AUTH_WINDOW = MINUTE_IN_SECONDS;
+
     /** @return true|WP_Error */
     public static function login(WP_REST_Request $request)
     {
@@ -319,6 +327,19 @@ final class RateLimit
         }
 
         set_transient($key, $count + 1, self::LOGIN_WINDOW);
+        return true;
+    }
+
+    /** @return true|WP_Error */
+    public static function googleAuth(WP_REST_Request $request)
+    {
+        $ip = self::clientIp();
+        $key = 'defyn_rl_google_' . $ip;
+        $count = (int) (get_transient($key) ?: 0);
+        if ($count >= self::GOOGLE_AUTH_LIMIT) {
+            return new WP_Error('auth.rate_limited', 'Too many sign-in attempts. Try again in a minute.', ['status' => 429]);
+        }
+        set_transient($key, $count + 1, self::GOOGLE_AUTH_WINDOW);
         return true;
     }
 

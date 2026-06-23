@@ -161,11 +161,9 @@ final class SitesPluginsUpdateTest extends AbstractSchemaTestCase
         self::assertSame('5.8', $details['target_version']);
     }
 
-    public function testSiteNotOwnedReturns404(): void
+    public function testTeamMemberCanUpdatePlugin(): void
     {
-        // Owner has the site; stranger holds the JWT. The 404 envelope mirrors
-        // the unauthorized-lookup shape used by SitesShowController so we don't
-        // leak existence to a non-owner (anti-enumeration).
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
         $ownerId  = self::factory()->user->create();
         $stranger = self::factory()->user->create();
         $sites    = new SitesRepository();
@@ -185,12 +183,11 @@ final class SitesPluginsUpdateTest extends AbstractSchemaTestCase
         $req->set_header('Authorization', 'Bearer ' . $jwt);
         $res = rest_do_request($req);
 
-        self::assertSame(404, $res->get_status());
-        self::assertSame('sites.not_found', $res->get_data()['error']['code']);
+        self::assertSame(202, $res->get_status());
 
-        // No optimistic write, no log event.
+        // Optimistic write: row flipped from 'idle' → 'queued'.
         $row = (new SitePluginsRepository())->findRowForSiteAndSlug($siteId, 'akismet');
-        self::assertSame('idle', $row['update_state']);
+        self::assertSame('queued', $row['update_state']);
     }
 
     public function testPluginNotInInventoryReturns404(): void

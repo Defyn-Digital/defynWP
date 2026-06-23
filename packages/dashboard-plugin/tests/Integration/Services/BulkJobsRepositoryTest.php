@@ -142,12 +142,35 @@ final class BulkJobsRepositoryTest extends AbstractSchemaTestCase
         $this->assertSame('plugin_update', $row['kind']);
     }
 
-    public function testFindByIdForUserReturnsNullForForeignUser(): void
+    public function testFindByIdForUserIsTeamWide(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
         $jobId = $this->repo->createJob(7, 'plugin_update', 1, 0, '2026-06-09 21:00:00');
 
-        $this->assertNull($this->repo->findByIdForUser($jobId, 8)); // guardrail #7
+        // Any authenticated user can see any job fleet-wide.
+        $this->assertNotNull($this->repo->findByIdForUser($jobId, 8));
+        // Non-existent job still returns null.
         $this->assertNull($this->repo->findByIdForUser(999999, 7));
+    }
+
+    public function testBulkJobsAreTeamWide(): void
+    {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Create a job for user 11; call findByIdForUser, findAllForUser, countAllForUser with user 22.
+        $jobId = $this->repo->createJob(11, 'theme_update', 2, 0, '2026-06-22 10:00:00');
+
+        // findByIdForUser(jobId, 22) — cross-owner job must be visible.
+        $row = $this->repo->findByIdForUser($jobId, 22);
+        $this->assertNotNull($row, 'findByIdForUser must return the job fleet-wide.');
+        $this->assertSame((string) $jobId, $row['id']);
+
+        // findAllForUser(22, ...) — job created by user 11 must appear.
+        $all = $this->repo->findAllForUser(22, null, 20, 0);
+        $this->assertNotEmpty($all, 'findAllForUser must return jobs fleet-wide.');
+
+        // countAllForUser(22, ...) — must count fleet-wide.
+        $count = $this->repo->countAllForUser(22, null);
+        $this->assertGreaterThan(0, $count, 'countAllForUser must count jobs fleet-wide.');
     }
 
     public function testFindItemsForJobReturnsRowsInIdOrder(): void

@@ -99,13 +99,35 @@ final class SitePerformanceRepositoryTest extends AbstractSchemaTestCase
         $this->assertSame('Charlie', $byId[3]['label']);
     }
 
-    public function testFindFleetForUserExcludesOtherOwners(): void
+    public function testFindFleetForUserIsTeamWide(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
         $this->seedSite(1, 7, 'https://a.example', 'Alpha');
-        $this->seedSite(2, 9, 'https://x.example', 'Other'); // different user
+        $this->seedSite(2, 9, 'https://x.example', 'Other'); // different owner — still visible fleet-wide
 
-        $rows = (new SitePerformanceRepository())->findFleetForUser(7);
-        $this->assertCount(1, $rows);
-        $this->assertSame(1, $rows[0]['site_id']);
+        $repo = new SitePerformanceRepository();
+
+        // Team-wide: both users see all sites fleet-wide.
+        $rowsFor7 = $repo->findFleetForUser(7);
+        $this->assertCount(2, $rowsFor7);
+
+        $rowsFor9 = $repo->findFleetForUser(9);
+        $this->assertCount(2, $rowsFor9);
+    }
+
+    public function testFindFleetForUserCrossOwnerVisible(): void
+    {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Seed a site owned by user 11, add a performance row, then query as user 22.
+        $this->seedSite(11, 11, 'https://team.example', 'TeamSite');
+
+        $repo = new SitePerformanceRepository();
+        $repo->store(11, ['score' => 75, 'lcp_ms' => 2000, 'cls' => 0.05, 'inp_ms' => 120],
+                         ['score' => 88, 'lcp_ms' => 1500, 'cls' => 0.02, 'inp_ms' => 80],
+                         '2026-06-22 03:00:00', '2026-06-22 03:00:05');
+
+        $result = $repo->findFleetForUser(22);
+        $this->assertCount(1, $result);
+        $this->assertSame(11, $result[0]['site_id']);
     }
 }

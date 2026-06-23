@@ -9,10 +9,10 @@ use Defyn\Dashboard\Models\Site;
 use Throwable;
 
 /**
- * P3.3 — posts monitoring alerts to the site OWNER's Slack incoming webhook
- * (per-operator user_meta `defyn_slack_webhook_url`). No-op when unset.
+ * P3.3 — posts monitoring alerts to the team-wide Slack incoming webhook
+ * (shared site option `defyn_slack_webhook_url`). No-op when unset.
  * Best-effort: transport / non-2xx failures are logged, never thrown.
- * Mirrors EmailNotifier's owner-resolution + best-effort shape.
+ * Mirrors EmailNotifier's recipient-resolution + best-effort shape.
  */
 final class SlackNotifier implements Notifier
 {
@@ -54,7 +54,7 @@ final class SlackNotifier implements Notifier
 
     private function post(Site $site, string $text): void
     {
-        $webhook = (string) get_user_meta($site->userId, 'defyn_slack_webhook_url', true);
+        $webhook = (string) get_option('defyn_slack_webhook_url', '');
         if ($webhook === '') {
             return;
         }

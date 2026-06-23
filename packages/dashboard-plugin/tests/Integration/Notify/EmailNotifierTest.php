@@ -17,6 +17,8 @@ use Defyn\Dashboard\Tests\Integration\AbstractSchemaTestCase;
  * the mock_sent buffer before each test; tests_retrieve_phpmailer_instance()->get_sent()
  * inspects what was captured.
  *
+ * Recipient is the team-wide `defyn_alert_email` option, falling back to `admin_email`.
+ *
  * @group integration
  */
 final class EmailNotifierTest extends AbstractSchemaTestCase
@@ -32,11 +34,18 @@ final class EmailNotifierTest extends AbstractSchemaTestCase
         $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_incidents");
         $wpdb->query("DELETE FROM {$wpdb->prefix}defyn_sites");
         // phpcs:enable WordPress.DB.PreparedSQL
+
+        delete_option('defyn_alert_email');
+    }
+
+    protected function tearDown(): void
+    {
+        delete_option('defyn_alert_email');
+        parent::tearDown();
     }
 
     /**
      * Insert a site row owned by $userId and return its ID.
-     * Mirrors the makeSite() helper pattern from IncidentsRepositoryTest.
      */
     private function makeSite(int $userId, string $label): int
     {
@@ -70,50 +79,61 @@ final class EmailNotifierTest extends AbstractSchemaTestCase
         ]);
     }
 
-    public function test_notify_down_sends_email_to_site_owner(): void
+    public function test_notify_down_sends_email_to_shared_alert_address(): void
     {
         reset_phpmailer_instance();
 
-        // Create a real WP user with a known email.
-        $userId = self::factory()->user->create(['user_email' => 'owner@example.com']);
+        // Seed the shared team-wide alert email option.
+        update_option('defyn_alert_email', 'team-alerts@example.com');
 
-        // Seed a site row owned by that user.
-        $siteId = $this->makeSite($userId, 'AcmeBlog');
+        // Site is owned by a different user — recipient must NOT be the owner's email.
+        $ownerId = self::factory()->user->create(['user_email' => 'site-owner@example.com']);
+        $siteId  = $this->makeSite($ownerId, 'AcmeBlog');
 
-        // Load Site via SitesRepository so we get a proper Site model.
-        $site = (new SitesRepository())->findById($siteId);
-        $this->assertNotNull($site, 'Site should be loadable from DB');
-
-        // Build an open Incident DTO.
+        $site     = (new SitesRepository())->findById($siteId);
         $incident = $this->makeIncident($siteId);
 
-        // Act.
         (new EmailNotifier())->notifyDown($site, $incident);
 
-        // Assert email was captured.
         $mailer = tests_retrieve_phpmailer_instance();
         $sent   = $mailer->get_sent(0);
         $this->assertNotFalse($sent, 'Expected at least one email to be captured by MockPHPMailer');
 
-        // Recipient should be the owner's email.
-        $this->assertSame('owner@example.com', $sent->to[0][0]);
-
-        // Subject should mention the site label.
+        // Recipient must be the shared option, NOT the site owner.
+        $this->assertSame('team-alerts@example.com', $sent->to[0][0]);
         $this->assertStringContainsString('AcmeBlog', $sent->subject);
-
-        // Subject should mention "down" (case-insensitive).
         $this->assertStringContainsStringIgnoringCase('down', $sent->subject);
+    }
+
+    public function test_notify_down_falls_back_to_admin_email_when_option_empty(): void
+    {
+        reset_phpmailer_instance();
+
+        // defyn_alert_email is unset — should fall back to WP admin_email.
+        $adminEmail = (string) get_option('admin_email');
+        $this->assertNotEmpty($adminEmail, 'admin_email must be set in the test env');
+
+        $userId = self::factory()->user->create(['user_email' => 'owner-not-used@example.com']);
+        $siteId = $this->makeSite($userId, 'FallbackSite');
+        $site   = (new SitesRepository())->findById($siteId);
+
+        (new EmailNotifier())->notifyDown($site, $this->makeIncident($siteId));
+
+        $mailer = tests_retrieve_phpmailer_instance();
+        $sent   = $mailer->get_sent(0);
+        $this->assertNotFalse($sent, 'Expected email to be captured via admin_email fallback');
+        $this->assertSame($adminEmail, $sent->to[0][0]);
     }
 
     public function test_notify_down_does_not_throw_when_wp_mail_fails(): void
     {
         reset_phpmailer_instance();
 
-        $userId = self::factory()->user->create(['user_email' => 'owner2@example.com']);
-        $siteId = $this->makeSite($userId, 'AcmeBlog');
-        $site   = (new SitesRepository())->findById($siteId);
-        $this->assertNotNull($site);
+        update_option('defyn_alert_email', 'alerts@example.com');
 
+        $userId   = self::factory()->user->create(['user_email' => 'owner2@example.com']);
+        $siteId   = $this->makeSite($userId, 'AcmeBlog');
+        $site     = (new SitesRepository())->findById($siteId);
         $incident = $this->makeIncident($siteId);
 
         // Make wp_mail return false (simulates a failure) via pre_wp_mail filter.
@@ -132,6 +152,8 @@ final class EmailNotifierTest extends AbstractSchemaTestCase
     {
         reset_phpmailer_instance();
 
+        update_option('defyn_alert_email', 'vuln-alerts@example.com');
+
         $userId = self::factory()->user->create(['user_email' => 'vulnowner@example.com']);
         $siteId = $this->makeSite($userId, 'VulnSite');
         $site   = (new SitesRepository())->findById($siteId);
@@ -148,7 +170,8 @@ final class EmailNotifierTest extends AbstractSchemaTestCase
         $sent   = $mailer->get_sent(0);
         $this->assertNotFalse($sent, 'Expected at least one email to be captured by MockPHPMailer');
 
-        $this->assertSame('vulnowner@example.com', $sent->to[0][0]);
+        // Recipient must be the shared alert address.
+        $this->assertSame('vuln-alerts@example.com', $sent->to[0][0]);
         $this->assertStringContainsString('2 new vulnerabilities on', $sent->subject);
         $this->assertStringContainsString('VulnSite', $sent->subject);
         $this->assertStringContainsString('WP File Manager', $sent->body);
@@ -161,31 +184,22 @@ final class EmailNotifierTest extends AbstractSchemaTestCase
     {
         reset_phpmailer_instance();
 
-        // Create a real WP user with a known email.
+        update_option('defyn_alert_email', 'ssl-alerts@example.com');
+
         $userId = self::factory()->user->create(['user_email' => 'sslowner@example.com']);
-
-        // Seed a site row owned by that user.
         $siteId = $this->makeSite($userId, 'SecureSite');
-
-        // Load Site via SitesRepository so we get a proper Site model.
-        $site = (new SitesRepository())->findById($siteId);
+        $site   = (new SitesRepository())->findById($siteId);
         $this->assertNotNull($site, 'Site should be loadable from DB');
 
-        // Act: call with a future expiry date and 14 days remaining.
         (new EmailNotifier())->notifySslExpiring($site, '2026-07-01 00:00:00', 14);
 
-        // Assert email was captured.
         $mailer = tests_retrieve_phpmailer_instance();
         $sent   = $mailer->get_sent(0);
         $this->assertNotFalse($sent, 'Expected at least one email to be captured by MockPHPMailer');
 
-        // Recipient should be the owner's email.
-        $this->assertSame('sslowner@example.com', $sent->to[0][0]);
-
-        // Subject must mention 'SSL'.
+        // Recipient must be the shared alert option.
+        $this->assertSame('ssl-alerts@example.com', $sent->to[0][0]);
         $this->assertStringContainsString('SSL', $sent->subject);
-
-        // Subject must mention the day count.
         $this->assertStringContainsString('14', $sent->subject);
     }
 }

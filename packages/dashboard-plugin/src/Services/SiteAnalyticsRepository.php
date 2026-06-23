@@ -95,7 +95,9 @@ final class SiteAnalyticsRepository
         $analytics = SiteAnalyticsTable::tableName();
         $sites     = SitesTable::tableName();
 
-        $rows = $wpdb->get_results($wpdb->prepare(
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        $rows = $wpdb->get_results(
             "SELECT s.id AS site_id, s.label AS label, s.url AS url, s.ga4_property_id AS ga4_property_id,
                     a.sessions, a.total_users, a.screen_page_views, a.avg_session_duration,
                     a.period_start, a.period_end, a.fetched_at
@@ -108,10 +110,9 @@ final class SiteAnalyticsRepository
                      ORDER BY a2.period_start DESC, a2.id DESC
                      LIMIT 1
                 )
-              WHERE s.user_id = %d
               ORDER BY s.id ASC",
-            $userId
-        ), ARRAY_A) ?: [];
+            ARRAY_A
+        ) ?: [];
 
         return array_map(static fn (array $r): array => [
             'site_id'              => (int) $r['site_id'],

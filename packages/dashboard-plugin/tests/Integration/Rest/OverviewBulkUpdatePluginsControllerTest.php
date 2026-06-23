@@ -115,13 +115,15 @@ final class OverviewBulkUpdatePluginsControllerTest extends AbstractSchemaTestCa
         $this->assertSame('bulk.rate_limited', $resp->get_data()['error']['code'] ?? null);
     }
 
-    public function testSkipsPairsNotOwnedOrWithoutUpdate(): void
+    public function testSkipsPairsWithoutUpdate(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // site_not_owned skip reason no longer applies — all sites are team-visible.
         $siteOwned    = $this->seedSite(1, 'Owned');
-        $siteOtherUsr = $this->seedSite(2, 'NotMine');
-        $this->seedPlugin($siteOwned,    'akismet',     'Akismet',  '5.3', '5.3.1', true);  // valid
+        $siteOtherUsr = $this->seedSite(2, 'NotMine'); // team-wide: now schedulable by any user
+        $this->seedPlugin($siteOwned,    'akismet',     'Akismet',  '5.3', '5.3.1', true);  // valid → SCHEDULED
         $this->seedPlugin($siteOwned,    'no-upd',      'NoUpdate', '1.0', null,    false); // no_update_available
-        $this->seedPlugin($siteOtherUsr, 'wpml',        'WPML',     '4.7', '4.8',   true);  // owned by user 2 — site_not_owned
+        $this->seedPlugin($siteOtherUsr, 'wpml',        'WPML',     '4.7', '4.8',   true);  // team-wide → SCHEDULED
 
         $token = $this->token(1);
         $request = new WP_REST_Request('POST', '/defyn/v1/overview/bulk-update-plugins');
@@ -131,19 +133,20 @@ final class OverviewBulkUpdatePluginsControllerTest extends AbstractSchemaTestCa
             ['site_id' => $siteOwned,    'slug' => 'akismet'],     // SCHEDULED
             ['site_id' => $siteOwned,    'slug' => 'no-upd'],      // no_update_available
             ['site_id' => $siteOwned,    'slug' => 'not-in-inv'],  // plugin_not_found
-            ['site_id' => $siteOtherUsr, 'slug' => 'wpml'],        // site_not_owned
+            ['site_id' => $siteOtherUsr, 'slug' => 'wpml'],        // team-wide: now SCHEDULED
         ]]));
         $response = rest_do_request($request);
 
         $this->assertSame(202, $response->get_status());
         $body = $response->get_data();
-        $this->assertSame(1, $body['scheduled_count']);
-        $this->assertSame(3, $body['skipped_count']);
+        // Team-wide: 2 scheduled (akismet + wpml) and 2 skipped (no-upd + not-in-inv).
+        $this->assertSame(2, $body['scheduled_count']);
+        $this->assertSame(2, $body['skipped_count']);
 
         $reasons = array_column($body['skipped_pairs'], 'reason', 'slug');
         $this->assertSame('no_update_available', $reasons['no-upd']);
         $this->assertSame('plugin_not_found',    $reasons['not-in-inv']);
-        $this->assertSame('site_not_owned',      $reasons['wpml']);
+        // 'site_not_owned' no longer appears — wpml is now scheduled, not skipped.
     }
 
     public function testFanOutSchedulesPerPair(): void
@@ -215,11 +218,11 @@ final class OverviewBulkUpdatePluginsControllerTest extends AbstractSchemaTestCa
 
     public function testZeroValidPairsReturns200AndNoActivityEvent(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // site_not_owned is no longer a valid skip reason — use only plugin-level skips.
         global $wpdb;
-        $siteOwned    = $this->seedSite(1, 'Owned');
-        $siteOtherUsr = $this->seedSite(2, 'NotMine');
+        $siteOwned = $this->seedSite(1, 'Owned');
         $this->seedPlugin($siteOwned, 'no-upd', 'NoUpdate', '1.0', null, false);
-        $this->seedPlugin($siteOtherUsr, 'wpml', 'WPML', '4.7', '4.8', true);
 
         $token = $this->token(1);
         $request = new WP_REST_Request('POST', '/defyn/v1/overview/bulk-update-plugins');
@@ -228,7 +231,7 @@ final class OverviewBulkUpdatePluginsControllerTest extends AbstractSchemaTestCa
         $request->set_body(json_encode(['updates' => [
             ['site_id' => $siteOwned,    'slug' => 'no-upd'],    // no_update_available
             ['site_id' => $siteOwned,    'slug' => 'ghost'],     // plugin_not_found
-            ['site_id' => $siteOtherUsr, 'slug' => 'wpml'],      // site_not_owned
+            ['site_id' => 999999,        'slug' => 'anything'],  // non-existent site → plugin_not_found
         ]]));
         $response = rest_do_request($request);
 

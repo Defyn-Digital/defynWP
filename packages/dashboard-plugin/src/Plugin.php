@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard;
 
+use Defyn\Dashboard\Admin\SettingsPage;
 use Defyn\Dashboard\Jobs\AnalyticsSync;
 use Defyn\Dashboard\Jobs\AnalyticsSyncAll;
 use Defyn\Dashboard\Jobs\CleanupExpiredCodes;
@@ -30,6 +31,8 @@ use Defyn\Dashboard\Jobs\UpdateSiteCore;
 use Defyn\Dashboard\Jobs\UpdateSitePlugin;
 use Defyn\Dashboard\Jobs\UpdateSiteTheme;
 use Defyn\Dashboard\Rest\RestRouter;
+use Defyn\Dashboard\Services\BrandingService;
+use Defyn\Dashboard\Services\NotificationSettingsService;
 
 /**
  * Singleton bootstrap. Wires up activation hooks now;
@@ -59,6 +62,25 @@ final class Plugin
         // accidentally fire the Uninstaller or fail to re-fire register_activation_hook.
         // Eliminates the manual deact+react step from the upgrade runbook.
         add_action('plugins_loaded', [Activation::class, 'maybeRunSelfHeal']);
+
+        // SSO — one-time migration: copy legacy per-user branding meta (user 1)
+        // into the shared site options so the whole team sees the operator's brand.
+        // Guarded internally by the defyn_branding_migrated option; no-op after first run.
+        add_action('plugins_loaded', [BrandingService::class, 'migrateLegacyToShared']);
+
+        // SSO — one-time migration: copy legacy per-user notification meta (user 1)
+        // into shared site options (defyn_slack_webhook_url + defyn_alert_email) so
+        // monitoring alerts fire for every team member's sites.
+        // Guarded internally by the defyn_notify_migrated option; no-op after first run.
+        add_action('plugins_loaded', [NotificationSettingsService::class, 'migrateLegacyToShared']);
+
+        // v0.30.1 — wp-admin self-service config. Settings → DefynWP exposes the
+        // Google OAuth Client ID field so operators on hosts without an env-var UI
+        // (e.g. Kinsta Managed WordPress) can configure Sign-in-with-Google
+        // without SSH. Admin-only; register() hooks admin_menu + admin_init.
+        if (is_admin()) {
+            (new SettingsPage())->register();
+        }
 
         add_action('rest_api_init', static function (): void {
             (new RestRouter())->register();

@@ -102,13 +102,34 @@ final class SiteAnalyticsRepositoryTest extends AbstractSchemaTestCase
         $this->assertNull($byId[3]['sessions']);
     }
 
-    public function testFindFleetForUserExcludesOtherOwners(): void
+    public function testFindFleetForUserIsTeamWide(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
         $this->seedSite(1, 7, 'https://a.example', 'Alpha');
-        $this->seedSite(2, 9, 'https://x.example', 'Other');
-        $rows = (new SiteAnalyticsRepository())->findFleetForUser(7);
-        $this->assertCount(1, $rows);
-        $this->assertSame(1, $rows[0]['site_id']);
+        $this->seedSite(2, 9, 'https://x.example', 'Other'); // different owner — still visible fleet-wide
+
+        $repo = new SiteAnalyticsRepository();
+
+        // Team-wide: both users see all sites fleet-wide.
+        $rowsFor7 = $repo->findFleetForUser(7);
+        $this->assertCount(2, $rowsFor7);
+
+        $rowsFor9 = $repo->findFleetForUser(9);
+        $this->assertCount(2, $rowsFor9);
+    }
+
+    public function testFindFleetForUserCrossOwnerVisible(): void
+    {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Seed a site owned by user 11, add analytics, then query as user 22.
+        $this->seedSite(11, 11, 'https://team.example', 'TeamSite');
+        $repo = new SiteAnalyticsRepository();
+        $repo->upsertForSiteAndPeriod(11, '2026-05-01', '2026-05-31', $this->data(300),
+            '2026-06-01 00:00:00', '2026-06-01 00:00:00');
+
+        $result = $repo->findFleetForUser(22);
+        $this->assertCount(1, $result);
+        $this->assertSame(11, $result[0]['site_id']);
     }
 
     public function testFindRecentForSiteReturnsOldestToNewest(): void

@@ -108,7 +108,7 @@ final class ReportSendServiceTest extends AbstractSchemaTestCase
     public function testAgencyAppearsInSubjectAndBodyWhenConfigured(): void
     {
         $site = $this->seedSite();
-        update_user_meta($site->userId, 'defyn_report_agency_name', 'Acme Agency');
+        update_option('defyn_report_agency_name', 'Acme Agency'); // branding is now team-wide (shared option)
         $report = $this->seedReport($site->id);
         $subject = '';
         $body = '';

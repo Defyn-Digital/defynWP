@@ -55,7 +55,7 @@ final class SitesPluginsListTest extends AbstractSchemaTestCase
         self::assertSame('auth.missing_token', $body['error']['code']);
     }
 
-    public function testReturns404WhenSiteNotOwnedByUser(): void
+    public function testReturnsPluginsWhenSiteNotOwnedByUser(): void
     {
         $owner    = self::factory()->user->create();
         $stranger = self::factory()->user->create();
@@ -67,8 +67,8 @@ final class SitesPluginsListTest extends AbstractSchemaTestCase
 
         $res = rest_do_request($req);
 
-        self::assertSame(404, $res->get_status());
-        self::assertSame('sites.not_found', $res->get_data()['error']['code']);
+        // findByIdForUser is now team-wide: any authenticated user can access any site
+        self::assertSame(200, $res->get_status());
     }
 
     public function testReturnsPluginsForOwnedSite(): void

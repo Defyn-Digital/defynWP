@@ -89,7 +89,7 @@ final class SitesPluginsRefreshTest extends AbstractSchemaTestCase
         self::assertSame((string) $ctx['siteId'], (string) $event['site_id']);
     }
 
-    public function testReturns404WhenSiteNotOwnedByUser(): void
+    public function testReturns202WhenSiteNotOwnedByUser(): void
     {
         $ownerId  = self::factory()->user->create();
         $stranger = self::factory()->user->create();
@@ -105,13 +105,15 @@ final class SitesPluginsRefreshTest extends AbstractSchemaTestCase
 
         $jwt = (new TokenService(DEFYN_JWT_SECRET))->issueAccess($stranger);
 
+        delete_transient(sprintf('defyn_rl_plugins_refresh_%d_%d', $stranger, $siteId));
+
         $req = new WP_REST_Request('POST', '/defyn/v1/sites/' . $siteId . '/plugins/refresh');
         $req->set_header('Authorization', 'Bearer ' . $jwt);
         $res = rest_do_request($req);
 
-        self::assertSame(404, $res->get_status());
-        self::assertSame('sites.not_found', $res->get_data()['error']['code']);
-        self::assertFalse(as_next_scheduled_action(self::REFRESH_HOOK, [$siteId], 'defyn'));
+        // findByIdForUser is now team-wide: any authenticated user can access any site
+        self::assertSame(202, $res->get_status());
+        self::assertNotFalse(as_next_scheduled_action(self::REFRESH_HOOK, [$siteId], 'defyn'));
     }
 
     public function testUnauthenticatedReturns401(): void

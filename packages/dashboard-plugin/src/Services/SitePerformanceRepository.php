@@ -68,7 +68,9 @@ final class SitePerformanceRepository
         $perf  = SitePerformanceTable::tableName();
         $sites = SitesTable::tableName();
 
-        $rows = $wpdb->get_results($wpdb->prepare(
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        $rows = $wpdb->get_results(
             "SELECT s.id AS site_id, s.label AS label, s.url AS url,
                     p.mobile_score, p.desktop_score, p.mobile_lcp_ms, p.fetched_at
                FROM {$sites} s
@@ -80,10 +82,9 @@ final class SitePerformanceRepository
                      ORDER BY p2.fetched_at DESC, p2.id DESC
                      LIMIT 1
                 )
-              WHERE s.user_id = %d
               ORDER BY s.id ASC",
-            $userId
-        ), ARRAY_A) ?: [];
+            ARRAY_A
+        ) ?: [];
 
         return array_map(static fn (array $r): array => [
             'site_id'       => (int) $r['site_id'],

@@ -156,15 +156,18 @@ final class JobsListControllerTest extends AbstractSchemaTestCase
         $this->assertSame('2026-06-09 20:00:00', $pageTwo['jobs'][0]['created_at']);
     }
 
-    public function testForeignUsersJobsExcluded(): void
+    public function testAllTeamJobsVisible(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // User 2's jobs are now visible to user 1 (team-wide fleet).
         $foreignJob = $this->repo->createJob(2, 'plugin_update', 1, 0, '2026-06-09 21:00:00');
         $this->repo->createItems($foreignJob, [['site_id' => 9, 'slug' => 'x']], '2026-06-09 21:00:00');
 
         $body = rest_do_request($this->listRequest($this->token(1)))->get_data();
 
-        $this->assertSame(0, $body['total']);
-        $this->assertSame([], $body['jobs']);
+        // Team-wide: user 1 sees user 2's job.
+        $this->assertSame(1, $body['total']);
+        $this->assertCount(1, $body['jobs']);
     }
 
     public function testRateLimit429AfterThirtyFirstCall(): void

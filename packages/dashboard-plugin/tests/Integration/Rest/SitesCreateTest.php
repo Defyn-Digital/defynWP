@@ -82,9 +82,11 @@ final class SitesCreateTest extends AbstractSchemaTestCase
         self::assertSame('sites.invalid_url', $r->get_data()['error']['code']);
     }
 
-    public function testDuplicateUrlForUserReturns409(): void
+    public function testDuplicateUrlFleetWideReturns409(): void
     {
+        // First POST by the same user — succeeds.
         $this->postSite(['url' => 'https://defyn.test', 'label' => '', 'code' => 'ABCDEFGH2345']);
+        // Second POST (same user, same URL) — 409 because the URL is taken fleet-wide.
         $r = $this->postSite(['url' => 'https://defyn.test', 'label' => '', 'code' => 'ABCDEFGH2345']);
 
         self::assertSame(409, $r->get_status());

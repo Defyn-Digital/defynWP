@@ -3,7 +3,7 @@
  * Plugin Name:       DefynWP Dashboard
  * Plugin URI:        https://defyn.dev
  * Description:       Central dashboard for managing multiple WordPress sites — the backend brain.
- * Version:           0.29.0
+ * Version:           0.30.1
  * Requires at least: 5.5
  * Requires PHP:      8.1
  * Author:            DefynWP
@@ -43,7 +43,7 @@ if (!defined('DEFYN_JWT_SECRET')) {
 }
 
 // Constants used throughout the plugin
-define('DEFYN_DASHBOARD_VERSION', '0.29.0');
+define('DEFYN_DASHBOARD_VERSION', '0.30.1');
 define('DEFYN_DASHBOARD_FILE', __FILE__);
 define('DEFYN_DASHBOARD_DIR', __DIR__);
 
@@ -91,6 +91,17 @@ if (!defined('DEFYN_GA4_SERVICE_ACCOUNT_JSON')) {
     $envGa4 = getenv('DEFYN_GA4_SERVICE_ACCOUNT_JSON');
     if ($envGa4 !== false && $envGa4 !== '') {
         define('DEFYN_GA4_SERVICE_ACCOUNT_JSON', $envGa4);
+    }
+}
+
+// Google Workspace SSO (2026-06-22): the OAuth client ID used to verify the
+// `aud` of incoming Google ID tokens. Public value (also in the SPA). When
+// absent, /auth/google returns 503 auth.google_not_configured; the plugin still
+// loads and email/password break-glass login is unaffected.
+if (!defined('DEFYN_GOOGLE_CLIENT_ID')) {
+    $envGoogleClientId = getenv('DEFYN_GOOGLE_CLIENT_ID');
+    if ($envGoogleClientId !== false && $envGoogleClientId !== '') {
+        define('DEFYN_GOOGLE_CLIENT_ID', $envGoogleClientId);
     }
 }
 

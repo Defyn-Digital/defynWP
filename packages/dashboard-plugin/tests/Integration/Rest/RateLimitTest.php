@@ -31,6 +31,8 @@ final class RateLimitTest extends WP_UnitTestCase
     {
         // Wipe the rate-limit transients so the next test starts fresh.
         delete_transient('defyn_rl_login_203.0.113.42');
+        // Wipe Google SSO bucket for the IP used in testGoogleAuthLimitsPerIp.
+        delete_transient('defyn_rl_google_203.0.113.9');
         // Wipe monitoring bucket for user 1 (used in the monitoring rate-limit test).
         delete_transient('defyn_rl_monitoring_1');
         unset($_SERVER['REMOTE_ADDR']);
@@ -84,5 +86,21 @@ final class RateLimitTest extends WP_UnitTestCase
         self::assertInstanceOf(\WP_Error::class, $result);
         self::assertSame(429, $result->get_error_data()['status']);
         self::assertSame('monitoring.rate_limited', $result->get_error_code());
+    }
+
+    public function testGoogleAuthLimitsPerIp(): void
+    {
+        $_SERVER['REMOTE_ADDR'] = '203.0.113.9';
+        $req = new \WP_REST_Request('POST', '/defyn/v1/auth/google');
+        for ($i = 0; $i < \Defyn\Dashboard\Rest\Middleware\RateLimit::GOOGLE_AUTH_LIMIT; $i++) {
+            $this->assertTrue(
+                \Defyn\Dashboard\Rest\Middleware\RateLimit::googleAuth($req),
+                "attempt #" . ($i + 1) . " should be allowed (under the " . \Defyn\Dashboard\Rest\Middleware\RateLimit::GOOGLE_AUTH_LIMIT . " limit)"
+            );
+        }
+        $err = \Defyn\Dashboard\Rest\Middleware\RateLimit::googleAuth($req);
+        $this->assertInstanceOf(\WP_Error::class, $err);
+        $this->assertSame(429, $err->get_error_data()['status']);
+        $this->assertSame('auth.rate_limited', $err->get_error_code());
     }
 }

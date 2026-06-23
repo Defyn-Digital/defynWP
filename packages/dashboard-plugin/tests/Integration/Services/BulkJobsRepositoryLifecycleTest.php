@@ -212,22 +212,28 @@ final class BulkJobsRepositoryLifecycleTest extends AbstractSchemaTestCase
         $this->assertSame((string) $doneJob, $rows[0]['id']);
     }
 
-    public function testFindAllForUserOrdersNewestFirstPaginatesAndScopesToUser(): void
+    public function testFindAllForUserOrdersNewestFirstPaginatesAndIsTeamWide(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // All 3 jobs use explicit past timestamps so ordering is deterministic.
         [$oldJob] = $this->makeJobWithItems(1, 'plugin_update', [['site_id' => 1, 'slug' => 'a']], '2026-06-09 20:00:00');
         [$newJob] = $this->makeJobWithItems(1, 'theme_update', [['site_id' => 1, 'slug' => 'b']], '2026-06-09 22:00:00');
-        $this->makeJobWithItems(2, 'plugin_update', [['site_id' => 9, 'slug' => 'x']]); // foreign user
+        [$midJob] = $this->makeJobWithItems(2, 'plugin_update', [['site_id' => 9, 'slug' => 'x']], '2026-06-09 21:00:00'); // different owner — now visible fleet-wide
 
         $pageOne = $this->repo->findAllForUser(1, null, 1, 0);
         $pageTwo = $this->repo->findAllForUser(1, null, 1, 1);
 
+        // Newest first: newJob(22:00) → midJob(21:00) → oldJob(20:00).
         $this->assertSame((string) $newJob, $pageOne[0]['id']);
-        $this->assertSame((string) $oldJob, $pageTwo[0]['id']);
-        $this->assertCount(2, $this->repo->findAllForUser(1, null, 20, 0));
+        $this->assertSame((string) $midJob, $pageTwo[0]['id']);
+
+        // Team-wide: both users see all sites fleet-wide — 3 jobs total.
+        $this->assertCount(3, $this->repo->findAllForUser(1, null, 20, 0));
     }
 
     public function testCountAllForUserMatchesFilters(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
         $this->makeJobWithItems(1, 'plugin_update', [['site_id' => 1, 'slug' => 'a']]);
         [, $doneItems] = $this->makeJobWithItems(1, 'plugin_update', [['site_id' => 1, 'slug' => 'b']]);
         $this->repo->markItemStarted($doneItems[0]['item_id'], '2026-06-09 21:01:00');
@@ -236,7 +242,9 @@ final class BulkJobsRepositoryLifecycleTest extends AbstractSchemaTestCase
         $this->assertSame(2, $this->repo->countAllForUser(1, null));
         $this->assertSame(1, $this->repo->countAllForUser(1, 'active'));
         $this->assertSame(1, $this->repo->countAllForUser(1, 'completed'));
-        $this->assertSame(0, $this->repo->countAllForUser(2, null));
+
+        // Team-wide: user 2 now sees all jobs fleet-wide — same total as user 1.
+        $this->assertSame(2, $this->repo->countAllForUser(2, null));
     }
 
     public function testFindQueuedItemsForJobReturnsItemIdSiteIdSlug(): void

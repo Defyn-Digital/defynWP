@@ -178,14 +178,16 @@ final class SitesVulnerabilitiesDismissTest extends AbstractSchemaTestCase
     }
 
     // -------------------------------------------------------------------------
-    // 4. site owned by a different user -> 404 sites.not_found
+    // 4. site owned by a different user -> team-wide access (2026-06-22 SSO), but
+    //    the fingerprint is not in that site's snapshot -> 400 unknown_finding
     // -------------------------------------------------------------------------
 
-    public function testNonOwnedSiteReturns404(): void
+    public function testNonOwnedSiteReturns400UnknownFinding(): void
     {
         $otherUserId = self::factory()->user->create();
         $otherSiteId = $this->seedSite($otherUserId);
 
+        // findByIdForUser is now team-wide: site is found but has no matching fingerprint
         $response = rest_do_request($this->buildRequest($otherSiteId, [
             'type'      => 'plugin',
             'slug'      => 'elementor',
@@ -193,8 +195,8 @@ final class SitesVulnerabilitiesDismissTest extends AbstractSchemaTestCase
             'dismissed' => true,
         ]));
 
-        self::assertSame(404, $response->get_status());
-        self::assertSame('sites.not_found', $response->get_data()['error']['code']);
+        self::assertSame(400, $response->get_status());
+        self::assertSame('vulnerabilities.unknown_finding', $response->get_data()['error']['code']);
     }
 
     // -------------------------------------------------------------------------

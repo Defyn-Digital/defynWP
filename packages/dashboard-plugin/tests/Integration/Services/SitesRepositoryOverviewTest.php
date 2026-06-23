@@ -38,10 +38,19 @@ final class SitesRepositoryOverviewTest extends AbstractSchemaTestCase
         $this->seedPlugin($siteA, 'akismet/akismet.php', true);
         $this->seedPlugin($siteA, 'yoast/yoast.php', true);
         $this->seedPlugin($siteB, 'jetpack/jetpack.php', true);
-        $this->seedPlugin($siteC, 'wpml/wpml.php', true); // owned by user 2 — must NOT count for user 1
+        $this->seedPlugin($siteC, 'wpml/wpml.php', true); // team-wide: now counts for everyone
 
-        $this->assertSame(3, (new SitesRepository())->countPendingPlugins(1));
-        $this->assertSame(1, (new SitesRepository())->countPendingPlugins(2));
+        // Team-wide: both user 1 and user 2 see all 4 pending updates.
+        $this->assertSame(4, (new SitesRepository())->countPendingPlugins(1));
+        $this->assertSame(4, (new SitesRepository())->countPendingPlugins(2));
+    }
+
+    public function testCountPendingPluginsIsTeamWide(): void
+    {
+        $siteA = $this->seedSite(11); // user A owns this site
+        $this->seedPlugin($siteA, 'akismet/akismet.php', true);
+        // User 22 (different user) now sees the pending update count fleet-wide
+        $this->assertSame(1, (new SitesRepository())->countPendingPlugins(22));
     }
 
     public function testCountPendingThemesReturnsCorrectCountAcrossOwnedSites(): void
@@ -220,11 +229,12 @@ final class SitesRepositoryOverviewTest extends AbstractSchemaTestCase
         $this->seedSite(1);
         $this->seedSite(1);
         $this->seedSite(1);
-        $this->seedSite(2); // different user — must NOT count for user 1
+        $this->seedSite(2); // team-wide: now visible to everyone
 
         $repo = new SitesRepository();
-        $this->assertSame(5, $repo->countAllForUser(1));
-        $this->assertSame(1, $repo->countAllForUser(2));
+        // Team-wide: all 6 sites visible to any userId.
+        $this->assertSame(6, $repo->countAllForUser(1));
+        $this->assertSame(6, $repo->countAllForUser(2));
     }
 
     private function seedSite(int $userId): int

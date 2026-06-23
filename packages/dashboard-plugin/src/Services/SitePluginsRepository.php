@@ -295,17 +295,18 @@ final class SitePluginsRepository
         $sitesTable   = $wpdb->prefix . 'defyn_sites';
         $pluginsTable = $wpdb->prefix . 'defyn_site_plugins';
 
-        $rows = $wpdb->get_results($wpdb->prepare(
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        $rows = $wpdb->get_results(
             "SELECT s.id AS site_id, s.label AS site_label,
                     sp.slug, sp.name AS plugin_name,
                     sp.version AS current_version, sp.update_version AS target_version
              FROM {$sitesTable} s
              INNER JOIN {$pluginsTable} sp ON sp.site_id = s.id
-             WHERE s.user_id = %d
-               AND sp.update_available = 1
+             WHERE sp.update_available = 1
              ORDER BY s.label, sp.name",
-            $userId
-        ), ARRAY_A);
+            ARRAY_A
+        );
 
         if (!is_array($rows)) {
             return [];

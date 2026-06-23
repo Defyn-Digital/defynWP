@@ -66,15 +66,17 @@ final class JobsCancelControllerTest extends AbstractSchemaTestCase
         $this->assertSame(401, $response->get_status());
     }
 
-    public function testForeignJobReturns404NotFound(): void
+    public function testAnyTeamMemberCanCancelAnyJob(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // User 2's job can now be cancelled by user 1 (team-wide fleet).
         $jobId = $this->repo->createJob(2, 'plugin_update', 1, 0, '2026-06-09 21:00:00');
         $this->repo->createItems($jobId, [['site_id' => 1, 'slug' => 'a']], '2026-06-09 21:00:00');
 
         $response = rest_do_request($this->cancelRequest($jobId, $this->token(1)));
 
-        $this->assertSame(404, $response->get_status());
-        $this->assertSame('jobs.not_found', $response->get_data()['error']['code'] ?? null);
+        // Team-wide: user 1 can cancel user 2's job — returns 200 not 404.
+        $this->assertSame(200, $response->get_status());
     }
 
     public function testCancelUnschedulesQueuedItemsAndMarksThemCancelled(): void

@@ -94,11 +94,36 @@ final class SitesCoreUpdateTest extends AbstractSchemaTestCase
         $this->assertSame(1, $count);
     }
 
-    public function testNotOwnedReturns404(): void
+    public function testTeamMemberCanUpdateCore(): void
     {
-        $response = rest_do_request($this->signed('POST', "/defyn/v1/sites/99999/core/update"));
-        $this->assertSame(404, $response->get_status());
-        $this->assertSame('sites.not_found', $response->get_data()['error']['code']);
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        $otherUserId = self::factory()->user->create();
+        global $wpdb;
+        $wpdb->insert(\Defyn\Dashboard\Schema\SitesTable::tableName(), [
+            'user_id'                => $otherUserId,
+            'url'                    => 'https://other.test',
+            'label'                  => 'Other',
+            'status'                 => 'active',
+            'our_private_key'        => '',
+            'wp_version'             => '7.0',
+            'php_version'            => '8.3.31',
+            'plugin_counts'          => '{"installed":0,"active":0}',
+            'theme_counts'           => '{"installed":0,"active":0}',
+            'ssl_status'             => 'enabled',
+            'ssl_expires_at'         => null,
+            'last_sync_at'           => '2026-06-07 04:00:00',
+            'last_contact_at'        => '2026-06-07 04:00:00',
+            'created_at'             => '2026-06-07 00:00:00',
+            'updated_at'             => '2026-06-07 04:00:00',
+            'core_update_available'  => 1,
+            'core_update_version'    => '7.0.1',
+            'core_update_state'      => 'idle',
+            'last_core_update_error' => null,
+        ]);
+        $otherSiteId = (int) $wpdb->insert_id;
+
+        $response = rest_do_request($this->signed('POST', "/defyn/v1/sites/{$otherSiteId}/core/update"));
+        $this->assertSame(202, $response->get_status());
     }
 
     public function testNoUpdateAvailableReturns409(): void

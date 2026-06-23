@@ -278,17 +278,18 @@ final class ThemesRepository
         $sitesTable  = $wpdb->prefix . 'defyn_sites';
         $themesTable = $wpdb->prefix . 'defyn_site_themes';
 
-        $rows = $wpdb->get_results($wpdb->prepare(
+        // Team-shared fleet: per-user filter intentionally removed (2026-06-22 SSO spec).
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        $rows = $wpdb->get_results(
             "SELECT s.id AS site_id, s.label AS site_label,
                     st.slug, st.name AS theme_name,
                     st.version AS current_version, st.update_version AS target_version
              FROM {$sitesTable} s
              INNER JOIN {$themesTable} st ON st.site_id = s.id
-             WHERE s.user_id = %d
-               AND st.update_available = 1
+             WHERE st.update_available = 1
              ORDER BY s.label, st.name",
-            $userId
-        ), ARRAY_A);
+            ARRAY_A
+        );
 
         if (!is_array($rows)) {
             return [];

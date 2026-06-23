@@ -132,10 +132,10 @@ final class SitesReportTest extends AbstractSchemaTestCase
     }
 
     // -------------------------------------------------------------------------
-    // 6. 404 when the site belongs to a different user
+    // 6. 200 when the site belongs to a different user (findByIdForUser is team-wide)
     // -------------------------------------------------------------------------
 
-    public function testNonOwnedSiteReturns404(): void
+    public function testTeamWideSiteReturns200(): void
     {
         global $wpdb;
         $otherUser = self::factory()->user->create();
@@ -149,10 +149,11 @@ final class SitesReportTest extends AbstractSchemaTestCase
         ]);
         $otherSiteId = (int) $wpdb->insert_id;
 
+        // findByIdForUser is now team-wide (2026-06-22 SSO): any authenticated user can access any site
         $response = rest_do_request($this->signed('GET', "/defyn/v1/sites/{$otherSiteId}/report"));
 
-        self::assertSame(404, $response->get_status());
-        self::assertSame('sites.not_found', $response->get_data()['error']['code']);
+        self::assertSame(200, $response->get_status());
+        self::assertNull($response->get_data()['error']);
     }
 
     // -------------------------------------------------------------------------

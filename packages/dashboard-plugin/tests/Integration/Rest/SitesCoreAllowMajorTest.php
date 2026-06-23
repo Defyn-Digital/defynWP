@@ -60,15 +60,15 @@ final class SitesCoreAllowMajorTest extends AbstractSchemaTestCase
         $this->assertFalse($response->get_data()['core_allow_major']);
     }
 
-    public function testNotOwnedReturns404(): void
+    public function testAnyTeamMemberCanAccessSite(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
         $otherUserId = self::factory()->user->create();
         $siteId      = $this->seedSite($otherUserId);
 
         $response = rest_do_request($this->buildRequest($siteId, ['allow' => true]));
 
-        $this->assertSame(404, $response->get_status());
-        $this->assertSame('sites.not_found', $response->get_data()['error']['code']);
+        $this->assertSame(200, $response->get_status());
     }
 
     public function testInvalidPayloadReturns400(): void

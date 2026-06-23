@@ -93,16 +93,21 @@ final class IncidentsRepositoryTest extends AbstractSchemaTestCase
         $this->assertSame('new', $rows[0]->lastError);
     }
 
-    public function test_find_open_for_user_joins_label_and_scopes_to_user(): void
+    public function test_find_open_for_user_joins_label_and_returns_fleet_wide(): void
     {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
         $mine   = $this->makeSite(1, 'Mine');
         $theirs = $this->makeSite(2, 'Theirs');
         $repo = new IncidentsRepository();
         $repo->open($mine, '2026-06-14 10:00:00', 'x');
         $repo->open($theirs, '2026-06-14 10:00:00', 'x');
+
+        // Team-wide: both users see all sites fleet-wide.
         $rows = $repo->findOpenForUser(1);
-        $this->assertCount(1, $rows);
-        $this->assertSame('Mine', $rows[0]['site_label']);
+        $this->assertCount(2, $rows);
+        $labels = array_column($rows, 'site_label');
+        $this->assertContains('Mine', $labels);
+        $this->assertContains('Theirs', $labels);
     }
 
     public function testFindForUserSinceReturnsOverlappingAndOpenIncidents(): void
@@ -119,17 +124,46 @@ final class IncidentsRepositoryTest extends AbstractSchemaTestCase
         // closed BEFORE the window (40 days ago) — must be excluded
         $c = $repo->open($mine, gmdate('Y-m-d H:i:s', time() - 3_500_000), 'old');
         $repo->close($c, gmdate('Y-m-d H:i:s', time() - 3_400_000), 100000);
-        // another user's open incident — must be excluded
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Another owner's open incident — now included fleet-wide.
         $repo->open($other, gmdate('Y-m-d H:i:s', time() - 600), 'theirs');
 
         $since = gmdate('Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS);
         $rows  = $repo->findForUserSince(1, $since);
 
-        self::assertCount(2, $rows);
-        foreach ($rows as $r) {
-            self::assertSame($mine, $r['site_id']);
-            self::assertArrayHasKey('started_at', $r);
-            self::assertArrayHasKey('ended_at', $r);
-        }
+        // Team-wide: both users see all sites fleet-wide — 3 in-window incidents.
+        self::assertCount(3, $rows);
+        self::assertArrayHasKey('started_at', $rows[0]);
+        self::assertArrayHasKey('ended_at', $rows[0]);
+    }
+
+    public function testFindForUserSinceIsTeamWide(): void
+    {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Seed incidents on user 11's site; call findForUserSince(22, ...) and assert they appear.
+        $site11 = $this->makeSite(11, 'TeamSite');
+        $repo   = new IncidentsRepository();
+
+        $repo->open($site11, gmdate('Y-m-d H:i:s', time() - 3600), 'cross-owner incident');
+
+        $since = gmdate('Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS);
+        $rows  = $repo->findForUserSince(22, $since);
+
+        self::assertNotEmpty($rows, 'Cross-owner incidents must appear fleet-wide.');
+        $siteIds = array_column($rows, 'site_id');
+        self::assertContains($site11, $siteIds);
+    }
+
+    public function testFindOpenForUserIsTeamWide(): void
+    {
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // Seed an open incident on user 11's site; call findOpenForUser(22) and assert it appears.
+        $site11 = $this->makeSite(11, 'TeamSite');
+        $repo   = new IncidentsRepository();
+        $repo->open($site11, '2026-06-22 10:00:00', 'cross-owner open incident');
+
+        $rows = $repo->findOpenForUser(22);
+        self::assertCount(1, $rows);
+        self::assertSame($site11, $rows[0]['site_id']);
     }
 }

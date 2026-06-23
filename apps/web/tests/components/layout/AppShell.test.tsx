@@ -9,6 +9,7 @@ const authValue = {
   status: 'authenticated' as const,
   user: { id: 1, email: 'pradeep@defyn.com.au', display_name: 'Pradeep' },
   login: async () => {},
+  loginWithGoogle: async () => {},
   logout: async () => {},
 };
 

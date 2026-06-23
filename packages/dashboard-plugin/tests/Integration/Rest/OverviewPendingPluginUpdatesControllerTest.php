@@ -81,7 +81,7 @@ final class OverviewPendingPluginUpdatesControllerTest extends AbstractSchemaTes
         $this->assertSame('overview.rate_limited', $resp->get_data()['error']['code'] ?? null);
     }
 
-    public function testOwnershipScopingExcludesOtherUsersSites(): void
+    public function testTeamWideFleetIncludesAllSites(): void
     {
         $siteOther = $this->seedSite(2, 'NotMine');
         $this->seedPlugin($siteOther, 'akismet', 'Akismet', '5.3', '5.3.1', true);
@@ -92,7 +92,10 @@ final class OverviewPendingPluginUpdatesControllerTest extends AbstractSchemaTes
         $response = rest_do_request($request);
 
         $this->assertSame(200, $response->get_status());
-        $this->assertSame([], $response->get_data()['pending_updates']);
+        // Team-wide: per-user filter removed (2026-06-22 SSO spec).
+        // User 2's pending plugin update is now visible fleet-wide to user 1.
+        $this->assertCount(1, $response->get_data()['pending_updates']);
+        $this->assertSame('akismet', $response->get_data()['pending_updates'][0]['slug']);
     }
 
     private function seedSite(int $userId, string $label): int

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace Defyn\Dashboard\Services;
 
-/** P5.2 — per-operator report branding stored in user_meta. */
+/** P5.2 — team-wide report branding stored in site options (shared across all operators). */
 final class BrandingService
 {
     private const KEY_AGENCY = 'defyn_report_agency_name';
@@ -13,32 +13,41 @@ final class BrandingService
     public const DEFAULT_ACCENT = '#26215C';
 
     /** @return array{agency_name:string,accent_color:string,logo_url:string} */
-    public function get(int $userId): array
+    public function get(int $userId): array // $userId retained for API compat; branding is team-wide
     {
-        $agency = (string) get_user_meta($userId, self::KEY_AGENCY, true);
-        $accent = (string) get_user_meta($userId, self::KEY_ACCENT, true);
-        $logo   = (string) get_user_meta($userId, self::KEY_LOGO, true);
         return [
-            'agency_name'  => $agency !== '' ? $agency : self::DEFAULT_AGENCY,
-            'accent_color' => $accent !== '' ? $accent : self::DEFAULT_ACCENT,
-            'logo_url'     => $logo,
+            'agency_name'  => (string) get_option(self::KEY_AGENCY, ''),
+            'accent_color' => (string) get_option(self::KEY_ACCENT, '#26215C'),
+            'logo_url'     => (string) get_option(self::KEY_LOGO, ''),
         ];
     }
 
     /** @param array<string,string> $partial only provided keys are written; '' resets to default. */
-    public function set(int $userId, array $partial): void
+    public function set(int $userId, array $partial): void // $userId retained for API compat; branding is team-wide
     {
-        $map = ['agency_name' => self::KEY_AGENCY, 'accent_color' => self::KEY_ACCENT, 'logo_url' => self::KEY_LOGO];
-        foreach ($map as $field => $key) {
-            if (!array_key_exists($field, $partial)) {
-                continue;
-            }
-            $val = trim((string) $partial[$field]);
-            if ($val === '') {
-                delete_user_meta($userId, $key);
-            } else {
-                update_user_meta($userId, $key, $val);
+        if (array_key_exists('agency_name', $partial)) {
+            update_option(self::KEY_AGENCY, (string) $partial['agency_name']);
+        }
+        if (array_key_exists('accent_color', $partial)) {
+            update_option(self::KEY_ACCENT, (string) $partial['accent_color']);
+        }
+        if (array_key_exists('logo_url', $partial)) {
+            update_option(self::KEY_LOGO, (string) $partial['logo_url']);
+        }
+    }
+
+    /** One-time: copy the legacy owner's per-user branding into the shared options. */
+    public static function migrateLegacyToShared(): void
+    {
+        if (get_option('defyn_branding_migrated')) {
+            return;
+        }
+        foreach ([self::KEY_AGENCY, self::KEY_ACCENT, self::KEY_LOGO] as $key) {
+            $legacy = get_user_meta(1, $key, true);
+            if (is_string($legacy) && $legacy !== '' && get_option($key, '') === '') {
+                update_option($key, $legacy);
             }
         }
+        update_option('defyn_branding_migrated', '1');
     }
 }
