@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard;
 
+use Defyn\Dashboard\Admin\SettingsPage;
 use Defyn\Dashboard\Jobs\AnalyticsSync;
 use Defyn\Dashboard\Jobs\AnalyticsSyncAll;
 use Defyn\Dashboard\Jobs\CleanupExpiredCodes;
@@ -72,6 +73,14 @@ final class Plugin
         // monitoring alerts fire for every team member's sites.
         // Guarded internally by the defyn_notify_migrated option; no-op after first run.
         add_action('plugins_loaded', [NotificationSettingsService::class, 'migrateLegacyToShared']);
+
+        // v0.30.1 — wp-admin self-service config. Settings → DefynWP exposes the
+        // Google OAuth Client ID field so operators on hosts without an env-var UI
+        // (e.g. Kinsta Managed WordPress) can configure Sign-in-with-Google
+        // without SSH. Admin-only; register() hooks admin_menu + admin_init.
+        if (is_admin()) {
+            (new SettingsPage())->register();
+        }
 
         add_action('rest_api_init', static function (): void {
             (new RestRouter())->register();
