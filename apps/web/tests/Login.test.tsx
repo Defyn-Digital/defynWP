@@ -8,7 +8,7 @@ import { server } from '@/test/setup';
 import { http, HttpResponse } from 'msw';
 
 // Mock @react-oauth/google so tests don't need a real Google OAuth flow.
-// GoogleOAuthProvider is a no-op wrapper; GoogleLogin renders buttons that
+// GoogleOAuthProvider is a passthrough wrapper; GoogleLogin renders buttons that
 // fire onSuccess / onError deterministically.
 vi.mock('@react-oauth/google', () => ({
   GoogleOAuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -45,14 +45,16 @@ function renderLogin() {
 }
 
 describe('Login route (Google SSO)', () => {
-  it('renders a "Sign in with Google" button', () => {
+  it('renders a "Sign in with Google" button once config loads', async () => {
     renderLogin();
-    expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: /sign in with google/i }),
+    ).toBeInTheDocument();
   });
 
   it('signs in with Google and navigates home on success', async () => {
     renderLogin();
-    await userEvent.click(screen.getByRole('button', { name: /sign in with google/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /sign in with google/i }));
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/'));
   });
 
@@ -71,13 +73,24 @@ describe('Login route (Google SSO)', () => {
       ),
     );
     renderLogin();
-    await userEvent.click(screen.getByRole('button', { name: /sign in with google/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /sign in with google/i }));
     expect(await screen.findByText(/only defyn\.com\.au accounts/i)).toBeInTheDocument();
   });
 
   it('shows a fallback error when Google fires onError', async () => {
     renderLogin();
-    await userEvent.click(screen.getByRole('button', { name: /trigger google error/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /trigger google error/i }));
     expect(await screen.findByText(/google sign-in was cancelled or failed/i)).toBeInTheDocument();
+  });
+
+  it('shows "ask your administrator" message and no Google button when client id is empty', async () => {
+    server.use(
+      http.get('*/auth/config', () =>
+        HttpResponse.json({ google_client_id: '', error: null }, { status: 200 }),
+      ),
+    );
+    renderLogin();
+    expect(await screen.findByText(/ask your administrator/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /sign in with google/i })).not.toBeInTheDocument();
   });
 });

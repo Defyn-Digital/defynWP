@@ -1,6 +1,14 @@
 import { http, HttpResponse } from 'msw';
 
 export const handlers = [
+  // GET /auth/config — returns the Google OAuth client id for the Login screen.
+  http.get('*/wp-json/defyn/v1/auth/config', () =>
+    HttpResponse.json(
+      { google_client_id: 'test-client-id.apps.googleusercontent.com', error: null },
+      { status: 200 },
+    ),
+  ),
+
   // Default: login succeeds with a fake access token.
   http.post('*/wp-json/defyn/v1/auth/login', async ({ request }) => {
     const body = (await request.json()) as { email?: string; password?: string };
