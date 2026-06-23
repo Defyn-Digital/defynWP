@@ -4,7 +4,7 @@ Tags: management, monitoring, dashboard, sync, multisite-management
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.2.1
+Stable tag: 0.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -39,6 +39,10 @@ No. It only responds to signed requests from the specific DefynWP Dashboard inst
 The plugin's stored state (including the Ed25519 keypair) is removed from `wp_options` via `uninstall.php`.
 
 == Changelog ==
+
+= 0.2.2 =
+* Fix: plugin/theme/core updates no longer fail with a bare HTTP 500 on some sites. The upgrader services now load `wp-admin/includes/file.php` (and `misc.php`) so `WP_Filesystem()` is defined in the REST request context — without it `WP_Upgrader::run()` fatally errored on `Call to undefined function WP_Filesystem()`.
+* Harden: the plugin/theme/core update controllers now catch `\Throwable` and return a structured 502 (`*.update_failed`) with the real error message instead of letting an unexpected fatal escape as an undiagnosable 500.
 
 = 0.1.7 =
 * Add per-request `allow_major` opt-in to /core/update for major version upgrades.

@@ -110,6 +110,46 @@ final class ThemeUpdateTest extends WP_UnitTestCase
         $this->assertStringContainsString('Could not copy file', $res->get_data()['error']['message']);
     }
 
+    /**
+     * Regression for the v0.2.2 bare-500 fix. An unexpected fatal in the
+     * upgrader (in production: `Error: Call to undefined function
+     * WP_Filesystem()`) must be caught by the controller's `catch (\Throwable)`
+     * and returned as a structured 502 themes.update_failed carrying the real
+     * message — NOT escape as an undiagnosable HTTP 500. The shared in-flight
+     * lock must still be released by the finally block.
+     */
+    public function testUnexpectedThrowableReturns502AndReleasesLock(): void
+    {
+        $stylesheet = (string) get_stylesheet();
+        $this->seedUpdateAvailable($stylesheet, '99.9');
+
+        $controller = new ThemeUpdateController(
+            new ThemeUpgraderService(
+                fn () => new class {
+                    public function upgrade(string $stylesheet)
+                    {
+                        throw new \RuntimeException('boom');
+                    }
+                }
+            )
+        );
+        register_rest_route('defyn-connector/v1', '/themes/(?P<slug>[a-z0-9-]{1,80})/update', [
+            'methods'             => 'POST',
+            'callback'            => [$controller, 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ], true);
+
+        $res = $this->sendSigned($stylesheet);
+
+        $this->assertSame(502, $res->get_status());
+        $this->assertSame('themes.update_failed', $res->get_data()['error']['code']);
+        $this->assertStringContainsString('boom', $res->get_data()['error']['message']);
+        $this->assertFalse(
+            get_transient('defyn_connector_upgrade_in_flight'),
+            'finally must release the in-flight lock even when the upgrader throws an unexpected Throwable'
+        );
+    }
+
     public function testInvalidSlugReturns404FromRouter(): void
     {
         $request = new WP_REST_Request('POST', '/defyn-connector/v1/themes/under_score/update');

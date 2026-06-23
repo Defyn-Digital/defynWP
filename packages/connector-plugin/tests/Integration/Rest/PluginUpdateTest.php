@@ -190,6 +190,47 @@ final class PluginUpdateTest extends WP_UnitTestCase
         $this->assertStringContainsString('Could not copy file', $res->get_data()['error']['message']);
     }
 
+    /**
+     * Regression for the v0.2.2 bare-500 fix. When the upgrader throws an
+     * unexpected fatal (in production: `Error: Call to undefined function
+     * WP_Filesystem()` because wp-admin/includes/file.php wasn't loaded), the
+     * controller's catch-all `catch (\Throwable)` must convert it into a
+     * structured 502 plugins.update_failed carrying the real message — NOT let
+     * it escape as an undiagnosable HTTP 500. The lock transient must still be
+     * released by the finally block afterward.
+     */
+    public function testUnexpectedThrowableReturns502AndReleasesLock(): void
+    {
+        $this->seedFakePlugin();
+        $this->seedUpdateAvailable('fake-plugin/fake-plugin.php', '2.0.0');
+
+        $controller = new PluginUpdateController(
+            new \Defyn\Connector\SiteInfo\PluginUpgraderService(
+                static fn () => new class {
+                    public function upgrade(string $pluginFile)
+                    {
+                        throw new \RuntimeException('boom');
+                    }
+                }
+            )
+        );
+        register_rest_route('defyn-connector/v1', '/plugins/(?P<slug>[a-z0-9-]{1,80})/update', [
+            'methods'             => 'POST',
+            'callback'            => [$controller, 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ], true);
+
+        $res = $this->sendSigned('fake-plugin');
+
+        $this->assertSame(502, $res->get_status());
+        $this->assertSame('plugins.update_failed', $res->get_data()['error']['code']);
+        $this->assertStringContainsString('boom', $res->get_data()['error']['message']);
+        $this->assertFalse(
+            get_transient('defyn_connector_upgrade_in_flight'),
+            'finally must release the in-flight lock even when the upgrader throws an unexpected Throwable'
+        );
+    }
+
     public function testInvalidSlugReturns404FromRouter(): void
     {
         // Invalid char in slug → WP router rejects before reaching the controller

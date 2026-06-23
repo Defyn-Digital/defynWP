@@ -79,6 +79,15 @@ final class PluginUpdateController
             );
         } catch (UpgradeFailedException $e) {
             return ErrorResponse::create(502, 'plugins.update_failed', $e->getMessage());
+        } catch (\Throwable $e) {
+            // Catch-all so an unexpected fatal (e.g. a WP core function that
+            // isn't loaded in the REST request context) surfaces as a
+            // diagnosable structured 502 instead of escaping to a bare HTTP 500.
+            return ErrorResponse::create(
+                502,
+                'plugins.update_failed',
+                'Unexpected error during upgrade: ' . $e->getMessage()
+            );
         } finally {
             // Always discard the buffered output, regardless of success or
             // exception — the buffer must NEVER reach the response writer.

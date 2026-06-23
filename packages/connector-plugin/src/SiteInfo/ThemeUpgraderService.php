@@ -82,6 +82,18 @@ final class ThemeUpgraderService
     private static function defaultUpgraderFactory(): callable
     {
         return static function (CapturingUpgraderSkin $skin): object {
+            // WP_Upgrader::run() -> fs_connect() calls WP_Filesystem(), which is
+            // defined in wp-admin/includes/file.php — NOT autoloaded in the REST
+            // request context. Without it the upgrade fatals with
+            // "Call to undefined function WP_Filesystem()" and the controller
+            // returns a bare HTTP 500. Load it (and misc.php for show_message())
+            // before constructing the upgrader, exactly like wp-admin does.
+            if (!function_exists('WP_Filesystem')) {
+                require_once ABSPATH . 'wp-admin/includes/file.php';
+            }
+            if (!function_exists('show_message')) {
+                require_once ABSPATH . 'wp-admin/includes/misc.php';
+            }
             if (!class_exists(\Theme_Upgrader::class)) {
                 require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
                 require_once ABSPATH . 'wp-admin/includes/class-theme-upgrader.php';

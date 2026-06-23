@@ -84,6 +84,15 @@ final class ThemeUpdateController
             );
         } catch (ThemeUpgradeFailedException $e) {
             return ErrorResponse::create(502, 'themes.update_failed', $e->getMessage());
+        } catch (\Throwable $e) {
+            // Catch-all so an unexpected fatal (e.g. a WP core function that
+            // isn't loaded in the REST request context) surfaces as a
+            // diagnosable structured 502 instead of escaping to a bare HTTP 500.
+            return ErrorResponse::create(
+                502,
+                'themes.update_failed',
+                'Unexpected error during upgrade: ' . $e->getMessage()
+            );
         } finally {
             ob_end_clean();
             delete_transient(self::LOCK_KEY);

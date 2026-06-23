@@ -121,6 +121,48 @@ final class CoreUpdateTest extends WP_UnitTestCase
         $this->assertStringContainsString('Could not copy file', $res->get_data()['error']['message']);
     }
 
+    /**
+     * Regression for the v0.2.2 bare-500 fix. An unexpected fatal in the
+     * upgrader (in production: `Error: Call to undefined function
+     * WP_Filesystem()`) must be caught by the controller's `catch (\Throwable)`
+     * and returned as a structured 502 core.update_failed carrying the real
+     * message — NOT escape as an undiagnosable HTTP 500. The shared in-flight
+     * lock must still be released by the finally block.
+     */
+    public function testUnexpectedThrowableReturns502AndReleasesLock(): void
+    {
+        $current = (string) get_bloginfo('version');
+        [$maj, $min] = explode('.', $current) + [1 => '0'];
+        $target = $maj . '.' . $min . '.1';
+        $this->seedUpdateAvailable($target);
+
+        $controller = new CoreUpdateController(
+            new CoreUpgraderService(
+                fn () => new class {
+                    public function upgrade($update)
+                    {
+                        throw new \RuntimeException('boom');
+                    }
+                }
+            )
+        );
+        register_rest_route('defyn-connector/v1', '/core/update', [
+            'methods'             => 'POST',
+            'callback'            => [$controller, 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ], true);
+
+        $res = $this->sendSigned();
+
+        $this->assertSame(502, $res->get_status());
+        $this->assertSame('core.update_failed', $res->get_data()['error']['code']);
+        $this->assertStringContainsString('boom', $res->get_data()['error']['message']);
+        $this->assertFalse(
+            get_transient('defyn_connector_upgrade_in_flight'),
+            'finally must release the in-flight lock even when the upgrader throws an unexpected Throwable'
+        );
+    }
+
     public function testInvalidPathReturns404FromRouter(): void
     {
         $request = new WP_REST_Request('POST', '/defyn-connector/v1/core/under_score');
