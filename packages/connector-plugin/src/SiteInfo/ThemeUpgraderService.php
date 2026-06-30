@@ -66,27 +66,15 @@ final class ThemeUpgraderService
             throw new NoThemeUpdateAvailableException(esc_html($slug));
         }
 
-        // Force the in-process "direct" filesystem with relaxed ownership — the
-        // same fix as PluginUpgraderService. Some hosts' get_filesystem_method()
-        // probe yields a degraded handle whose writes silently no-op while the
-        // upgrader still returns success. Guarded so the stub path stays a no-op.
-        $forceDirect = static fn (): string => 'direct';
-        $allowCreds  = static fn () => true;
-        if (function_exists('add_filter')) {
-            add_filter('filesystem_method', $forceDirect, 999);
-            add_filter('request_filesystem_credentials', $allowCreds, 999);
-        }
-
-        try {
-            $skin     = new CapturingUpgraderSkin();
-            $upgrader = ($this->upgraderFactory)($skin);
-            $result   = $upgrader->upgrade($slug);
-        } finally {
-            if (function_exists('remove_filter')) {
-                remove_filter('filesystem_method', $forceDirect, 999);
-                remove_filter('request_filesystem_credentials', $allowCreds, 999);
-            }
-        }
+        // Do NOT force WordPress's filesystem method. Let WP resolve it exactly
+        // as wp-admin / WP-CLI / ManageWP do. Forcing 'direct' (v0.2.4) made WP
+        // Engine WORSE: the forced write grinds past the host's ~60s request cap
+        // and the process is killed (bare 502). The version-advanced guard below
+        // still catches a silent no-op without forcing anything; use
+        // GET /upgrade-diagnostics to inspect the host filesystem state.
+        $skin     = new CapturingUpgraderSkin();
+        $upgrader = ($this->upgraderFactory)($skin);
+        $result   = $upgrader->upgrade($slug);
 
         if ($result === false) {
             $message = $skin->lastErrorMessage() ?? 'Theme_Upgrader returned false without a message.';
