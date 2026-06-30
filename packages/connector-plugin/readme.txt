@@ -40,6 +40,9 @@ The plugin's stored state (including the Ed25519 keypair) is removed from `wp_op
 
 == Changelog ==
 
+= 0.2.6 =
+* Add: WP Engine update support. WP Engine rejects filesystem-modifying upgrade requests that arrive without a WordPress session (our signed REST request carries none), so plugin/theme/core updates failed with a fast bare 502 and nothing in the PHP log, even though the filesystem is writable. The connector now exposes a signed, read-only `GET /wpe-auth` endpoint that, on WP Engine, mints short-lived WordPress admin auth cookies plus WP Engine's `wpe-auth` token (mirroring the ManageWP Worker); the dashboard attaches these as a Cookie header on the update request so WP Engine permits the in-process upgrade. Off WP Engine no cookies are issued or sent. A `rest_authentication_errors` guard prevents those cookies from tripping the REST cookie-nonce check on our signature-gated routes.
+
 = 0.2.5 =
 * Fix: revert the v0.2.4 "force direct filesystem" change. Forcing WordPress's filesystem method to `direct` made locked-down hosts (e.g. WP Engine) WORSE — the forced write grinds past the host's ~60s request cap and the process is killed, returning a bare 502 with no diagnosable body. The connector now lets WordPress resolve the filesystem method exactly as wp-admin / WP-CLI / ManageWP do, while keeping the post-upgrade version-advanced guard that catches a silent no-op.
 * Add: read-only `GET /upgrade-diagnostics` endpoint (signed) reporting the host's resolved filesystem method, `WP_PLUGIN_DIR` writability, relevant constants (`FS_METHOD`, `DISALLOW_FILE_MODS`, `AUTOMATIC_UPDATER_DISABLED`), WP Engine detection, and PHP limits — so the cause of a failed update can be inspected without running (and being killed by) a real upgrade.

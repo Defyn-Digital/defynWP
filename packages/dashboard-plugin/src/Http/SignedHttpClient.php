@@ -94,7 +94,7 @@ final class SignedHttpClient
      * @param array<string, mixed> $body
      * @return array{status: int, body: array<string, mixed>, error: string}
      */
-    public function signedPostJson(string $url, array $body, string $privateKeyBase64, string $canonicalPath, int $timeoutSeconds = 30): array
+    public function signedPostJson(string $url, array $body, string $privateKeyBase64, string $canonicalPath, int $timeoutSeconds = 30, array $cookies = []): array
     {
         // Empty input → no wire body, sign over "". Non-empty → encode once
         // and sign + send the encoded bytes (Content-Type still application/json).
@@ -115,6 +115,18 @@ final class SignedHttpClient
             ['Content-Type' => 'application/json'],
             $signer->signRequest('POST', $canonicalPath, $serialized)
         );
+        // v0.2.6 — WP Engine sites only: ride WordPress auth cookies + the
+        // `wpe-auth` token (fetched from the connector's /wpe-auth endpoint) so
+        // WP Engine's platform permits the filesystem-modifying upgrade. Cookies
+        // are NOT part of the signed canonical string (which covers method, path
+        // and body), so attaching them does not affect signature verification.
+        if ($cookies !== []) {
+            $pairs = [];
+            foreach ($cookies as $name => $value) {
+                $pairs[] = $name . '=' . $value;
+            }
+            $headers['Cookie'] = implode('; ', $pairs);
+        }
         return $this->sendSigned('POST', $url, $wireBody, $headers, $timeoutSeconds);
     }
 

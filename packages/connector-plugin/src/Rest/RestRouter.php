@@ -116,6 +116,12 @@ final class RestRouter
             'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
         ]);
 
+        register_rest_route(self::NAMESPACE, '/wpe-auth', [
+            'methods'             => 'GET',
+            'callback'            => [new WpeAuthController(), 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/links/scan', [
             'methods'             => 'POST',
             'callback'            => [new LinksScanController(), 'handle'],
