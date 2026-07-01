@@ -215,6 +215,19 @@ final class Activation
             && as_next_scheduled_action(\Defyn\Dashboard\Jobs\LinkScanAll::HOOK, [], 'defyn') === false) {
             \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
         }
+
+        // Ensure the every-5-min health ping + every-30-min sync-all schedules exist
+        // on a silent replace-in-place upgrade. These were previously NOT covered
+        // here, so a replace-without-reactivation could drop them — which stops
+        // uptime monitoring (sites drift to a stale "offline") and background sync.
+        if (function_exists('as_next_scheduled_action')
+            && as_next_scheduled_action(\Defyn\Dashboard\Jobs\HealthPingAll::HOOK, [], 'defyn') === false) {
+            \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
+        }
+        if (function_exists('as_next_scheduled_action')
+            && as_next_scheduled_action(\Defyn\Dashboard\Jobs\SyncAllSites::HOOK, [], 'defyn') === false) {
+            \Defyn\Dashboard\Jobs\Scheduler::installRecurringSchedules();
+        }
     }
 
     private static function canonicalTableExists(): bool

@@ -40,6 +40,9 @@ The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_re
 
 == Changelog ==
 
+= 0.32.1 =
+* Self-heal now re-registers the every-5-min health-ping (defyn_health_ping_all) and every-30-min sync-all schedules if they are missing, matching the existing SSL/security/report/scan coverage. Previously a replace-in-place upgrade could silently drop these two, which stopped uptime monitoring (sites drifted to a stale "offline") and background sync until a full reactivation.
+
 = 0.32.0 =
 * Per-site white-label report branding (schema v19): each site can override the report "Prepared by" name, accent colour and logo, falling back to the global default when blank — for agencies delivering under different brands per client (e.g. uberbrand). New POST /sites/{id}/report-branding; branding assembly uses BrandingService::getForSite at all three render paths (manual PDF, queued generate, auto-send). Also fixed the cover agency-logo to read the branding logo_url key.
 
