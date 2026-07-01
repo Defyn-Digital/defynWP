@@ -56,7 +56,7 @@ final class GenerateReport
                 $row['range_from'] . ' 00:00:00',
                 $row['range_to'] . ' 23:59:59',
             );
-            $branding = (new BrandingService())->get($ownerId);
+            $branding = (new BrandingService())->getForSite($ownerId, $siteId);
             $bytes    = ($this->pdf ?? new ReportPdfService())->render($payload, $branding);
             $stored   = ($this->storage ?? new ReportStorage())->store($reportId, $bytes);
             $reports->markReady($reportId, $stored['file_name'], $stored['size'], gmdate('Y-m-d H:i:s'));

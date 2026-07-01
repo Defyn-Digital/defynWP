@@ -461,6 +461,12 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'clientEmail'],
         ]);
 
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/report-branding', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesReportBrandingController(), 'handle'],
+            'permission_callback' => [RequireAuth::class, 'check'],
+        ]);
+
         // P5.4 — POST /sites/{id}/auto-send (per-site auto-send opt-in toggle)
         register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/auto-send', [
             'methods'             => 'POST',

@@ -26,7 +26,7 @@ final class ReportSendService
     /** @param 'manual'|'auto' $method */
     public function send(Report $report, Site $site, string $to, ?string $note, string $method): bool
     {
-        $branding  = (new BrandingService())->get($site->userId);
+        $branding  = (new BrandingService())->getForSite($site->userId, $site->id);
         $agency    = (string) ($branding['agency_name'] ?? '');
         $host      = (string) wp_parse_url($site->url, PHP_URL_HOST);
         // Site-led: the report is about the client's site, so lead with its

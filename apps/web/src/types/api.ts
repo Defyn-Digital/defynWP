@@ -55,6 +55,10 @@ export const siteSchema = z.object({
   // v0.3.0 — connector self-update: reported by the connector /status snapshot.
   connector_version: z.string().nullable().optional(),
   is_wpengine: z.boolean().optional(),
+  // white-label per-site report branding overrides (blank => use global default).
+  report_agency_name: z.string().nullable().optional(),
+  report_accent_color: z.string().nullable().optional(),
+  report_logo_url: z.string().nullable().optional(),
 });
 export type Site = z.infer<typeof siteSchema>;
 

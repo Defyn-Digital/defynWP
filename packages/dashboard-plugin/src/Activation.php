@@ -32,7 +32,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 18;
+    public const SCHEMA_VERSION = 19;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -135,6 +135,9 @@ final class Activation
 
         // Connector self-update — connector_version + is_wpengine reported in /status.
         self::addConnectorColumns($wpdb);
+
+        // Per-site white-label report branding overrides.
+        self::addReportBrandingColumns($wpdb);
 
         // P2.1: SchemaVersion is the canonical migration cursor; we coalesce
         // with any in-DB value via max() so a future install starting at v3
@@ -438,6 +441,23 @@ final class Activation
         }
         // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
         $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN sent_method VARCHAR(10) NULL");
+    }
+
+    private static function addReportBrandingColumns(\wpdb $wpdb): void
+    {
+        $table = SitesTable::tableName();
+        $columns = [
+            'report_agency_name'  => 'VARCHAR(120) NULL',
+            'report_accent_color' => 'VARCHAR(20) NULL',
+            'report_logo_url'     => 'TEXT NULL',
+        ];
+        foreach ($columns as $name => $definition) {
+            $exists = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", $name));
+            if ($exists === null) {
+                // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+                $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN {$name} {$definition}");
+            }
+        }
     }
 
     private static function addConnectorColumns(\wpdb $wpdb): void

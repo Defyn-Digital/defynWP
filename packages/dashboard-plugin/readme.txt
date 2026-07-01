@@ -40,6 +40,9 @@ The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_re
 
 == Changelog ==
 
+= 0.32.0 =
+* Per-site white-label report branding (schema v19): each site can override the report "Prepared by" name, accent colour and logo, falling back to the global default when blank — for agencies delivering under different brands per client (e.g. uberbrand). New POST /sites/{id}/report-branding; branding assembly uses BrandingService::getForSite at all three render paths (manual PDF, queued generate, auto-send). Also fixed the cover agency-logo to read the branding logo_url key.
+
 = 0.31.1 =
 * Client report readability overhaul (presentation only, no data/schema change): plain-language summary paragraph generated from the period's data; sections reordered to lead with the maintenance work (Updates, Uptime, Security, Broken links) before Performance/Analytics; friendly captions on the technical sections; human-friendly dates ("1-30 June 2026", "4 Jun 2026"); agency logo on the cover; and a per-page footer with agency name + page number.
 

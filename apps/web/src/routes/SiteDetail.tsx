@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useSite } from '@/lib/queries/useSite'
 import { SiteConnectorCard } from '@/components/sites/SiteConnectorCard'
+import { SiteReportBrandingCard } from '@/components/sites/SiteReportBrandingCard'
 import { ApiError } from '@/lib/apiClient'
 import { SiteRuntimeInfo } from '@/components/sites/SiteRuntimeInfo'
 import { SiteActions } from '@/components/sites/SiteActions'
@@ -123,6 +124,8 @@ export default function SiteDetail() {
       {notPending && <SiteActions site={data} />}
 
       {notPending && <SiteConnectorCard site={data} />}
+
+      {notPending && <SiteReportBrandingCard site={data} />}
 
       {notPending && (
         <div className="space-y-4">

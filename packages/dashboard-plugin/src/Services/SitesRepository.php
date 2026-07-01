@@ -812,6 +812,22 @@ final class SitesRepository
         return $out;
     }
 
+    /** @param array<string,?string> $partial keys: report_agency_name|report_accent_color|report_logo_url; null/'' clears the override. */
+    public function setReportBranding(int $siteId, array $partial): void
+    {
+        global $wpdb;
+        $updates = [];
+        foreach (['report_agency_name','report_accent_color','report_logo_url'] as $k) {
+            if (array_key_exists($k, $partial)) {
+                $v = $partial[$k];
+                $updates[$k] = ($v === null || $v === '') ? null : (string) $v;
+            }
+        }
+        if ($updates === []) { return; }
+        $updates['updated_at'] = gmdate('Y-m-d H:i:s');
+        $wpdb->update(SitesTable::tableName(), $updates, ['id' => $siteId]);
+    }
+
     public function updateConnectorVersion(int $siteId, string $version): void
     {
         global $wpdb;

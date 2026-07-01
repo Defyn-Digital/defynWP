@@ -77,6 +77,9 @@ final class Site
         public readonly ?string $lastLinkScanAt = null,
         public readonly ?string $connectorVersion = null,
         public readonly bool    $isWpengine = false,
+        public readonly ?string $reportAgencyName = null,
+        public readonly ?string $reportAccentColor = null,
+        public readonly ?string $reportLogoUrl = null,
     ) {}
 
     /** @param array<string, mixed> $row wpdb result row (all values come back as strings) */
@@ -119,6 +122,9 @@ final class Site
             lastLinkScanAt:          isset($row['last_link_scan_at']) ? (string) $row['last_link_scan_at'] : null,
             connectorVersion:        isset($row['connector_version']) && $row['connector_version'] !== null ? (string) $row['connector_version'] : null,
             isWpengine:              (bool) (int) ($row['is_wpengine'] ?? 0),
+            reportAgencyName:        isset($row['report_agency_name']) && $row['report_agency_name'] !== null ? (string) $row['report_agency_name'] : null,
+            reportAccentColor:       isset($row['report_accent_color']) && $row['report_accent_color'] !== null ? (string) $row['report_accent_color'] : null,
+            reportLogoUrl:           isset($row['report_logo_url']) && $row['report_logo_url'] !== null ? (string) $row['report_logo_url'] : null,
         );
     }
 
@@ -177,6 +183,9 @@ final class Site
             'last_link_scan_at'           => $this->lastLinkScanAt,
             'connector_version'           => $this->connectorVersion,
             'is_wpengine'                 => $this->isWpengine,
+            'report_agency_name'          => $this->reportAgencyName,
+            'report_accent_color'         => $this->reportAccentColor,
+            'report_logo_url'             => $this->reportLogoUrl,
         ];
     }
 }

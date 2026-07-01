@@ -126,7 +126,7 @@ class ReportPdfService
             (string) ($report['period']['to'] ?? '')
         ));
 
-        $agencyLogoRaw = (string) ($branding['logo'] ?? '');
+        $agencyLogoRaw = (string) ($branding['logo_url'] ?? $branding['logo'] ?? '');
         $agencyLogo = null;
         if ($agencyLogoRaw !== '') {
             $agencyLogo = str_starts_with($agencyLogoRaw, 'data:')

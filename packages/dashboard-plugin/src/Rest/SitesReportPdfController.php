@@ -46,7 +46,7 @@ class SitesReportPdfController
         }
 
         $report   = (new ReportService())->compose($siteId, $userId, $range['from'], $range['to']);
-        $branding = (new BrandingService())->get($userId);
+        $branding = (new BrandingService())->getForSite($userId, $siteId);
         $pdf      = (new ReportPdfService())->render($report, $branding);
 
         $host     = preg_replace('/[^a-z0-9.-]+/i', '-', (string) wp_parse_url($site->url, PHP_URL_HOST)) ?: 'site';

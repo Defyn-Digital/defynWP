@@ -36,6 +36,29 @@ final class BrandingService
         }
     }
 
+    /**
+     * Effective branding for a specific site's report: per-site white-label
+     * overrides (agency name / accent / logo) fall back to the team-wide values.
+     *
+     * @return array{agency_name:string,accent_color:string,logo_url:string}
+     */
+    public function getForSite(int $userId, int $siteId): array
+    {
+        $global = $this->get($userId);
+        $site   = (new SitesRepository())->findById($siteId);
+        if ($site === null) {
+            return $global;
+        }
+        $name   = $site->reportAgencyName;
+        $accent = $site->reportAccentColor;
+        $logo   = $site->reportLogoUrl;
+        return [
+            'agency_name'  => ($name !== null && $name !== '') ? $name : $global['agency_name'],
+            'accent_color' => ($accent !== null && $accent !== '') ? $accent : $global['accent_color'],
+            'logo_url'     => ($logo !== null && $logo !== '') ? $logo : $global['logo_url'],
+        ];
+    }
+
     /** One-time: copy the legacy owner's per-user branding into the shared options. */
     public static function migrateLegacyToShared(): void
     {
