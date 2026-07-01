@@ -40,6 +40,9 @@ The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_re
 
 == Changelog ==
 
+= 0.31.1 =
+* Client report readability overhaul (presentation only, no data/schema change): plain-language summary paragraph generated from the period's data; sections reordered to lead with the maintenance work (Updates, Uptime, Security, Broken links) before Performance/Analytics; friendly captions on the technical sections; human-friendly dates ("1-30 June 2026", "4 Jun 2026"); agency logo on the cover; and a per-page footer with agency name + page number.
+
 = 0.31.0 =
 * Connector self-update orchestration. Dashboard reads the latest connector release from GitHub (connector-v* tag + defyn-connector-<v>.zip asset), verifies its SHA-256, and pushes a signed /self-update to each site (reusing wpe-auth so it works on WP Engine). New: GET /connector/latest-release, POST /sites/{id}/connector/update, POST /overview/update-connectors (fleet). Sites now store + expose connector_version + is_wpengine (schema v18) from the connector /status snapshot. Requires connector >= 0.3.0 on the target site.
 

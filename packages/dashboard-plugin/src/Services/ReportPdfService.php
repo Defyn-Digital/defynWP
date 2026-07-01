@@ -120,9 +120,21 @@ class ReportPdfService
         $url   = $this->esc($rawUrl);
         $from  = $this->esc((string) ($report['period']['from'] ?? ''));
         $to    = $this->esc((string) ($report['period']['to'] ?? ''));
-        $today = $this->esc($this->todayYmd());
+        $today = $this->esc($this->humanDate($this->todayYmd()));
+        $periodHuman = $this->esc($this->humanDateRange(
+            (string) ($report['period']['from'] ?? ''),
+            (string) ($report['period']['to'] ?? '')
+        ));
 
-        $cover = $this->coverHtml($accent, $agency, $label, $url, $from, $to, $today, $logoDataUri);
+        $agencyLogoRaw = (string) ($branding['logo'] ?? '');
+        $agencyLogo = null;
+        if ($agencyLogoRaw !== '') {
+            $agencyLogo = str_starts_with($agencyLogoRaw, 'data:')
+                ? $agencyLogoRaw
+                : ($this->logoFetcher)($agencyLogoRaw);
+        }
+
+        $cover = $this->coverHtml($accent, $agency, $label, $url, $periodHuman, $today, $logoDataUri, $agencyLogo);
 
         $overview    = $this->overviewHtml($report);
         $performance = $this->performanceHtml($report);
@@ -131,6 +143,7 @@ class ReportPdfService
         $uptime      = $this->uptimeHtml($report);
         $security    = $this->securityHtml($report);
         $brokenLinks = $this->brokenLinksHtml($report);
+        $summary     = $this->summaryHtml($report);
 
         return <<<HTML
 <html><head><meta charset="utf-8"><style>
@@ -152,16 +165,23 @@ class ReportPdfService
   table.data { width:100%; border-collapse:collapse; }
   table.data th { text-align:left; font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:1px; border-bottom:2px solid {$accent}; padding:6px 4px; }
   table.data td { padding:6px 4px; border-bottom:1px solid #eee; }
+  .summary { border:1px solid #e2e8f0; border-left:3px solid {$accent}; border-radius:8px; padding:14px 16px; margin-bottom:16px; font-size:12px; line-height:1.55; color:#334155; }
+  .caption { color:#64748b; font-size:10px; margin:2px 0 10px; }
+  .foot { position: fixed; bottom: 10px; left: 28px; right: 28px; font-size: 8px; color:#94a3b8; padding-top:4px; border-top:1px solid #e2e8f0; }
+  .foot .r { float:right; }
+  .foot .pagenum:after { content: counter(page); }
 </style></head><body>
   {$cover}
+  <div class="foot"><span>{$agency}</span><span class="r">Page <span class="pagenum"></span></span></div>
   <div class="body-pad">
   {$overview}
-  {$performance}
-  {$analytics}
+  {$summary}
   {$updates}
   {$uptime}
   {$security}
   {$brokenLinks}
+  {$performance}
+  {$analytics}
   </div>
 </body></html>
 HTML;
@@ -177,18 +197,22 @@ HTML;
         string $agency,
         string $label,
         string $url,
-        string $from,
-        string $to,
+        string $periodHuman,
         string $today,
-        ?string $logoDataUri
+        ?string $logoDataUri,
+        ?string $agencyLogo = null
     ): string {
         $badge = $logoDataUri !== null
             ? '<img src="' . $logoDataUri . '" style="width:48px;height:48px;border-radius:8px;object-fit:cover" alt=""/>'
             : '<div style="width:48px;height:48px;border-radius:8px;background:rgba(255,255,255,0.15);text-align:center;line-height:48px;font-size:24px;font-weight:bold;color:#fff">'
                 . $this->monogram($label) . '</div>';
 
-        $agencyLine = $agency !== ''
-            ? '<p style="margin:14px 0 0;font-size:10px;color:rgba(255,255,255,0.6)">Prepared by ' . $agency . '</p>'
+        $agencyLogoImg = $agencyLogo !== null
+            ? '<img src="' . $agencyLogo . '" style="height:20px;vertical-align:middle;margin-right:8px" alt=""/>'
+            : '';
+        $agencyLine = ($agency !== '' || $agencyLogoImg !== '')
+            ? '<p style="margin:16px 0 0;font-size:10px;color:rgba(255,255,255,0.7)">' . $agencyLogoImg
+                . ($agency !== '' ? 'Prepared by ' . $agency : '') . '</p>'
             : '';
 
         return <<<HTML
@@ -205,7 +229,7 @@ HTML;
     <table style="width:100%;border-collapse:collapse"><tr>
       <td style="width:50%;vertical-align:top">
         <div class="cover-pair-label">Period</div>
-        <div class="cover-pair-value">{$from} &ndash; {$to}</div>
+        <div class="cover-pair-value">{$periodHuman}</div>
       </td>
       <td style="width:50%;vertical-align:top">
         <div class="cover-pair-label">Prepared</div>
@@ -271,7 +295,7 @@ HTML;
             $type = $this->esc((string) ($u['type'] ?? ''));
             $prev = $this->esc((string) ($u['previous_version'] ?? ''));
             $new  = $this->esc((string) ($u['new_version'] ?? ''));
-            $when = $this->esc((string) ($u['applied_at'] ?? ''));
+            $when = $this->esc($this->humanDate((string) ($u['applied_at'] ?? '')));
             $rows .= "<tr><td>{$name}</td><td>{$type}</td><td>{$prev} &rarr; {$new}</td><td>{$when}</td></tr>";
         }
 
@@ -301,7 +325,7 @@ HTML;
         foreach ($incidents as $i) {
             $reason  = $this->esc((string) ($i['reason'] ?? ''));
             $dur     = $this->esc($this->humanDuration((int) ($i['duration_seconds'] ?? 0)));
-            $started = $this->esc((string) ($i['started_at'] ?? ''));
+            $started = $this->esc($this->humanDate((string) ($i['started_at'] ?? '')));
             $rows .= "<tr><td>{$reason}</td><td>{$dur}</td><td>{$started}</td></tr>";
         }
 
@@ -317,13 +341,14 @@ HTML;
     {
         $security = $report['security'] ?? [];
         $lastScan = $security['last_scan_at'] ?? null;
-        $lastScanLabel = $lastScan === null ? 'Never' : $this->esc((string) $lastScan);
+        $lastScanLabel = $lastScan === null ? 'Never' : $this->esc($this->humanDate((string) $lastScan));
         $body = "<p>Last scan: <strong>{$lastScanLabel}</strong></p>";
 
         $findings = $security['open_findings'] ?? [];
         if ($findings === []) {
-            $body .= '<p class="muted">No open findings.</p>';
+            $body .= '<p class="muted">No open security issues.</p>';
         } else {
+            $body .= '<p class="caption">Known issues with fixes available &mdash; we apply these as part of your ongoing maintenance.</p>';
             $rows = '';
             foreach ($findings as $f) {
                 $name      = $this->esc((string) ($f['component_name'] ?? ''));
@@ -340,7 +365,7 @@ HTML;
         if ($scans !== []) {
             $rows = '';
             foreach ($scans as $s) {
-                $when = $this->esc((string) ($s['scanned_at'] ?? ''));
+                $when = $this->esc($this->humanDate((string) ($s['scanned_at'] ?? '')));
                 $tot  = (int) ($s['total'] ?? 0);
                 $crit = (int) ($s['critical'] ?? 0);
                 $high = (int) ($s['high'] ?? 0);
@@ -405,7 +430,7 @@ HTML;
             return $this->sectionWithBody('Performance', '<p class="muted">Not yet measured.</p>');
         }
         $m = $latest['mobile'];  $d = $latest['desktop'];
-        $when = $this->esc((string) ($latest['fetched_at'] ?? ''));
+        $when = $this->esc($this->humanDate((string) ($latest['fetched_at'] ?? '')));
         $scoreRow = '<table class="stats"><tr>'
             . '<td><div class="stat-num">' . (int) ($m['score'] ?? 0) . '</div><div class="stat-label">Mobile</div></td>'
             . '<td><div class="stat-num">' . (int) ($d['score'] ?? 0) . '</div><div class="stat-label">Desktop</div></td>'
@@ -425,7 +450,8 @@ HTML;
 
         $spark      = $this->svgImg($this->sparklineSvg($perf['history'] ?? []));
         $sparkBlock = $spark === '' ? '' : '<p class="muted" style="margin-bottom:2px">Score trend (0&ndash;100)</p>' . $spark;
-        $body = '<p class="muted">PageSpeed Insights (lab) &middot; measured ' . $when . '</p>' . $scoreRow . $cwv . $sparkBlock . $trend;
+        $body = '<p class="caption">Scores are out of 100 &mdash; 90+ is excellent, 50&ndash;89 is good. Higher is better.</p>'
+            . '<p class="muted">PageSpeed Insights (lab) &middot; measured ' . $when . '</p>' . $scoreRow . $cwv . $sparkBlock . $trend;
         return $this->sectionWithBody('Performance', $body);
     }
 
@@ -469,7 +495,7 @@ HTML;
         $channels = $chanRows === '' ? '' :
             '<table class="data"><thead><tr><th>Traffic channels</th><th>Sessions</th></tr></thead><tbody>' . $chanRows . '</tbody></table>';
 
-        $period = $this->esc((string) ($a['period']['start'] ?? '') . ' – ' . (string) ($a['period']['end'] ?? ''));
+        $period = $this->esc($this->humanDateRange((string) ($a['period']['start'] ?? ''), (string) ($a['period']['end'] ?? '')));
         $spark      = $this->svgImg($this->analyticsSparklineSvg($a['history'] ?? []));
         $sparkBlock = $spark === '' ? '' : '<p class="muted" style="margin-bottom:2px">Sessions trend</p>' . $spark;
         $body = '<p class="muted">Google Analytics 4 &middot; ' . $period . '</p>' . $kpis . $sparkBlock . $topPages . $channels;
@@ -635,5 +661,94 @@ HTML;
     private function esc(string $s): string
     {
         return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+    }
+
+    /**
+     * Plain-language opening paragraph, generated from the report data, so a
+     * non-technical client immediately sees what was done for them this period.
+     *
+     * @param array<string,mixed> $report
+     */
+    private function summaryHtml(array $report): string
+    {
+        $o        = $report['overview'] ?? [];
+        $updates  = (int) ($o['updates_applied'] ?? 0);
+        $uptime   = $this->formatPercent((float) ($o['uptime_range_percent'] ?? 0));
+        $findings = (int) ($o['open_findings'] ?? 0);
+
+        $rawLabel = (string) ($report['site']['label'] ?? '');
+        $rawUrl   = (string) ($report['site']['url'] ?? '');
+        $site     = $this->esc($rawLabel !== '' ? $rawLabel : preg_replace('#^https?://#', '', $rawUrl));
+
+        // Did WordPress core get updated this period?
+        $coreNote = '';
+        foreach (($report['updates'] ?? []) as $u) {
+            if (($u['type'] ?? '') === 'core') {
+                $coreNote = ' (including WordPress ' . $this->esc((string) ($u['new_version'] ?? '')) . ')';
+                break;
+            }
+        }
+
+        $parts = [];
+        $parts[] = 'This period we kept <strong>' . $site . '</strong> secure and up to date.';
+
+        if ($updates > 0) {
+            $parts[] = 'We applied <strong>' . $updates . '</strong> ' . ($updates === 1 ? 'update' : 'updates') . $coreNote . '.';
+        } else {
+            $parts[] = 'No updates were required this period.';
+        }
+
+        $parts[] = 'The site maintained <strong>' . $this->esc($uptime) . '</strong> uptime.';
+
+        if ($findings > 0) {
+            $parts[] = 'We are tracking <strong>' . $findings . '</strong> minor security '
+                . ($findings === 1 ? 'item' : 'items') . ', with fixes applied as part of your maintenance.';
+        } else {
+            $parts[] = 'No security issues were found.';
+        }
+
+        $analytics = $report['analytics'] ?? [];
+        if (($analytics['state'] ?? '') === 'ready') {
+            $sessions = (int) ($analytics['totals']['sessions'] ?? 0);
+            if ($sessions > 0) {
+                $parts[] = 'Your site received <strong>' . $this->esc(number_format($sessions)) . '</strong> visits.';
+            }
+        }
+
+        return '<div class="summary">' . implode(' ', $parts) . '</div>';
+    }
+
+    /** Friendly single date/datetime, e.g. "4 Jun 2026" or "14 Jun 2026, 03:12". Falls back to input. */
+    private function humanDate(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+        $ts = strtotime($value);
+        if ($ts === false) {
+            return $value;
+        }
+        $hasTime = (bool) preg_match('/\d{1,2}:\d{2}/', $value);
+        return date($hasTime ? 'j M Y, H:i' : 'j M Y', $ts);
+    }
+
+    /** Friendly period range, e.g. "1–30 June 2026" or "28 Jun – 4 Jul 2026". Falls back to "from – to". */
+    private function humanDateRange(string $from, string $to): string
+    {
+        $from = trim($from);
+        $to   = trim($to);
+        $tf = $from !== '' ? strtotime($from) : false;
+        $tt = $to !== '' ? strtotime($to) : false;
+        if ($tf === false || $tt === false) {
+            return trim($from . ' – ' . $to, ' –');
+        }
+        if (date('Y-m', $tf) === date('Y-m', $tt)) {
+            return date('j', $tf) . '–' . date('j', $tt) . ' ' . date('F Y', $tf);
+        }
+        if (date('Y', $tf) === date('Y', $tt)) {
+            return date('j M', $tf) . ' – ' . date('j M Y', $tt);
+        }
+        return date('j M Y', $tf) . ' – ' . date('j M Y', $tt);
     }
 }
