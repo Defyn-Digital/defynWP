@@ -1,47 +1,43 @@
-import { Link } from 'react-router-dom';
-import { useInsights } from '@/lib/queries/useInsights';
-import { InsightsPerformanceStrip } from '@/components/insights/InsightsPerformanceStrip';
-import { InsightsPerformanceTable } from '@/components/insights/InsightsPerformanceTable';
-import { InsightsAnalyticsStrip } from '@/components/insights/InsightsAnalyticsStrip';
-import { InsightsAnalyticsTable } from '@/components/insights/InsightsAnalyticsTable';
+import { useInsights } from '@/lib/queries/useInsights'
+import { InsightsPerformanceStrip } from '@/components/insights/InsightsPerformanceStrip'
+import { InsightsPerformanceTable } from '@/components/insights/InsightsPerformanceTable'
+import { InsightsAnalyticsStrip } from '@/components/insights/InsightsAnalyticsStrip'
+import { InsightsAnalyticsTable } from '@/components/insights/InsightsAnalyticsTable'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export function Insights() {
-  const { data, isLoading, isError } = useInsights();
+  const { data, isLoading, isError } = useInsights()
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
-      <div className="mb-5 flex items-baseline gap-3">
-        <h1 className="text-xl font-semibold">Insights</h1>
-        <Link to="/overview" className="text-sm text-zinc-600 underline-offset-4 hover:underline">← Overview</Link>
-      </div>
+    <div className="space-y-6 p-4 md:p-6">
+      <PageHeader title="Insights" subtitle="Performance and analytics across your fleet" />
 
-      {isLoading && <p className="text-sm text-zinc-500">Loading…</p>}
+      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {isError && <p className="text-sm text-red-600">Couldn't load insights.</p>}
 
-      {data && (
-        data.performance.summary.total_sites === 0 ? (
-          <p className="text-sm text-zinc-500">No sites yet</p>
+      {data &&
+        (data.performance.summary.total_sites === 0 ? (
+          <p className="text-sm text-muted-foreground">No sites yet.</p>
         ) : (
           <div className="space-y-8">
             <section className="space-y-4">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Performance</h2>
+              <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Performance</h2>
               <InsightsPerformanceStrip summary={data.performance.summary} />
-              <div className="rounded-lg border border-zinc-200 p-2">
+              <div className="overflow-hidden rounded-xl border border-border bg-card">
                 <InsightsPerformanceTable sites={data.performance.sites} />
               </div>
             </section>
             <section className="space-y-4">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Analytics</h2>
+              <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Analytics</h2>
               <InsightsAnalyticsStrip summary={data.analytics.summary} />
-              <div className="rounded-lg border border-zinc-200 p-2">
+              <div className="overflow-hidden rounded-xl border border-border bg-card">
                 <InsightsAnalyticsTable sites={data.analytics.sites} />
               </div>
             </section>
           </div>
-        )
-      )}
+        ))}
     </div>
-  );
+  )
 }
 
-export default Insights;
+export default Insights
