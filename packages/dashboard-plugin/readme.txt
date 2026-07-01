@@ -40,6 +40,12 @@ The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_re
 
 == Changelog ==
 
+= 0.30.5 =
+* Interactive updates, refreshes, syncs, scans and retries now run immediately via Action Scheduler's async loopback runner (as_enqueue_async_action) instead of a time()-scheduled action that waited for the next WP-Cron/system-cron tick. On managed hosts (Kinsta) that tick can be minutes apart, which was the cause of updates appearing stuck/slow after clicking. Brings these triggers in line with the performance/link/report/analytics triggers, which already used async enqueue.
+
+= 0.30.4 =
+* Plugin/theme update job wall-time raised 120s -> 180s (core already 300s) so large/slow upgrades finish cleanly.
+
 = 0.30.1 =
 * Self-service Google Client ID config: the Google OAuth Client ID can now be set from wp-admin (Settings → DefynWP) instead of only the DEFYN_GOOGLE_CLIENT_ID environment constant — for hosts (e.g. Kinsta Managed WordPress) with no env-var UI. The env constant still takes precedence when set.
 * New GoogleConfig resolver (env constant first, wp-admin option fallback) backs both the /auth/google login flow and the new public GET /defyn/v1/auth/config endpoint that serves the non-secret Client ID to the SPA before login.

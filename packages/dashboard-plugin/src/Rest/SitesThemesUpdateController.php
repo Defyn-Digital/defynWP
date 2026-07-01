@@ -64,7 +64,7 @@ final class SitesThemesUpdateController
             'to_version'   => $row['update_version'] ?? null,
         ]);
 
-        \as_schedule_single_action(time(), UpdateSiteTheme::HOOK, [$siteId, $slug, 0]);
+        \as_enqueue_async_action(UpdateSiteTheme::HOOK, [$siteId, $slug, 0]);
 
         return new WP_REST_Response([
             'scheduled'    => true,

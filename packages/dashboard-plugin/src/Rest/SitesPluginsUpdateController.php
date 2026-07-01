@@ -34,12 +34,13 @@ use WP_REST_Response;
  *      tick that runs UpdateSitePlugin.
  *   6. `plugin_update.requested` activity log entry with the operator's
  *      userId + the target/current versions snapshotted at queue time.
- *   7. `as_schedule_single_action` of UpdateSitePlugin::HOOK with attempt=0.
+ *   7. `as_enqueue_async_action` of UpdateSitePlugin::HOOK with attempt=0 —
  *      Group is left to AS's default — UpdateSitePlugin's own retries don't
  *      pass a group either, so the success/retry handlers stay symmetric.
  *
  * Returns 202 (Accepted) — the connector round-trip + DB write happens
- * asynchronously on the next AS tick.
+ * asynchronously, dispatched immediately via AS's async loopback runner
+ * (not the next cron tick — that delay was the perceived slowness).
  *
  * Spec: docs/superpowers/specs/2026-06-05-p2-2-plugin-updates-design.md §7.1, §7.3
  */
@@ -95,7 +96,7 @@ final class SitesPluginsUpdateController
             'target_version'  => $row['update_version'] ?? null,
         ]);
 
-        \as_schedule_single_action(time(), UpdateSitePlugin::HOOK, [$siteId, $slug, 0]);
+        \as_enqueue_async_action(UpdateSitePlugin::HOOK, [$siteId, $slug, 0]);
 
         return new WP_REST_Response([
             'scheduled' => true,

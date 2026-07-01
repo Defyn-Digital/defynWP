@@ -69,8 +69,8 @@ final class SitesCreateController
             return ErrorResponse::create(500, 'sites.persistence_failed', $e->getMessage());
         }
 
-        if (function_exists('as_schedule_single_action')) {
-            as_schedule_single_action(time(), 'defyn_complete_connection', [$siteId, $code, $url], 'defyn');
+        if (function_exists('as_enqueue_async_action')) {
+            as_enqueue_async_action('defyn_complete_connection', [$siteId, $code, $url], 'defyn');
         }
 
         return new WP_REST_Response(['site_id' => $siteId], 202);

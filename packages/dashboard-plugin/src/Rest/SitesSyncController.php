@@ -29,8 +29,8 @@ final class SitesSyncController
             return ErrorResponse::create(404, 'sites.not_found', 'Site not found.');
         }
 
-        if (function_exists('as_schedule_single_action')) {
-            as_schedule_single_action(time(), SyncSite::HOOK, [$siteId], 'defyn');
+        if (function_exists('as_enqueue_async_action')) {
+            as_enqueue_async_action(SyncSite::HOOK, [$siteId], 'defyn');
         }
 
         return new WP_REST_Response(['site_id' => $siteId, 'scheduled' => true], 202);

@@ -91,8 +91,7 @@ final class OverviewBulkUpdateThemesController
                 $enriched = $this->bulkJobs->createItems($jobId, $scheduled, $now);
 
                 foreach ($enriched as $pair) {
-                    as_schedule_single_action(
-                        time(),
+                    as_enqueue_async_action(
                         'defyn_update_site_theme',
                         [$pair['site_id'], $pair['slug'], 0, $pair['item_id']],
                         'defyn'

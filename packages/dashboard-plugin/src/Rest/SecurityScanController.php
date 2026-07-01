@@ -39,8 +39,8 @@ final class SecurityScanController
         // Best-effort feed freshness (no-op without a key / when fresh). Never throws.
         (new VulnFeedService())->refreshIfStale();
 
-        if (function_exists('as_schedule_single_action')) {
-            as_schedule_single_action(time(), SecurityScan::HOOK, [$siteId], 'defyn');
+        if (function_exists('as_enqueue_async_action')) {
+            as_enqueue_async_action(SecurityScan::HOOK, [$siteId], 'defyn');
         }
 
         return new WP_REST_Response(['scheduled' => true, 'site_id' => $siteId], 202);

@@ -43,9 +43,9 @@ final class SecurityScanAllController
             $sites = $this->sites->findAllForUser($userId); // team-wide — all sites for this operator
             $ids   = array_map(static fn ($s) => $s->id, $sites);
 
-            if (function_exists('as_schedule_single_action')) {
+            if (function_exists('as_enqueue_async_action')) {
                 foreach ($ids as $id) {
-                    as_schedule_single_action(time(), SecurityScan::HOOK, [$id], 'defyn');
+                    as_enqueue_async_action(SecurityScan::HOOK, [$id], 'defyn');
                 }
             }
 

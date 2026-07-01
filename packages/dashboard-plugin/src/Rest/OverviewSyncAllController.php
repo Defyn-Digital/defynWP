@@ -43,7 +43,7 @@ final class OverviewSyncAllController
             $ids    = array_map(static fn($s) => $s->id, $sites);
 
             foreach ($ids as $id) {
-                as_schedule_single_action(time(), 'defyn_sync_site', [$id], 'defyn');
+                as_enqueue_async_action('defyn_sync_site', [$id], 'defyn');
             }
 
             if (count($ids) > 0) {

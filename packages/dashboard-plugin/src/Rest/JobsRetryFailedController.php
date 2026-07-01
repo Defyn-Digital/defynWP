@@ -52,8 +52,7 @@ final class JobsRetryFailedController
             foreach ($failed as $item) {
                 $itemId = (int) $item['id'];
                 $this->jobs->resetItemForRetry($itemId, $now);
-                as_schedule_single_action(
-                    time(),
+                as_enqueue_async_action(
                     $hook,
                     [(int) $item['site_id'], (string) $item['resource_slug'], 0, $itemId],
                     'defyn'

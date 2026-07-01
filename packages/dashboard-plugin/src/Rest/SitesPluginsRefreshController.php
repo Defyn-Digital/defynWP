@@ -39,8 +39,8 @@ final class SitesPluginsRefreshController
             return ErrorResponse::create(404, 'sites.not_found', 'Site not found.');
         }
 
-        if (function_exists('as_schedule_single_action')) {
-            as_schedule_single_action(time(), self::HOOK, [$siteId], 'defyn');
+        if (function_exists('as_enqueue_async_action')) {
+            as_enqueue_async_action(self::HOOK, [$siteId], 'defyn');
         }
 
         // ActivityLogger::log(?int $userId, ?int $siteId, string $eventType, ?array $details).

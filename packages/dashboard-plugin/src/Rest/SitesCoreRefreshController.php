@@ -36,8 +36,8 @@ final class SitesCoreRefreshController
             return ErrorResponse::create(404, 'sites.not_found', 'Site not found.');
         }
 
-        if (function_exists('as_schedule_single_action')) {
-            as_schedule_single_action(time(), RefreshSiteCore::HOOK, [$siteId], 'defyn');
+        if (function_exists('as_enqueue_async_action')) {
+            as_enqueue_async_action(RefreshSiteCore::HOOK, [$siteId], 'defyn');
         }
 
         (new ActivityLogger())->log($userId, $siteId, 'core_inventory.refresh_requested', null);

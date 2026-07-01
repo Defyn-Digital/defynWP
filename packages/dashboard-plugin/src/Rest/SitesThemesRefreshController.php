@@ -34,8 +34,8 @@ final class SitesThemesRefreshController
             return ErrorResponse::create(404, 'sites.not_found', 'Site not found.');
         }
 
-        if (function_exists('as_schedule_single_action')) {
-            as_schedule_single_action(time(), 'defyn_refresh_site_themes', [$siteId], 'defyn');
+        if (function_exists('as_enqueue_async_action')) {
+            as_enqueue_async_action('defyn_refresh_site_themes', [$siteId], 'defyn');
         }
 
         (new ActivityLogger())->log($userId, $siteId, 'theme_inventory.refresh_requested', null);

@@ -63,7 +63,7 @@ final class SitesCoreUpdateController
             'to_version'   => $targetVersion,
         ]);
 
-        \as_schedule_single_action(time(), UpdateSiteCore::HOOK, [$siteId, 0]);
+        \as_enqueue_async_action(UpdateSiteCore::HOOK, [$siteId, 0]);
 
         return new WP_REST_Response([
             'scheduled'         => true,
