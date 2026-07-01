@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Defyn\Connector\SiteInfo;
 
+use Defyn\Connector\Wpe\WpeAuth;
+
 /**
  * Gathers the /status payload per spec § 5.1.
  *
@@ -62,6 +64,8 @@ final class Collector
             'ssl_expires_at' => null,  // Cert-expiry parsing deferred to later phase
             'core'           => $this->collectCoreUpdate(),
             'server_time'    => time(),
+            'connector_version' => defined('DEFYN_CONNECTOR_VERSION') ? DEFYN_CONNECTOR_VERSION : '',
+            'is_wpengine'       => WpeAuth::isWpEngine(),
         ];
     }
 

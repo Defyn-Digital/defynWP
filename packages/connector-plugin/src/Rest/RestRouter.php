@@ -122,6 +122,12 @@ final class RestRouter
             'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
         ]);
 
+        register_rest_route(self::NAMESPACE, '/self-update', [
+            'methods'             => 'POST',
+            'callback'            => [new SelfUpdateController(), 'handle'],
+            'permission_callback' => [\Defyn\Connector\Rest\Middleware\VerifySignatureMiddleware::class, 'check'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/links/scan', [
             'methods'             => 'POST',
             'callback'            => [new LinksScanController(), 'handle'],
