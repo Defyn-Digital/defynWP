@@ -49,6 +49,9 @@ export const siteSchema = z.object({
   client_email: z.string().nullable().optional(),
   // P5.4 — per-site auto-send opt-in (backend always sends it; NOT NULL DEFAULT 0).
   auto_send_reports: z.boolean(),
+  // v0.30.3 — per-site pending update counts (default 0 to tolerate an older backend).
+  plugin_updates: z.number().int().nonnegative().optional(),
+  theme_updates: z.number().int().nonnegative().optional(),
 });
 export type Site = z.infer<typeof siteSchema>;
 

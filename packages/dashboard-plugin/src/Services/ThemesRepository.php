@@ -304,4 +304,27 @@ final class ThemesRepository
             'target_version'  => $row['target_version'] !== null ? (string) $row['target_version'] : null,
         ], $rows);
     }
+
+    /**
+     * v0.30.3 — per-site count of themes with an update available, across the
+     * whole (team-shared) fleet. Returns [site_id => count]. Powers the per-site
+     * "N updates" pill on the Overview and Sites lists.
+     *
+     * @return array<int, int>
+     */
+    public function updateCountsBySite(): array
+    {
+        global $wpdb;
+        $table = SiteThemesTable::tableName();
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        $rows = $wpdb->get_results(
+            "SELECT site_id, COUNT(*) AS c FROM {$table} WHERE update_available = 1 GROUP BY site_id",
+            ARRAY_A
+        );
+        $map = [];
+        foreach ($rows ?: [] as $r) {
+            $map[(int) $r['site_id']] = (int) $r['c'];
+        }
+        return $map;
+    }
 }
