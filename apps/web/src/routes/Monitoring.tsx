@@ -1,35 +1,31 @@
-import { Link } from 'react-router-dom';
-import { useMonitoring } from '@/lib/queries/useMonitoring';
-import { MonitoringSummaryStrip } from '@/components/monitoring/MonitoringSummaryStrip';
-import { MonitoringTable } from '@/components/monitoring/MonitoringTable';
+import { useMonitoring } from '@/lib/queries/useMonitoring'
+import { MonitoringSummaryStrip } from '@/components/monitoring/MonitoringSummaryStrip'
+import { MonitoringTable } from '@/components/monitoring/MonitoringTable'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export function Monitoring() {
-  const { data, isLoading, isError } = useMonitoring();
+  const { data, isLoading, isError } = useMonitoring()
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
-      <div className="mb-5 flex items-baseline gap-3">
-        <h1 className="text-xl font-semibold">Monitoring</h1>
-        <Link to="/overview" className="text-sm text-zinc-600 underline-offset-4 hover:underline">← Overview</Link>
-      </div>
+    <div className="space-y-6 p-4 md:p-6">
+      <PageHeader title="Monitoring" subtitle="Uptime and incidents across your fleet" />
 
-      {isLoading && <p className="text-sm text-zinc-500">Loading…</p>}
+      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {isError && <p className="text-sm text-red-600">Couldn't load monitoring data.</p>}
 
-      {data && (
-        data.sites.length === 0 ? (
-          <p className="text-sm text-zinc-500">No sites yet</p>
+      {data &&
+        (data.sites.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No sites yet.</p>
         ) : (
           <div className="space-y-5">
             <MonitoringSummaryStrip summary={data.summary} />
-            <div className="rounded-lg border border-zinc-200 p-2">
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
               <MonitoringTable sites={data.sites} />
             </div>
           </div>
-        )
-      )}
+        ))}
     </div>
-  );
+  )
 }
 
-export default Monitoring;
+export default Monitoring
