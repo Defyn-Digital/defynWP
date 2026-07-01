@@ -259,6 +259,8 @@ final class SitesRepository
             'ssl_expires_at'  => $info['ssl_expires_at'],
             'last_sync_at'    => $now,
             'last_contact_at' => $now,
+            'connector_version' => $info['connector_version'] ?? null,
+            'is_wpengine'       => !empty($info['is_wpengine']) ? 1 : 0,
             'updated_at'      => $now,
         ];
 
@@ -793,5 +795,33 @@ final class SitesRepository
             ];
         }
         return $out;
+    }
+    /**
+     * @return list<array{id: int, connector_version: ?string}> active sites for the connector-update fan-out.
+     */
+    public function activeConnectorVersions(): array
+    {
+        global $wpdb;
+        $table = SitesTable::tableName();
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        $rows = $wpdb->get_results("SELECT id, connector_version FROM `{$table}` WHERE status = 'active'", ARRAY_A);
+        $out = [];
+        foreach ((array) $rows as $r) {
+            $out[] = ['id' => (int) $r['id'], 'connector_version' => $r['connector_version'] !== null ? (string) $r['connector_version'] : null];
+        }
+        return $out;
+    }
+
+    public function updateConnectorVersion(int $siteId, string $version): void
+    {
+        global $wpdb;
+        $now = gmdate('Y-m-d H:i:s');
+        $wpdb->update(
+            SitesTable::tableName(),
+            ['connector_version' => $version, 'updated_at' => $now],
+            ['id' => $siteId],
+            ['%s', '%s'],
+            ['%d'],
+        );
     }
 }

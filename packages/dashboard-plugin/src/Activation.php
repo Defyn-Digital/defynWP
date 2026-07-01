@@ -32,7 +32,7 @@ use Defyn\Dashboard\Schema\SitesTable;
  */
 final class Activation
 {
-    public const SCHEMA_VERSION = 17;
+    public const SCHEMA_VERSION = 18;
     public const SCHEMA_OPTION  = 'defyn_dashboard_schema_version';
 
     /**
@@ -132,6 +132,9 @@ final class Activation
 
         // P5.4 — add sent_method to wp_defyn_reports (manual|auto send distinction).
         self::addSentMethodColumn($wpdb);
+
+        // Connector self-update — connector_version + is_wpengine reported in /status.
+        self::addConnectorColumns($wpdb);
 
         // P2.1: SchemaVersion is the canonical migration cursor; we coalesce
         // with any in-DB value via max() so a future install starting at v3
@@ -435,5 +438,21 @@ final class Activation
         }
         // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
         $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN sent_method VARCHAR(10) NULL");
+    }
+
+    private static function addConnectorColumns(\wpdb $wpdb): void
+    {
+        $table = SitesTable::tableName();
+        $columns = [
+            'connector_version' => 'VARCHAR(20) NULL',
+            'is_wpengine'       => 'TINYINT(1) NOT NULL DEFAULT 0',
+        ];
+        foreach ($columns as $name => $definition) {
+            $exists = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM `{$table}` LIKE %s", $name));
+            if ($exists === null) {
+                // phpcs:ignore WordPress.DB.PreparedSQL — column DDL cannot be parameterized.
+                $wpdb->query("ALTER TABLE `{$table}` ADD COLUMN {$name} {$definition}");
+            }
+        }
     }
 }

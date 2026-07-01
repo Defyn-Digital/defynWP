@@ -9,6 +9,7 @@ use Defyn\Dashboard\Jobs\AnalyticsSync;
 use Defyn\Dashboard\Jobs\AnalyticsSyncAll;
 use Defyn\Dashboard\Jobs\CleanupExpiredCodes;
 use Defyn\Dashboard\Jobs\CompleteConnection;
+use Defyn\Dashboard\Jobs\UpdateSiteConnector;
 use Defyn\Dashboard\Jobs\HealthPing;
 use Defyn\Dashboard\Jobs\HealthPingAll;
 use Defyn\Dashboard\Jobs\GenerateMonthlyReportsAll;
@@ -110,6 +111,13 @@ final class Plugin
         // param keeps pre-v0.9.0 3-arg AS rows from fataling.
         add_action(UpdateSitePlugin::HOOK, static function (int $siteId, string $slug, int $attempt = 0, int $jobItemId = 0): void {
             (new UpdateSitePlugin())->handle($siteId, $slug, $attempt, $jobItemId);
+        }, 10, 4);
+
+        // Connector self-update — resolves the latest GitHub release + pushes
+        // signed /self-update (sha256-pinned). Scheduled by the connector-update
+        // controllers; reuses wpe-auth so it works on WP Engine.
+        add_action(UpdateSiteConnector::HOOK, static function (int $siteId, string $targetVersion = '', string $packageUrl = '', string $packageSha256 = ''): void {
+            (new UpdateSiteConnector())->handle($siteId, $targetVersion, $packageUrl, $packageSha256);
         }, 10, 4);
 
         // P2.3 — operator-triggered theme inventory refresh. Scheduled by

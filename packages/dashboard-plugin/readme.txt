@@ -40,6 +40,9 @@ The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_re
 
 == Changelog ==
 
+= 0.31.0 =
+* Connector self-update orchestration. Dashboard reads the latest connector release from GitHub (connector-v* tag + defyn-connector-<v>.zip asset), verifies its SHA-256, and pushes a signed /self-update to each site (reusing wpe-auth so it works on WP Engine). New: GET /connector/latest-release, POST /sites/{id}/connector/update, POST /overview/update-connectors (fleet). Sites now store + expose connector_version + is_wpengine (schema v18) from the connector /status snapshot. Requires connector >= 0.3.0 on the target site.
+
 = 0.30.6 =
 * Interactive updates now start within ~1s instead of waiting in the queue. After enqueuing the async action, the request forces Action Scheduler to run its queue on the request's own shutdown (after flushing the response, so the browser is never blocked). Fixes the residual 60-400s gap between a click and the update actually starting on Kinsta, where the cron/loopback runner picked jobs up slowly. Safe against double-runs (Action Scheduler claims each action atomically); no-op on non-FPM SAPIs, which fall back to the async-enqueue + cron path.
 

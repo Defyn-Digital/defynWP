@@ -75,6 +75,8 @@ final class Site
         public readonly bool $autoSendReports = false,
         // P7.1 — timestamp of the last broken-link scan attempt (internal; set even on failure).
         public readonly ?string $lastLinkScanAt = null,
+        public readonly ?string $connectorVersion = null,
+        public readonly bool    $isWpengine = false,
     ) {}
 
     /** @param array<string, mixed> $row wpdb result row (all values come back as strings) */
@@ -115,6 +117,8 @@ final class Site
             ga4PropertyId:           isset($row['ga4_property_id']) && $row['ga4_property_id'] !== null ? (string) $row['ga4_property_id'] : null,
             autoSendReports:         (bool) (int) ($row['auto_send_reports'] ?? 0),
             lastLinkScanAt:          isset($row['last_link_scan_at']) ? (string) $row['last_link_scan_at'] : null,
+            connectorVersion:        isset($row['connector_version']) && $row['connector_version'] !== null ? (string) $row['connector_version'] : null,
+            isWpengine:              (bool) (int) ($row['is_wpengine'] ?? 0),
         );
     }
 
@@ -171,6 +175,8 @@ final class Site
             'auto_send_reports'           => $this->autoSendReports,
             // P7.1: last broken-link scan attempt timestamp.
             'last_link_scan_at'           => $this->lastLinkScanAt,
+            'connector_version'           => $this->connectorVersion,
+            'is_wpengine'                 => $this->isWpengine,
         ];
     }
 }

@@ -186,6 +186,18 @@ final class RestRouter
             'permission_callback' => [RequireAuth::class, 'check'],
         ]);
 
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/connector/update', [
+            'methods'             => 'POST',
+            'callback'            => [new SitesConnectorUpdateController(), 'handle'],
+            'permission_callback' => [RequireAuth::class, 'check'],
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/connector/latest-release', [
+            'methods'             => 'GET',
+            'callback'            => [new ConnectorLatestReleaseController(), 'handle'],
+            'permission_callback' => [RequireAuth::class, 'check'],
+        ]);
+
         // P2.1 — operator-triggered refresh. RateLimit::pluginsRefresh chains
         // RequireAuth::check internally (so no separate auth permission_callback)
         // and adds a per-(user, site) 6/min throttle on top.
@@ -308,6 +320,12 @@ final class RestRouter
             'methods'             => 'POST',
             'callback'            => [new OverviewBulkUpdatePluginsController(), 'handle'],
             'permission_callback' => [RateLimit::class, 'bulkPluginUpdate'],
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/overview/update-connectors', [
+            'methods'             => 'POST',
+            'callback'            => [new OverviewUpdateConnectorsController(), 'handle'],
+            'permission_callback' => [RequireAuth::class, 'check'],
         ]);
 
         // P2.8 — GET /overview/pending-theme-updates. Returns the flat list of
