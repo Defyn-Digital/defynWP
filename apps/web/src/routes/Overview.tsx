@@ -7,6 +7,7 @@ import { SyncAllSitesButton } from '@/components/overview/SyncAllSitesButton'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { BulkUpdatePluginsButton } from '@/components/overview/BulkUpdatePluginsButton'
 import { BulkUpdateThemesButton } from '@/components/overview/BulkUpdateThemesButton'
+import { UpdateAllConnectorsButton } from '@/components/overview/UpdateAllConnectorsButton'
 import { formatRelativeTime } from '@/lib/formatRelativeTime'
 
 export default function Overview() {
@@ -57,6 +58,7 @@ export default function Overview() {
             <SyncAllSitesButton totalSites={data.total_sites} />
             <BulkUpdatePluginsButton pendingCount={data.pending_updates.plugins} />
             <BulkUpdateThemesButton pendingCount={data.pending_updates.themes} />
+            <UpdateAllConnectorsButton />
           </>
         }
       />

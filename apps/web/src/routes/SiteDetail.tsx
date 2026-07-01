@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useSite } from '@/lib/queries/useSite'
+import { SiteConnectorCard } from '@/components/sites/SiteConnectorCard'
 import { ApiError } from '@/lib/apiClient'
 import { SiteRuntimeInfo } from '@/components/sites/SiteRuntimeInfo'
 import { SiteActions } from '@/components/sites/SiteActions'
@@ -90,6 +91,12 @@ export default function SiteDetail() {
                   Theme: {activeTheme.name}
                 </span>
               )}
+              {data.is_wpengine && (
+                <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-600">WP Engine</span>
+              )}
+              {data.connector_version && (
+                <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">Connector v{data.connector_version}</span>
+              )}
             </div>
             <p className="mt-1 truncate text-sm text-muted-foreground">
               {data.url.replace(/^https?:\/\//, '')}
@@ -114,6 +121,8 @@ export default function SiteDetail() {
       </div>
 
       {notPending && <SiteActions site={data} />}
+
+      {notPending && <SiteConnectorCard site={data} />}
 
       {notPending && (
         <div className="space-y-4">

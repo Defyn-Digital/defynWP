@@ -52,6 +52,9 @@ export const siteSchema = z.object({
   // v0.30.3 — per-site pending update counts (default 0 to tolerate an older backend).
   plugin_updates: z.number().int().nonnegative().optional(),
   theme_updates: z.number().int().nonnegative().optional(),
+  // v0.3.0 — connector self-update: reported by the connector /status snapshot.
+  connector_version: z.string().nullable().optional(),
+  is_wpengine: z.boolean().optional(),
 });
 export type Site = z.infer<typeof siteSchema>;
 
@@ -682,3 +685,24 @@ export const insightsSchema = z.object({
   generated_at: z.string(),
 });
 export type Insights = z.infer<typeof insightsSchema>;
+
+// v0.31.0 — connector self-update.
+export const connectorLatestReleaseSchema = z.object({
+  version: z.string(),
+  package_url: z.string(),
+  sha256: z.string(),
+});
+export type ConnectorLatestRelease = z.infer<typeof connectorLatestReleaseSchema>;
+
+export const connectorUpdateResponseSchema = z.object({
+  scheduled: z.boolean(),
+  site_id: z.number().int().positive(),
+  target_version: z.string(),
+});
+export type ConnectorUpdateResponse = z.infer<typeof connectorUpdateResponseSchema>;
+
+export const updateAllConnectorsResponseSchema = z.object({
+  scheduled_count: z.number().int().nonnegative(),
+  target_version: z.string(),
+});
+export type UpdateAllConnectorsResponse = z.infer<typeof updateAllConnectorsResponseSchema>;
