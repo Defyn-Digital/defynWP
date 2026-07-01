@@ -36,7 +36,7 @@ final class UpdateSitePlugin
      * core/many-plugin-update cycles trigger DB migrations; 120 s gives margin
      * without exceeding Action Scheduler's per-action wall time.
      */
-    public const TIMEOUT_SECONDS = 120;
+    public const TIMEOUT_SECONDS = 180;
 
     public function __construct(
         private readonly SitesRepository $sites = new SitesRepository(),

@@ -39,6 +39,17 @@ final class PluginUpdateController
 
     public function handle(WP_REST_Request $request): WP_REST_Response
     {
+        // v0.2.7 — long-running upgrades (large plugins) were being cut off by the
+        // default PHP execution limit, so slow updates stalled/failed on hosts like
+        // WP Engine. Match ManageWP: give the upgrade minutes, and keep running even
+        // if the dashboard's HTTP call disconnects, so a slow update finishes cleanly
+        // instead of leaving a half-written plugin.
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(600);
+        }
+        if (function_exists('ignore_user_abort')) {
+            @ignore_user_abort(true);
+        }
         $slug = (string) $request->get_param('slug');
 
         $existingLock = get_transient(self::LOCK_KEY);

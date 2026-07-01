@@ -31,7 +31,7 @@ final class UpdateSiteTheme
     public const HOOK = 'defyn_update_site_theme';
 
     /** Connector upgrades can legitimately run for up to ~90 s on Kinsta. */
-    public const TIMEOUT_SECONDS = 120;
+    public const TIMEOUT_SECONDS = 180;
 
     public function __construct(
         private readonly SitesRepository $sites = new SitesRepository(),

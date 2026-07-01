@@ -40,6 +40,9 @@ The plugin's stored state (including the Ed25519 keypair) is removed from `wp_op
 
 == Changelog ==
 
+= 0.2.7 =
+* Fix: large/slow plugin, theme and core updates no longer stall or time out. The update endpoints now raise the PHP execution limit (set_time_limit 600) and set ignore_user_abort so a slow upgrade runs to completion even if the dashboard's request disconnects (mirroring ManageWP). Previously a large plugin (e.g. Burst Statistics) could be cut off by the default execution limit mid-download.
+
 = 0.2.6 =
 * Add: WP Engine update support. WP Engine rejects filesystem-modifying upgrade requests that arrive without a WordPress session (our signed REST request carries none), so plugin/theme/core updates failed with a fast bare 502 and nothing in the PHP log, even though the filesystem is writable. The connector now exposes a signed, read-only `GET /wpe-auth` endpoint that, on WP Engine, mints short-lived WordPress admin auth cookies plus WP Engine's `wpe-auth` token (mirroring the ManageWP Worker); the dashboard attaches these as a Cookie header on the update request so WP Engine permits the in-process upgrade. Off WP Engine no cookies are issued or sent. A `rest_authentication_errors` guard prevents those cookies from tripping the REST cookie-nonce check on our signature-gated routes.
 
