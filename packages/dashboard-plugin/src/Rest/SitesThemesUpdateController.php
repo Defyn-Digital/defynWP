@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Rest;
 
+use Defyn\Dashboard\Jobs\ImmediateRunner;
 use Defyn\Dashboard\Jobs\UpdateSiteTheme;
 use Defyn\Dashboard\Rest\Responses\ErrorResponse;
 use Defyn\Dashboard\Services\ActivityLogger;
@@ -65,6 +66,8 @@ final class SitesThemesUpdateController
         ]);
 
         \as_enqueue_async_action(UpdateSiteTheme::HOOK, [$siteId, $slug, 0]);
+
+        ImmediateRunner::kickOnShutdown();
 
         return new WP_REST_Response([
             'scheduled'    => true,

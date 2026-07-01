@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Rest;
 
+use Defyn\Dashboard\Jobs\ImmediateRunner;
 use Defyn\Dashboard\Rest\Responses\ErrorResponse;
 use Defyn\Dashboard\Services\ActivityLogger;
 use Defyn\Dashboard\Services\BulkJobsRepository;
@@ -93,6 +94,8 @@ final class OverviewBulkUpdatePluginsController
                         [$pair['site_id'], $pair['slug'], 0, $pair['item_id']],
                         'defyn'
                     );
+
+                    ImmediateRunner::kickOnShutdown();
                 }
 
                 $this->logger->log(

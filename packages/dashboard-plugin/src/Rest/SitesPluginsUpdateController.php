@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Rest;
 
+use Defyn\Dashboard\Jobs\ImmediateRunner;
 use Defyn\Dashboard\Jobs\UpdateSitePlugin;
 use Defyn\Dashboard\Rest\Responses\ErrorResponse;
 use Defyn\Dashboard\Services\ActivityLogger;
@@ -97,6 +98,8 @@ final class SitesPluginsUpdateController
         ]);
 
         \as_enqueue_async_action(UpdateSitePlugin::HOOK, [$siteId, $slug, 0]);
+
+        ImmediateRunner::kickOnShutdown();
 
         return new WP_REST_Response([
             'scheduled' => true,

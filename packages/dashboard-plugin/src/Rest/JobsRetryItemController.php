@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Rest;
 
+use Defyn\Dashboard\Jobs\ImmediateRunner;
 use Defyn\Dashboard\Jobs\UpdateSitePlugin;
 use Defyn\Dashboard\Jobs\UpdateSiteTheme;
 use Defyn\Dashboard\Rest\Responses\ErrorResponse;
@@ -60,6 +61,8 @@ final class JobsRetryItemController
                 [(int) $item['site_id'], (string) $item['resource_slug'], 0, $itemId],
                 'defyn'
             );
+
+            ImmediateRunner::kickOnShutdown();
 
             return new WP_REST_Response([
                 'item_id'      => $itemId,

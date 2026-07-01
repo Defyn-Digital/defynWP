@@ -40,6 +40,9 @@ The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_re
 
 == Changelog ==
 
+= 0.30.6 =
+* Interactive updates now start within ~1s instead of waiting in the queue. After enqueuing the async action, the request forces Action Scheduler to run its queue on the request's own shutdown (after flushing the response, so the browser is never blocked). Fixes the residual 60-400s gap between a click and the update actually starting on Kinsta, where the cron/loopback runner picked jobs up slowly. Safe against double-runs (Action Scheduler claims each action atomically); no-op on non-FPM SAPIs, which fall back to the async-enqueue + cron path.
+
 = 0.30.5 =
 * Interactive updates, refreshes, syncs, scans and retries now run immediately via Action Scheduler's async loopback runner (as_enqueue_async_action) instead of a time()-scheduled action that waited for the next WP-Cron/system-cron tick. On managed hosts (Kinsta) that tick can be minutes apart, which was the cause of updates appearing stuck/slow after clicking. Brings these triggers in line with the performance/link/report/analytics triggers, which already used async enqueue.
 
