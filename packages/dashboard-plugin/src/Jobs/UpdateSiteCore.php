@@ -6,6 +6,7 @@ namespace Defyn\Dashboard\Jobs;
 
 use Defyn\Dashboard\Crypto\Vault;
 use Defyn\Dashboard\Http\SignedHttpClient;
+use Defyn\Dashboard\Services\WpeAuthCookies;
 use Defyn\Dashboard\Services\ActivityLogger;
 use Defyn\Dashboard\Services\SitesRepository;
 
@@ -59,12 +60,17 @@ final class UpdateSiteCore
         $url           = rtrim($site->url, '/') . '/wp-json/defyn-connector/v1/core/update';
         $canonicalPath = '/defyn-connector/v1/core/update';
 
+        // v0.2.6 — on WP Engine sites, fetch the auth cookies the connector
+        // needs so WP Engine permits the upgrade; [] (and a no-op) everywhere else.
+        $cookies = (new WpeAuthCookies($this->http))->fetch($site->url, $privateKey);
+
         $response = $this->http->signedPostJson(
             $url,
             ['allow_major' => $site->coreAllowMajor],
             $privateKey,
             $canonicalPath,
             timeoutSeconds: self::TIMEOUT_SECONDS,
+            cookies: $cookies,
         );
 
         if ($response['status'] === 200 && !empty($response['body']['success'])) {

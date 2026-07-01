@@ -62,6 +62,38 @@ final class PluginUpdateController
         // failed even though the upgrade succeeded on disk.
         ob_start();
 
+        // v0.2.5 — last-resort fatal catcher. A PHP fatal inside the upgrade
+        // (host kills the request at its time/wall limit, OOM, or a plugin's
+        // own code fatals mid-upgrade) aborts before the catch/finally below
+        // can run — the dashboard then sees a bare 502 with no reason. This
+        // shutdown hook emits a structured envelope instead. The $completed
+        // flag (set in finally on every normal/exception path) makes it a
+        // no-op unless a genuine fatal occurred.
+        $completed = false;
+        register_shutdown_function(static function () use (&$completed): void {
+            if ($completed) {
+                return;
+            }
+            $err = error_get_last();
+            if ($err === null || !in_array($err['type'], [E_ERROR, E_PARSE, E_COMPILE_ERROR, E_CORE_ERROR], true)) {
+                return;
+            }
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            if (!headers_sent()) {
+                status_header(502);
+                header('Content-Type: application/json; charset=utf-8');
+                nocache_headers();
+            }
+            echo wp_json_encode([
+                'error' => [
+                    'code'    => 'plugins.update_fatal',
+                    'message' => sprintf('%s @ %s:%d', (string) $err['message'], (string) $err['file'], (int) $err['line']),
+                ],
+            ]);
+        });
+
         try {
             $result = $this->service->upgrade($slug);
             return new WP_REST_Response($result, 200);
@@ -93,6 +125,7 @@ final class PluginUpdateController
             // exception — the buffer must NEVER reach the response writer.
             ob_end_clean();
             delete_transient(self::LOCK_KEY);
+            $completed = true;
         }
     }
 }

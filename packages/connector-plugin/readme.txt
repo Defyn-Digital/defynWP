@@ -40,6 +40,14 @@ The plugin's stored state (including the Ed25519 keypair) is removed from `wp_op
 
 == Changelog ==
 
+= 0.2.6 =
+* Add: WP Engine update support. WP Engine rejects filesystem-modifying upgrade requests that arrive without a WordPress session (our signed REST request carries none), so plugin/theme/core updates failed with a fast bare 502 and nothing in the PHP log, even though the filesystem is writable. The connector now exposes a signed, read-only `GET /wpe-auth` endpoint that, on WP Engine, mints short-lived WordPress admin auth cookies plus WP Engine's `wpe-auth` token (mirroring the ManageWP Worker); the dashboard attaches these as a Cookie header on the update request so WP Engine permits the in-process upgrade. Off WP Engine no cookies are issued or sent. A `rest_authentication_errors` guard prevents those cookies from tripping the REST cookie-nonce check on our signature-gated routes.
+
+= 0.2.5 =
+* Fix: revert the v0.2.4 "force direct filesystem" change. Forcing WordPress's filesystem method to `direct` made locked-down hosts (e.g. WP Engine) WORSE — the forced write grinds past the host's ~60s request cap and the process is killed, returning a bare 502 with no diagnosable body. The connector now lets WordPress resolve the filesystem method exactly as wp-admin / WP-CLI / ManageWP do, while keeping the post-upgrade version-advanced guard that catches a silent no-op.
+* Add: read-only `GET /upgrade-diagnostics` endpoint (signed) reporting the host's resolved filesystem method, `WP_PLUGIN_DIR` writability, relevant constants (`FS_METHOD`, `DISALLOW_FILE_MODS`, `AUTOMATIC_UPDATER_DISABLED`), WP Engine detection, and PHP limits — so the cause of a failed update can be inspected without running (and being killed by) a real upgrade.
+* Add: a `register_shutdown_function` fatal-catcher on the plugin/theme/core update endpoints. A PHP fatal that aborts mid-upgrade (host time/wall limit, OOM, a plugin's own fatal) now returns a structured `{error:{code,message}}` envelope instead of a bare 502.
+
 = 0.2.4 =
 * Fix: force direct filesystem + refresh update list before upgrading; verify the version actually changed and fail with diagnostics instead of reporting a false success. On some hosts WordPress's filesystem-method ownership probe yields a degraded handle whose writes silently no-op, so `Plugin_Upgrader`/`Theme_Upgrader` returned success without writing the new files (e.g. reported `3.5.0 → 3.5.0`). The connector now forces the in-process "direct" filesystem with relaxed credentials (as ManageWP/MainWP/WP-CLI do) and refreshes the update transient before each upgrade, then verifies the on-disk version advanced — if it did not, the upgrade fails with a diagnostic message (`fs_method`, dir-writable, upgrader errors) instead of recording a false success. Core keeps the filesystem fix but skips the version-advanced check (the in-process `$wp_version` global never refreshes mid-request).
 

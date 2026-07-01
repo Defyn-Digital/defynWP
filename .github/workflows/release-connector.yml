@@ -1,0 +1,83 @@
+name: Build connector zip
+
+on:
+  push:
+    tags:
+      - 'connector-v*'
+  workflow_dispatch:
+
+# Produces the operator-installable connector zip (the build recipe from
+# docs/handover/2026-06-25-...md §8) as a downloadable artifact, so nobody has
+# to build it by hand. On a `connector-v*` tag it also attaches the zip to a
+# GitHub Release.
+jobs:
+  build:
+    name: Build defyn-connector zip
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: packages/connector-plugin
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP 8.1
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          coverage: none
+          tools: composer:v2
+
+      - name: Install production dependencies
+        run: composer install --no-dev --classmap-authoritative --prefer-dist --no-progress
+
+      - name: Read connector version
+        id: ver
+        run: |
+          VER=$(grep -oP "DEFYN_CONNECTOR_VERSION', '\K[0-9.]+" defyn-connector.php)
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "Connector version: $VER"
+
+      - name: Stage package
+        run: |
+          rm -rf build
+          mkdir -p build/defyn-connector
+          rsync -a ./ build/defyn-connector/ \
+            --exclude '.git' \
+            --exclude '.gitignore' \
+            --exclude 'tests' \
+            --exclude 'phpunit.xml' \
+            --exclude 'phpunit.xml.dist' \
+            --exclude 'wp-tests-config.php' \
+            --exclude 'wp-tests-config.php.example' \
+            --exclude '.phpunit.result.cache' \
+            --exclude 'composer.lock' \
+            --exclude 'build' \
+            --exclude 'dist'
+
+      - name: Verify version header is in the staged package
+        run: |
+          grep -q "Version:           ${{ steps.ver.outputs.version }}" build/defyn-connector/defyn-connector.php
+          test ! -d build/defyn-connector/tests
+          test ! -f build/defyn-connector/wp-tests-config.php
+
+      - name: Create zip
+        run: |
+          cd build
+          zip -rqX "defyn-connector-${{ steps.ver.outputs.version }}.zip" defyn-connector
+          ls -la
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: defyn-connector-${{ steps.ver.outputs.version }}
+          path: packages/connector-plugin/build/defyn-connector-${{ steps.ver.outputs.version }}.zip
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release (tag pushes only)
+        if: startsWith(github.ref, 'refs/tags/connector-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packages/connector-plugin/build/defyn-connector-${{ steps.ver.outputs.version }}.zip

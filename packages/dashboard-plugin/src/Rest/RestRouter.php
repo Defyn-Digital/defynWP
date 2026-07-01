@@ -177,6 +177,15 @@ final class RestRouter
             'permission_callback' => [RequireAuth::class, 'check'],
         ]);
 
+        // v0.2.5 — read-only host upgrade-diagnostics passthrough (signs + calls
+        // the connector's /upgrade-diagnostics). Helps diagnose hosts where
+        // updates no-op/502 (e.g. WP Engine) without running a real upgrade.
+        register_rest_route(self::NAMESPACE, '/sites/(?P<id>\d+)/upgrade-diagnostics', [
+            'methods'             => 'GET',
+            'callback'            => [new SitesUpgradeDiagnosticsController(), 'handle'],
+            'permission_callback' => [RequireAuth::class, 'check'],
+        ]);
+
         // P2.1 — operator-triggered refresh. RateLimit::pluginsRefresh chains
         // RequireAuth::check internally (so no separate auth permission_callback)
         // and adds a per-(user, site) 6/min throttle on top.
