@@ -108,6 +108,11 @@ export default function SitesList() {
                   {site.wp_version ? ` · WP ${site.wp_version}` : ''}
                 </p>
               </div>
+              {(site.plugin_updates ?? 0) + (site.theme_updates ?? 0) > 0 && (
+                <span className="hidden shrink-0 items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs text-amber-700 sm:inline-flex">
+                  {(site.plugin_updates ?? 0) + (site.theme_updates ?? 0)} update{(site.plugin_updates ?? 0) + (site.theme_updates ?? 0) === 1 ? '' : 's'}
+                </span>
+              )}
               {site.core_update_available && (
                 <span className="hidden shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs text-amber-700 sm:inline-flex">
                   <RefreshCw className="h-3 w-3" aria-hidden="true" />
