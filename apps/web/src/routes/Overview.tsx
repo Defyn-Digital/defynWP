@@ -1,5 +1,6 @@
+import { Puzzle, Palette, RefreshCw, AlertTriangle, Globe } from 'lucide-react'
 import { useOverview } from '@/lib/queries/useOverview'
-import { PendingUpdatesWidget } from '@/components/overview/PendingUpdatesWidget'
+import { KpiCard } from '@/components/overview/KpiCard'
 import { SitesNeedingAttentionWidget } from '@/components/overview/SitesNeedingAttentionWidget'
 import { RecentActivityWidget } from '@/components/overview/RecentActivityWidget'
 import { SyncAllSitesButton } from '@/components/overview/SyncAllSitesButton'
@@ -7,22 +8,21 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { BulkUpdatePluginsButton } from '@/components/overview/BulkUpdatePluginsButton'
 import { BulkUpdateThemesButton } from '@/components/overview/BulkUpdateThemesButton'
 import { formatRelativeTime } from '@/lib/formatRelativeTime'
-import { OpenIncidentsWidget } from '@/components/overview/OpenIncidentsWidget'
 
 export default function Overview() {
   const { data, isLoading, isError, refetch } = useOverview()
 
   if (isLoading) {
     return (
-      <div className="space-y-4 p-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="h-24 animate-pulse rounded-md bg-gray-100" />
-          <div className="h-24 animate-pulse rounded-md bg-gray-100" />
-          <div className="h-24 animate-pulse rounded-md bg-gray-100" />
+      <div className="space-y-6 p-4 md:p-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-24 animate-pulse rounded-xl bg-muted" />
+          ))}
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="h-64 animate-pulse rounded-md bg-gray-100" />
-          <div className="h-64 animate-pulse rounded-md bg-gray-100" />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="h-64 animate-pulse rounded-xl bg-muted" />
+          <div className="h-64 animate-pulse rounded-xl bg-muted" />
         </div>
       </div>
     )
@@ -30,8 +30,8 @@ export default function Overview() {
 
   if (isError || !data) {
     return (
-      <div className="p-4">
-        <div className="rounded-md border border-red-200 bg-red-50 p-4">
+      <div className="p-4 md:p-6">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
           <p className="text-sm text-red-800">Failed to load the overview.</p>
           <button
             onClick={() => refetch()}
@@ -44,11 +44,14 @@ export default function Overview() {
     )
   }
 
+  const cores = data.pending_updates.cores_minor + data.pending_updates.cores_major
+  const attention = data.sites_needing_attention.length + data.open_incidents.length
+
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-6 p-4 md:p-6">
       <PageHeader
         title="Overview"
-        subtitle={`Last refreshed: ${formatRelativeTime(data.generated_at)}`}
+        subtitle={`${data.total_sites} sites · updated ${formatRelativeTime(data.generated_at)}`}
         actions={
           <>
             <SyncAllSitesButton totalSites={data.total_sites} />
@@ -58,11 +61,15 @@ export default function Overview() {
         }
       />
 
-      <OpenIncidentsWidget openIncidents={data.open_incidents} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <KpiCard label="Plugin updates" value={data.pending_updates.plugins} icon={Puzzle} to="/overview/plugins" tone={data.pending_updates.plugins > 0 ? 'warning' : 'default'} />
+        <KpiCard label="Theme updates" value={data.pending_updates.themes} icon={Palette} to="/overview/themes" tone={data.pending_updates.themes > 0 ? 'warning' : 'default'} />
+        <KpiCard label="Core updates" value={cores} icon={RefreshCw} tone={cores > 0 ? 'warning' : 'default'} />
+        <KpiCard label="Needs attention" value={attention} icon={AlertTriangle} tone={attention > 0 ? 'warning' : 'default'} />
+        <KpiCard label="Sites" value={data.total_sites} icon={Globe} to="/sites" />
+      </div>
 
-      <PendingUpdatesWidget counts={data.pending_updates} />
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SitesNeedingAttentionWidget sites={data.sites_needing_attention} />
         <RecentActivityWidget events={data.recent_activity} />
       </div>
