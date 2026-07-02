@@ -27,7 +27,25 @@ interface LoginResponse {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = React.useState<AuthState>({ status: 'unauthenticated', user: null });
+  const [state, setState] = React.useState<AuthState>({ status: 'authenticating', user: null });
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { access_token } = await apiClient.post<LoginResponse>('/auth/refresh');
+        setAccessToken(access_token);
+        const user = await apiClient.get<User>('/auth/me');
+        if (!cancelled) setState({ status: 'authenticated', user });
+      } catch {
+        if (!cancelled) {
+          clearAccessToken();
+          setState({ status: 'unauthenticated', user: null });
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const login = React.useCallback(async (email: string, password: string) => {
     setState((s) => ({ ...s, status: 'authenticating' }));
