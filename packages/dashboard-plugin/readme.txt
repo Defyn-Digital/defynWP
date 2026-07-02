@@ -40,6 +40,9 @@ The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_re
 
 == Changelog ==
 
+= 0.32.2 =
+* Connector release detection reads the asset SHA-256 from GitHub's API (asset.digest) instead of downloading the whole zip to hash it server-side. That download step was the fragile part that could make the latest-release lookup return nothing (no "Update connector" button). Falls back to download+hash only if the digest is absent.
+
 = 0.32.1 =
 * Self-heal now re-registers the every-5-min health-ping (defyn_health_ping_all) and every-30-min sync-all schedules if they are missing, matching the existing SSL/security/report/scan coverage. Previously a replace-in-place upgrade could silently drop these two, which stopped uptime monitoring (sites drifted to a stale "offline") and background sync until a full reactivation.
 
