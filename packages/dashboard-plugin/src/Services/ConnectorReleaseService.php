@@ -47,7 +47,13 @@ final class ConnectorReleaseService
             return null;
         }
 
-        $sha = $this->hashPackage($release['package_url']);
+        // Prefer the SHA-256 GitHub already publishes on the asset (asset.digest);
+        // only download the zip to hash it if the digest is unavailable. This
+        // removes the fragile server-side asset download from the happy path.
+        $sha = $release['sha256'] ?? null;
+        if ($sha === null) {
+            $sha = $this->hashPackage($release['package_url']);
+        }
         if ($sha === null) {
             return null;
         }
@@ -62,7 +68,7 @@ final class ConnectorReleaseService
     }
 
     /**
-     * @return array{version: string, package_url: string}|null
+     * @return array{version: string, package_url: string, sha256: ?string}|null
      */
     private function findLatestConnectorRelease(): ?array
     {
@@ -100,7 +106,7 @@ final class ConnectorReleaseService
                 continue;
             }
             if ($best === null || version_compare($version, $best['version'], '>')) {
-                $best = ['version' => $version, 'package_url' => $asset];
+                $best = ['version' => $version, 'package_url' => $asset['url'], 'sha256' => $asset['sha256']];
             }
         }
         return $best;
@@ -108,8 +114,9 @@ final class ConnectorReleaseService
 
     /**
      * @param array<string, mixed> $release
+     * @return array{url: string, sha256: ?string}|null
      */
-    private function findZipAsset(array $release, string $version): ?string
+    private function findZipAsset(array $release, string $version): ?array
     {
         $assets = $release['assets'] ?? [];
         if (!is_array($assets)) {
@@ -123,7 +130,16 @@ final class ConnectorReleaseService
             $name = (string) ($asset['name'] ?? '');
             $dl   = (string) ($asset['browser_download_url'] ?? '');
             if ($name === $expected && str_starts_with($dl, 'https://')) {
-                return $dl;
+                // GitHub publishes the asset SHA-256 as e.g. "sha256:abcd...".
+                $sha    = null;
+                $digest = (string) ($asset['digest'] ?? '');
+                if (stripos($digest, 'sha256:') === 0) {
+                    $candidate = strtolower(substr($digest, 7));
+                    if (preg_match('/^[a-f0-9]{64}$/', $candidate)) {
+                        $sha = $candidate;
+                    }
+                }
+                return ['url' => $dl, 'sha256' => $sha];
             }
         }
         return null;
