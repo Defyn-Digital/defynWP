@@ -614,6 +614,12 @@ final class RestRouter
             'permission_callback' => [RateLimit::class, 'settingsWrite'],
         ]);
 
+        register_rest_route(self::NAMESPACE, '/settings/connector-release', [
+            'methods'             => 'POST',
+            'callback'            => [new SettingsController(), 'handleSetConnectorRelease'],
+            'permission_callback' => [RequireAuth::class, 'check'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],

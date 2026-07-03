@@ -40,6 +40,9 @@ The plugin's stored state (including the Ed25519 keypair) is removed from `wp_op
 
 == Changelog ==
 
+= 0.3.2 =
+* Broken-link checker: use a real browser User-Agent (was a bot UA that Cloudflare/bot-protection 403-blocked, causing false "blocked" warnings for links that are fine), raise the per-link timeout 4s -> 10s (fewer false "unreachable"), and fall back to GET on more HEAD-refusal/block statuses. Materially fewer false positives in broken-link reports.
+
 = 0.3.0 =
 * Connector self-update: new signed POST /self-update endpoint upgrades the connector to a dashboard-authorised release (downloads the package, verifies its SHA-256 against the value in the signed instruction, then overwrite-installs over itself). Reports connector_version + is_wpengine in /status so the dashboard knows which sites need updating. Ends per-site manual connector installs from 0.3.0 onward.
 
