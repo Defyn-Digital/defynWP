@@ -40,6 +40,9 @@ The plugin's tables (`wp_defyn_sites`, `wp_defyn_connection_codes`, `wp_defyn_re
 
 == Changelog ==
 
+= 0.32.3 =
+* Settings-managed connector release: set the connector {version, package URL, SHA-256} once per release under Settings, and the dashboard offers it via "Update connector"/"Update all connectors" WITHOUT needing to reach GitHub server-side (works around Kinsta egress). Takes precedence over GitHub auto-detection; clear it to fall back. New POST /settings/connector-release; GET /settings returns connector_release.
+
 = 0.32.2 =
 * Connector release detection reads the asset SHA-256 from GitHub's API (asset.digest) instead of downloading the whole zip to hash it server-side. That download step was the fragile part that could make the latest-release lookup return nothing (no "Update connector" button). Falls back to download+hash only if the digest is absent.
 

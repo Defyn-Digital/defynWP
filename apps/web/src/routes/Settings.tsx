@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSettings } from '@/lib/queries/useSettings'
 import { useSaveSlackWebhook } from '@/lib/mutations/useSaveSlackWebhook'
 import { ReportBrandingCard } from '@/components/settings/ReportBrandingCard'
+import { ConnectorReleaseCard } from '@/components/settings/ConnectorReleaseCard'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -76,6 +77,8 @@ export function Settings() {
           </div>
 
           <ReportBrandingCard />
+
+          <ConnectorReleaseCard />
         </div>
       )}
     </div>
