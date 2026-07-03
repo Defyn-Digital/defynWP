@@ -21,6 +21,7 @@ namespace Defyn\Dashboard\Services;
 final class ConnectorReleaseService
 {
     private const CACHE_KEY = 'defyn_connector_latest_release';
+    private const MANIFEST_OPTION = 'defyn_connector_release';
     private const CACHE_TTL = 900; // 15 min
     private const TAG_PREFIX = 'connector-v';
 
@@ -35,6 +36,22 @@ final class ConnectorReleaseService
      */
     public function latest(bool $forceRefresh = false): ?array
     {
+        // Operator-set manifest (Settings) wins — lets self-update work without
+        // the dashboard server reaching GitHub's API. Set per release.
+        $manual = get_option(self::MANIFEST_OPTION, null);
+        if (
+            is_array($manual)
+            && !empty($manual['version'])
+            && !empty($manual['package_url'])
+            && !empty($manual['sha256'])
+        ) {
+            return [
+                'version'     => (string) $manual['version'],
+                'package_url' => (string) $manual['package_url'],
+                'sha256'      => strtolower((string) $manual['sha256']),
+            ];
+        }
+
         if (!$forceRefresh) {
             $cached = get_transient(self::CACHE_KEY);
             if (is_array($cached) && isset($cached['version'], $cached['package_url'], $cached['sha256'])) {
