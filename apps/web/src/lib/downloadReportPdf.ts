@@ -1,21 +1,50 @@
 import { apiClient } from '@/lib/apiClient';
 
 interface CreatedReport { data: { report: { id: number; status: string } } }
-interface ReportsList { data: { reports: Array<{ id: number; status: string }> } }
+interface ReportRow { id: number; status: string; range_from: string; range_to: string }
+interface ReportsList { data: { reports: ReportRow[] } }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 /**
- * Generate + download the branded maintenance PDF.
+ * Generate + download the branded maintenance PDF via the async report-queue.
  *
- * The PDF is rendered by the async report-queue job (which runs with proper
- * memory/time limits) rather than synchronously in the request — the per-request
- * dompdf render OOMs the web worker on hosts with a tight REST memory cap (Kinsta),
- * which is why the old direct GET /report.pdf failed. We enqueue a report for the
- * range, poll until it's ready (generation is kicked immediately server-side, so
- * this is ~1-3s), then download the stored file.
+ * The render runs in a background job (proper memory/time limits) — the old
+ * per-request dompdf render OOMed on Kinsta. To avoid creating a duplicate on
+ * every click (and exhausting the 10/hour report-generate rate limit → 429), we
+ * first reuse a recently-ready report for the SAME date range if one exists, and
+ * only enqueue a new render when there isn't one.
  */
 export async function downloadReportPdf(siteId: number, from: string, to: string): Promise<void> {
+  const filename = `maintenance-report-${siteId}-${from}-to-${to}.pdf`;
+
+  // 1) Reuse an existing ready report for this exact range (no new generate).
+  try {
+    const existing = await apiClient.get<ReportsList>(`/sites/${siteId}/reports`);
+    const match = existing.data.reports.find(
+      (r) => r.status === 'ready' && r.range_from === from && r.range_to === to,
+    );
+    if (match) {
+      const blob = await apiClient.getBlob(`/sites/${siteId}/reports/${match.id}/download`);
+      triggerDownload(blob, filename);
+      return;
+    }
+  } catch {
+    // fall through to generate
+  }
+
+  // 2) None exists — enqueue a render, poll until ready, then download.
   const created = await apiClient.post<CreatedReport>(`/sites/${siteId}/reports?from=${from}&to=${to}`);
   const reportId = created.data.report.id;
 
@@ -30,12 +59,5 @@ export async function downloadReportPdf(siteId: number, from: string, to: string
   }
 
   const blob = await apiClient.getBlob(`/sites/${siteId}/reports/${reportId}/download`);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `maintenance-report-${siteId}-${from}-to-${to}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  triggerDownload(blob, filename);
 }
