@@ -79,6 +79,24 @@ final class EmailNotifier implements Notifier
         $this->send($site, $subject, $body);
     }
 
+    public function notifyPerformanceRegression(Site $site, array $drops): void
+    {
+        $worst = 0;
+        foreach ($drops as $d) {
+            $worst = max($worst, (int) $d['previous'] - (int) $d['new']);
+        }
+        $subject = 'Performance dropped ' . $worst . ' point' . ($worst === 1 ? '' : 's') . ' on ' . $site->label;
+
+        $body = "The PageSpeed performance score for {$site->label} ({$site->url}) dropped versus the previous scan:\n\n";
+        foreach ($drops as $d) {
+            $body .= ucfirst((string) $d['strategy']) . ': ' . (int) $d['previous'] . ' → ' . (int) $d['new']
+                  . ' (−' . ((int) $d['previous'] - (int) $d['new']) . ")\n";
+        }
+        $body .= "\nWorth a look — a slower site can hurt conversions and search ranking.\n";
+
+        $this->send($site, $subject, $body);
+    }
+
     private function send(Site $site, string $subject, string $body): void
     {
         $to = $this->alertEmail();

@@ -52,6 +52,16 @@ final class SlackNotifier implements Notifier
         $this->post($site, $text);
     }
 
+    public function notifyPerformanceRegression(Site $site, array $drops): void
+    {
+        $text = '📉 *Performance dropped* on *' . $site->label . '* — ' . $site->url;
+        foreach ($drops as $d) {
+            $text .= "\n• " . ucfirst((string) $d['strategy']) . ': ' . (int) $d['previous']
+                  . ' → ' . (int) $d['new'] . ' (−' . ((int) $d['previous'] - (int) $d['new']) . ')';
+        }
+        $this->post($site, $text);
+    }
+
     private function post(Site $site, string $text): void
     {
         $webhook = (string) get_option('defyn_slack_webhook_url', '');

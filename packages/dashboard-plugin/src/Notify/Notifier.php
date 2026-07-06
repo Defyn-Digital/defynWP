@@ -19,4 +19,12 @@ interface Notifier
      * @param array{critical:int,high:int,medium:int,low:int} $severityCounts
      */
     public function notifyNewVulnerabilities(Site $site, array $newVulnerabilities, array $severityCounts): void;
+
+    /**
+     * A meaningful drop in one or more PageSpeed performance scores vs the
+     * previous scan.
+     *
+     * @param list<array{strategy:string,previous:int,new:int}> $drops
+     */
+    public function notifyPerformanceRegression(Site $site, array $drops): void;
 }

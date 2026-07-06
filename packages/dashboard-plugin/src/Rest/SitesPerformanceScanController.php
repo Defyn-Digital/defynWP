@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Defyn\Dashboard\Rest;
 
+use Defyn\Dashboard\Jobs\ImmediateRunner;
 use Defyn\Dashboard\Jobs\PerformanceScan;
 use Defyn\Dashboard\Rest\Responses\ErrorResponse;
 use Defyn\Dashboard\Services\SitesRepository;
@@ -30,6 +31,9 @@ final class SitesPerformanceScanController
 
         if (function_exists('as_enqueue_async_action')) {
             as_enqueue_async_action(PerformanceScan::HOOK, [$siteId], 'defyn');
+            // Run the queue on shutdown so an on-demand "Measure now" completes in
+            // seconds (matches the update controllers) instead of waiting for cron.
+            ImmediateRunner::kickOnShutdown();
         }
 
         return new WP_REST_Response(['data' => ['scheduled' => true], 'error' => null], 202);

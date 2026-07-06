@@ -44,6 +44,11 @@ final class MultiNotifier implements Notifier
         $this->each(static fn (Notifier $n) => $n->notifyNewVulnerabilities($site, $newVulnerabilities, $severityCounts));
     }
 
+    public function notifyPerformanceRegression(Site $site, array $drops): void
+    {
+        $this->each(static fn (Notifier $n) => $n->notifyPerformanceRegression($site, $drops));
+    }
+
     private function each(callable $fn): void
     {
         foreach ($this->notifiers as $n) {

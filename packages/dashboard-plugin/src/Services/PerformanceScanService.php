@@ -2,6 +2,11 @@
 declare(strict_types=1);
 namespace Defyn\Dashboard\Services;
 
+use Defyn\Dashboard\Models\Site;
+use Defyn\Dashboard\Models\SitePerformance;
+use Defyn\Dashboard\Notify\MultiNotifier;
+use Defyn\Dashboard\Notify\Notifier;
+
 /**
  * P6.1 — per-site PageSpeed scan orchestrator.
  *
@@ -16,9 +21,13 @@ namespace Defyn\Dashboard\Services;
  */
 final class PerformanceScanService
 {
+    /** A drop of this many points (or more) vs the previous scan triggers an alert. */
+    private const REGRESSION_THRESHOLD = 10;
+
     public function __construct(
         private readonly ?SitePerformanceRepository $repo = null,
         private readonly ?SitesRepository $sites = null,
+        private readonly ?Notifier $notifier = null,
     ) {
     }
 
@@ -40,11 +49,51 @@ final class PerformanceScanService
             ]);
             return;
         }
+        $repo = $this->repo ?? new SitePerformanceRepository();
+        $previous = $repo->latestForSite($siteId);
+
         $now = gmdate('Y-m-d H:i:s');
-        ($this->repo ?? new SitePerformanceRepository())->store($siteId, $mobile, $desktop, $now, $now);
+        $repo->store($siteId, $mobile, $desktop, $now, $now);
         (new ActivityLogger())->log($site->userId, $siteId, 'site.performance_measured', [
             'mobile_score'  => $mobile['score']  ?? null,
             'desktop_score' => $desktop['score'] ?? null,
         ]);
+
+        $this->maybeAlertRegression($site, $siteId, $previous, $mobile, $desktop);
+    }
+
+    /**
+     * Alert (Slack + email) when a score dropped >= REGRESSION_THRESHOLD points
+     * vs the previous scan. Fires on the drop event (compares to the immediately
+     * previous scan). Muted sites are logged but not notified.
+     *
+     * @param array{score:int}|null $mobile
+     * @param array{score:int}|null $desktop
+     */
+    private function maybeAlertRegression(Site $site, int $siteId, ?SitePerformance $previous, ?array $mobile, ?array $desktop): void
+    {
+        if ($previous === null) {
+            return;
+        }
+        $drops = [];
+        $pairs = [
+            ['strategy' => 'mobile',  'prev' => $previous->mobileScore,  'new' => $mobile['score']  ?? null],
+            ['strategy' => 'desktop', 'prev' => $previous->desktopScore, 'new' => $desktop['score'] ?? null],
+        ];
+        foreach ($pairs as $pr) {
+            if ($pr['prev'] === null || $pr['new'] === null) {
+                continue;
+            }
+            if (((int) $pr['prev'] - (int) $pr['new']) >= self::REGRESSION_THRESHOLD) {
+                $drops[] = ['strategy' => $pr['strategy'], 'previous' => (int) $pr['prev'], 'new' => (int) $pr['new']];
+            }
+        }
+        if ($drops === []) {
+            return;
+        }
+        if (!$site->alertsMuted) {
+            ($this->notifier ?? new MultiNotifier())->notifyPerformanceRegression($site, $drops);
+        }
+        (new ActivityLogger())->log($site->userId, $siteId, 'site.performance_regressed', ['drops' => $drops]);
     }
 }
