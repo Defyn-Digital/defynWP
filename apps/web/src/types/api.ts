@@ -547,6 +547,7 @@ export const settingsSchema = z.object({
   slack_webhook_url: z.string().nullable(),
   report_branding: reportBrandingSchema,
   connector_release: z.object({ version: z.string(), package_url: z.string(), sha256: z.string() }).nullable().optional(),
+  pagespeed_configured: z.boolean().optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 

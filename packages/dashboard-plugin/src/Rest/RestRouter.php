@@ -620,6 +620,13 @@ final class RestRouter
             'permission_callback' => [RequireAuth::class, 'check'],
         ]);
 
+        // Performance: set/clear the team-wide PageSpeed Insights API key.
+        register_rest_route(self::NAMESPACE, '/settings/pagespeed-key', [
+            'methods'             => 'POST',
+            'callback'            => [new SettingsController(), 'handleSetPagespeedKey'],
+            'permission_callback' => [RateLimit::class, 'settingsWrite'],
+        ]);
+
         register_rest_route(self::NAMESPACE, '/activity', [
             'methods'             => 'GET',
             'callback'            => [new ActivityListController(), 'handle'],

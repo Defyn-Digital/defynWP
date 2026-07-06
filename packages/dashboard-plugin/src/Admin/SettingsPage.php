@@ -21,6 +21,8 @@ final class SettingsPage
     private const MENU_SLUG = 'defyn-dashboard-settings';
     private const SETTINGS_GROUP = 'defyn_dashboard_settings';
     private const SECTION_ID = 'defyn_dashboard_google_section';
+    private const PAGESPEED_OPTION = 'defyn_pagespeed_api_key';
+    private const PAGESPEED_SECTION_ID = 'defyn_dashboard_pagespeed_section';
 
     public function register(): void
     {
@@ -61,6 +63,65 @@ final class SettingsPage
             self::MENU_SLUG,
             self::SECTION_ID
         );
+
+        // Performance — PageSpeed Insights API key (powers the weekly + on-demand
+        // performance scans). Stored in `defyn_pagespeed_api_key`, read back by
+        // PageSpeedClient (which still prefers the DEFYN_PAGESPEED_API_KEY env
+        // constant when set). Lets operators on Kinsta Managed WordPress (no
+        // env-var UI) configure it from wp-admin.
+        register_setting(self::SETTINGS_GROUP, self::PAGESPEED_OPTION, [
+            'type'              => 'string',
+            'sanitize_callback' => 'sanitize_text_field',
+            'default'           => '',
+        ]);
+
+        add_settings_section(
+            self::PAGESPEED_SECTION_ID,
+            __('Performance (PageSpeed)', 'defyn-dashboard'),
+            [$this, 'renderPagespeedSectionIntro'],
+            self::MENU_SLUG
+        );
+
+        add_settings_field(
+            self::PAGESPEED_OPTION,
+            __('PageSpeed Insights API key', 'defyn-dashboard'),
+            [$this, 'renderPagespeedField'],
+            self::MENU_SLUG,
+            self::PAGESPEED_SECTION_ID
+        );
+    }
+
+    public function renderPagespeedSectionIntro(): void
+    {
+        echo '<p>' . esc_html__(
+            'Powers the weekly and on-demand performance scores. Create a free key in Google Cloud Console (enable the "PageSpeed Insights API", then create an API key) and paste it here. Without a key, performance stays "Not yet measured".',
+            'defyn-dashboard'
+        ) . '</p>';
+    }
+
+    public function renderPagespeedField(): void
+    {
+        $value = (string) get_option(self::PAGESPEED_OPTION, '');
+        $envOverride = defined('DEFYN_PAGESPEED_API_KEY')
+            && (string) constant('DEFYN_PAGESPEED_API_KEY') !== '';
+
+        printf(
+            '<input type="password" class="regular-text" name="%s" id="%s" value="%s" autocomplete="off" />',
+            esc_attr(self::PAGESPEED_OPTION),
+            esc_attr(self::PAGESPEED_OPTION),
+            esc_attr($value)
+        );
+        echo '<p class="description">' . esc_html__(
+            'Google API key for PageSpeed Insights (starts with "AIza"). Stored on this server; used by the performance scans.',
+            'defyn-dashboard'
+        ) . '</p>';
+
+        if ($envOverride) {
+            echo '<p class="description"><strong>' . esc_html__(
+                'A DEFYN_PAGESPEED_API_KEY environment constant is set and takes precedence over this field.',
+                'defyn-dashboard'
+            ) . '</strong></p>';
+        }
     }
 
     public function renderSectionIntro(): void

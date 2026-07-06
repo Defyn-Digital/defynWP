@@ -30,6 +30,19 @@ class SitesReportPdfController
         $userId = (int) $request->get_param('_authenticated_user_id');
         $siteId = (int) $request->get_param('id');
 
+        // dompdf is memory-hungry. On some hosts (e.g. Kinsta) the REST/web-tier
+        // request context has tighter memory/time limits than the CLI/cron context
+        // the scheduled GenerateReport job runs in — which made this on-demand
+        // endpoint 503 (worker OOM/timeout) while the async report rendered fine.
+        // Raise the ceilings for this single request so the sync render can finish.
+        if (function_exists('wp_raise_memory_limit')) {
+            wp_raise_memory_limit('admin');
+        }
+        @ini_set('memory_limit', '512M');
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(120);
+        }
+
         // Ownership check MUST run before date validation (secure ordering).
         $site = (new SitesRepository())->findByIdForUser($siteId, $userId);
         if ($site === null) {
@@ -45,9 +58,15 @@ class SitesReportPdfController
             return ErrorResponse::create(400, $e->code, $e->getMessage());
         }
 
-        $report   = (new ReportService())->compose($siteId, $userId, $range['from'], $range['to']);
-        $branding = (new BrandingService())->getForSite($userId, $siteId);
-        $pdf      = (new ReportPdfService())->render($report, $branding);
+        try {
+            $report   = (new ReportService())->compose($siteId, $userId, $range['from'], $range['to']);
+            $branding = (new BrandingService())->getForSite($userId, $siteId);
+            $pdf      = (new ReportPdfService())->render($report, $branding);
+        } catch (\Throwable $e) {
+            // Fail with a clean JSON error instead of a hard 500/503 white-screen,
+            // so the SPA can surface a message and the cause is diagnosable.
+            return ErrorResponse::create(500, 'reports.pdf_failed', 'Could not render the report PDF: ' . $e->getMessage());
+        }
 
         $host     = preg_replace('/[^a-z0-9.-]+/i', '-', (string) wp_parse_url($site->url, PHP_URL_HOST)) ?: 'site';
         $filename = "maintenance-report-{$host}-{$range['from_date']}-to-{$range['to_date']}.pdf";

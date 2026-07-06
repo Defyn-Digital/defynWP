@@ -32,7 +32,13 @@ final class PerformanceScanService
         $mobile  = $client->fetch($site->url, 'mobile');
         $desktop = $client->fetch($site->url, 'desktop');
         if ($mobile === null && $desktop === null) {
-            return; // both failed — skip this cycle, best-effort
+            // Both strategies failed. Previously this was a silent no-op, so the
+            // UI showed "Not yet measured" forever with no clue why. Log the
+            // reason (e.g. missing API key / quota) so it's diagnosable.
+            (new ActivityLogger())->log($site->userId, $siteId, 'site.performance_failed', [
+                'reason' => $client->lastError ?? 'PageSpeed measurement returned no data.',
+            ]);
+            return;
         }
         $now = gmdate('Y-m-d H:i:s');
         ($this->repo ?? new SitePerformanceRepository())->store($siteId, $mobile, $desktop, $now, $now);

@@ -3,6 +3,7 @@ import { useSettings } from '@/lib/queries/useSettings'
 import { useSaveSlackWebhook } from '@/lib/mutations/useSaveSlackWebhook'
 import { ReportBrandingCard } from '@/components/settings/ReportBrandingCard'
 import { ConnectorReleaseCard } from '@/components/settings/ConnectorReleaseCard'
+import { PageSpeedKeyCard } from '@/components/settings/PageSpeedKeyCard'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -79,6 +80,8 @@ export function Settings() {
           <ReportBrandingCard />
 
           <ConnectorReleaseCard />
+
+          <PageSpeedKeyCard />
         </div>
       )}
     </div>

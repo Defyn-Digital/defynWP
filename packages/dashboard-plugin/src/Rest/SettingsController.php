@@ -33,7 +33,43 @@ final class SettingsController
             'slack_webhook_url' => $url === '' ? null : $url,
             'report_branding'   => (new BrandingService())->get($userId),
             'connector_release' => $this->getConnectorRelease(),
+            'pagespeed_configured' => $this->pagespeedConfigured(),
         ], 200);
+    }
+
+    /** True when a PageSpeed Insights API key is available (constant or option). */
+    private function pagespeedConfigured(): bool
+    {
+        if (defined('DEFYN_PAGESPEED_API_KEY') && DEFYN_PAGESPEED_API_KEY !== '') {
+            return true;
+        }
+        return (string) get_option('defyn_pagespeed_api_key', '') !== '';
+    }
+
+    /**
+     * POST /settings/pagespeed-key — set or clear the team-wide PageSpeed
+     * Insights API key used by the weekly + on-demand performance scans.
+     * The key is stored in the shared option `defyn_pagespeed_api_key` and is
+     * NEVER returned or logged (only {cleared: bool} / {configured: bool}).
+     */
+    public function handleSetPagespeedKey(WP_REST_Request $request): WP_REST_Response
+    {
+        $userId = (int) $request->get_param('_authenticated_user_id');
+        $body   = $request->get_json_params() ?: [];
+        $key    = isset($body['api_key']) ? trim((string) $body['api_key']) : '';
+
+        if ($key !== '' && !preg_match('/^[A-Za-z0-9_\-]{20,80}$/', $key)) {
+            return ErrorResponse::create(400, 'settings.invalid_pagespeed_key', 'That does not look like a valid Google API key.');
+        }
+
+        if ($key === '') {
+            delete_option('defyn_pagespeed_api_key');
+        } else {
+            update_option('defyn_pagespeed_api_key', $key);
+        }
+        // SECURITY: never log the key itself.
+        (new ActivityLogger())->log($userId, null, 'settings.pagespeed_key_updated', ['cleared' => $key === '']);
+        return new WP_REST_Response(['pagespeed_configured' => $key !== ''], 200);
     }
 
     public function handleSet(WP_REST_Request $request): WP_REST_Response

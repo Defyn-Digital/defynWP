@@ -177,12 +177,20 @@ final class ReportService
             };
             $slug = $type === 'core' ? 'wordpress' : (string) ($r['details']['slug'] ?? '');
             $name = $type === 'core' ? 'WordPress' : ($nameMap[$type][$slug] ?? ($slug !== '' ? $slug : 'Unknown'));
+            $prev = (string) ($r['details']['previous_version'] ?? '');
+            $new  = (string) ($r['details']['new_version'] ?? '');
+            // Skip no-op / retry rows where the version did not actually change
+            // (e.g. a re-fired job logging "7.4.7 -> 7.4.7"). These are not real
+            // maintenance work and shouldn't inflate the client-facing report.
+            if ($prev !== '' && $prev === $new) {
+                continue;
+            }
             $out[] = [
                 'type'             => $type,
                 'slug'             => $slug,
                 'component_name'   => $name,
-                'previous_version' => (string) ($r['details']['previous_version'] ?? ''),
-                'new_version'      => (string) ($r['details']['new_version'] ?? ''),
+                'previous_version' => $prev,
+                'new_version'      => $new,
                 'applied_at'       => $r['created_at'],
             ];
         }

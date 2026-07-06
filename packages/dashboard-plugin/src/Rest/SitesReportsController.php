@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Defyn\Dashboard\Rest;
 
 use Defyn\Dashboard\Jobs\GenerateReport;
+use Defyn\Dashboard\Jobs\ImmediateRunner;
 use Defyn\Dashboard\Rest\Responses\ErrorResponse;
 use Defyn\Dashboard\Rest\Support\InvalidReportRange;
 use Defyn\Dashboard\Rest\Support\ReportRange;
@@ -57,6 +58,10 @@ final class SitesReportsController
 
         if (function_exists('as_enqueue_async_action')) {
             as_enqueue_async_action(GenerateReport::HOOK, [$reportId], 'defyn');
+            // Kick the queue on shutdown so the render runs in ~1s (matches the
+            // interactive update controllers) rather than waiting for cron —
+            // this is what makes the on-demand "Download PDF" feel instant.
+            ImmediateRunner::kickOnShutdown();
         }
 
         $report = $repo->findByIdForSite($reportId, $siteId);
